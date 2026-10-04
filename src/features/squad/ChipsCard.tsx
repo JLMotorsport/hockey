@@ -29,7 +29,7 @@ export function ChipsCard({
   const states = chipStates(chips.data ?? [], gameweeks, gameweek.id);
   const active = CHIPS.find((c) => states[c.key].state === 'active');
   const wildcardLocked = active?.key === 'wildcard';
-  const sideName = (id: number | null) => sides.find((s) => s.id === id)?.name ?? '';
+  const sideShort = (id: number | null) => sides.find((s) => s.id === id)?.short_name ?? '';
 
   async function run(call: () => PromiseLike<{ error: { message: string } | null }>, done: string) {
     setBusy(true);
@@ -55,46 +55,43 @@ export function ChipsCard({
   }
 
   return (
-    <section className="card">
-      <h2>Chips</h2>
-      <div className="grid grid-cols-2 gap-2">
-        {CHIPS.map((c) => {
-          const state = states[c.key];
-          return (
-            <button
-              key={c.key}
-              type="button"
-              disabled={state.state === 'used'}
-              onClick={() => {
-                setSideId(state.state === 'active' && state.sideId ? String(state.sideId) : '');
-                setOpen(c);
-              }}
-              className={`flex min-h-[64px] flex-col items-start justify-center rounded-xl px-3 py-2 text-left ${
-                state.state === 'active'
-                  ? 'bg-brand text-white'
-                  : state.state === 'used'
-                    ? 'bg-surface text-ink-soft opacity-60 ring-1 ring-line'
-                    : 'bg-surface ring-1 ring-line'
-              }`}
-            >
-              <span className="font-display text-lg font-extrabold uppercase leading-tight">
-                {c.name}
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-wide">
-                {label(state)}
-                {c.key === 'team_bus' && state.state === 'active' && ` · ${sideName(state.sideId)}`}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      <p className="muted mt-2 text-sm">
-        One chip per gameweek, each once a season (wildcard: one each side of New Year).
-      </p>
-
+    <section className="mb-3 flex items-center gap-2 overflow-x-auto pb-1" aria-label="Chips">
+      <span className="shrink-0 font-display text-xs font-bold uppercase tracking-wider text-ink-soft">
+        Chips
+      </span>
+      {CHIPS.map((c) => {
+        const state = states[c.key];
+        return (
+          <button
+            key={c.key}
+            type="button"
+            disabled={state.state === 'used'}
+            title={label(state)}
+            aria-label={`${c.name}: ${label(state)}`}
+            onClick={() => {
+              setSideId(state.state === 'active' && state.sideId ? String(state.sideId) : '');
+              setOpen(c);
+            }}
+            className={`min-h-[36px] shrink-0 rounded-full px-3 font-display text-sm font-bold uppercase ${
+              state.state === 'active'
+                ? 'bg-brand text-white'
+                : state.state === 'used'
+                  ? 'bg-line text-ink-soft line-through'
+                  : 'bg-surface ring-1 ring-line'
+            }`}
+          >
+            {c.name}
+            {c.key === 'team_bus' && state.state === 'active' && `: ${sideShort(state.sideId)}`}
+          </button>
+        );
+      })}
       {open && (
         <Sheet title={open.name} onClose={() => setOpen(null)}>
-          <p className="mb-4">{open.description}</p>
+          <p className="mb-2">{open.description}</p>
+          <p className="muted mb-4 text-sm">
+            {label(states[open.key])}. One chip per gameweek, each once a season (wildcard: one each
+            side of New Year).
+          </p>
           {open.key === 'team_bus' && (
             <label className="field mb-4">
               Side

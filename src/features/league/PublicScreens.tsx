@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ErrorText, Loading, PosBadge, PriceTrend } from '@/components/ui';
-import { formatDayTime, formatWeekdayTime, gameweekLabel } from '@/lib/format';
+import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
+import { fixtureLabel, formByPlayer, shortOpponent } from '@/lib/form';
 import {
+  lockedGameweeks,
+  nextOpenGameweek,
+  useAllGameweekPoints,
   usePriceTrend,
   useFixtures,
   useGameweeks,
@@ -12,7 +16,7 @@ import {
   useSides,
 } from '@/lib/queries';
 import { CHIPS } from '@/lib/chips';
-import { RULES_TABLE } from '@/lib/scoring';
+import { POSITIONS, RULES_TABLE, type Position } from '@/lib/scoring';
 import { formatPrice } from '@/lib/squad';
 import { LeagueTable } from './LeagueTable';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
@@ -61,69 +65,155 @@ export function TableScreen() {
       <div className="card">
         <LeagueTable />
       </div>
+      <p className="muted text-sm">
+        Arrows: places up or down since the gameweek before. Tap a team to see their squad.
+      </p>
     </>
   );
 }
 
 export function PlayersScreen() {
   const [open, setOpen] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+  const [pos, setPos] = useState<Position | ''>('');
+  const [side, setSide] = useState('');
+  const [sort, setSort] = useState<'points' | 'price' | 'form'>('points');
   const players = usePlayers();
   const sides = useSides();
   const points = useSeasonPoints();
   const trend = usePriceTrend();
+  const fixtures = useFixtures();
+  const gameweeks = useGameweeks();
+  const gameweekPoints = useAllGameweekPoints();
   if (players.isLoading || sides.isLoading || points.isLoading) return <Loading />;
   if (players.error) return <ErrorText error={players.error} />;
-  const sideName = new Map((sides.data ?? []).map((s) => [s.id, s.name]));
+  const all = gameweeks.data ?? [];
+  const next = nextOpenGameweek(all);
+  const sideShort = new Map((sides.data ?? []).map((s) => [s.id, s.short_name]));
+  const form = formByPlayer(
+    gameweekPoints.data ?? [],
+    lockedGameweeks(all).map((g) => g.id),
+  );
+  const pts = (id: number) => points.data?.get(id) ?? 0;
+  const term = search.trim().toLowerCase();
   const list = (players.data ?? [])
     .filter((p) => p.active)
-    .sort((a, b) => (points.data?.get(b.id) ?? 0) - (points.data?.get(a.id) ?? 0));
+    .filter((p) => !pos || p.position === pos)
+    .filter((p) => !side || String(p.side_id) === side)
+    .filter((p) => !term || p.name.toLowerCase().includes(term))
+    .sort((a, b) =>
+      sort === 'price'
+        ? b.price - a.price || pts(b.id) - pts(a.id)
+        : sort === 'form'
+          ? (form.get(b.id) ?? -1) - (form.get(a.id) ?? -1) || pts(b.id) - pts(a.id)
+          : pts(b.id) - pts(a.id) || b.price - a.price,
+    );
 
   return (
     <>
       <h1>Players</h1>
-      <div className="card">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Player</th>
-              <th>Pos</th>
-              <th>Side</th>
-              <th className="num">Price</th>
-              <th className="num">Points</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <button
-                    type="button"
-                    className="text-left font-semibold text-brand underline-offset-2 hover:underline"
-                    onClick={() => setOpen(p.id)}
-                  >
-                    {p.name}
-                  </button>
-                </td>
-                <td>
-                  <PosBadge position={p.position} />
-                </td>
-                <td>{sideName.get(p.side_id)}</td>
-                <td className="num">
-                  {formatPrice(p.price)}
-                  <PriceTrend change={trend.data?.get(p.id)} />
-                </td>
-                <td className="num">{points.data?.get(p.id) ?? 0}</td>
-              </tr>
+      <div className="mb-3 space-y-2">
+        <label className="flex min-h-[46px] items-center gap-2 rounded-xl border border-line bg-surface px-3">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-5 w-5 text-ink-soft"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-4-4" />
+          </svg>
+          <span className="sr-only">Search players</span>
+          <input
+            type="search"
+            className="min-w-0 flex-1 bg-transparent text-base outline-none"
+            placeholder="Search players"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+        <div className="flex gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Position">
+          {(['', ...POSITIONS] as const).map((p) => (
+            <button
+              key={p || 'all'}
+              type="button"
+              role="radio"
+              aria-checked={pos === p}
+              onClick={() => setPos(p)}
+              className={`min-h-[36px] shrink-0 rounded-full px-3 font-display text-sm font-bold ${pos === p ? 'bg-[#16181d] text-white' : 'bg-surface ring-1 ring-line'}`}
+            >
+              {p || 'All'}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            className="input"
+            aria-label="Side"
+            value={side}
+            onChange={(e) => setSide(e.target.value)}
+          >
+            <option value="">All sides</option>
+            {(sides.data ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
             ))}
-            {!list.length && (
-              <tr>
-                <td colSpan={5} className="muted">
-                  No players added yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+          </select>
+          <select
+            className="input"
+            aria-label="Sort by"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as typeof sort)}
+          >
+            <option value="points">Sort: points</option>
+            <option value="price">Sort: price</option>
+            <option value="form">Sort: form</option>
+          </select>
+        </div>
+      </div>
+      <div className="card !p-0">
+        <div className="grid grid-cols-[1fr_3.25rem_2.75rem_2.75rem] gap-1.5 border-b border-line px-4 py-2 font-display text-xs font-bold uppercase tracking-wide text-ink-soft">
+          <span>Player</span>
+          <span className="text-right">Price</span>
+          <span className="text-right">Form</span>
+          <span className="text-right">Pts</span>
+        </div>
+        <ul>
+          {list.map((p) => {
+            const nextLabel = next ? fixtureLabel(fixtures.data ?? [], p.side_id, next.id) : null;
+            return (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => setOpen(p.id)}
+                  className="grid min-h-[54px] w-full grid-cols-[1fr_3.25rem_2.75rem_2.75rem] items-center gap-1.5 border-b border-line px-4 py-1.5 text-left"
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-bold">{p.name}</span>
+                    <span className="muted flex items-center gap-1.5 truncate text-xs">
+                      <PosBadge position={p.position} />
+                      {sideShort.get(p.side_id)}
+                      {nextLabel && ` · ${nextLabel}`}
+                    </span>
+                  </span>
+                  <span className="text-right tabular-nums">
+                    {formatPrice(p.price)}
+                    <PriceTrend change={trend.data?.get(p.id)} />
+                  </span>
+                  <span className="muted text-right tabular-nums">
+                    {form.get(p.id)?.toFixed(1) ?? '-'}
+                  </span>
+                  <span className="display-num text-right text-xl">{pts(p.id)}</span>
+                </button>
+              </li>
+            );
+          })}
+          {!list.length && <li className="muted px-4 py-4">No players match.</li>}
+        </ul>
       </div>
       {open && <PlayerSheet playerId={open} onClose={() => setOpen(null)} />}
     </>
@@ -134,46 +224,121 @@ export function FixturesScreen() {
   const gameweeks = useGameweeks();
   const fixtures = useFixtures();
   const sides = useSides();
+  const [tab, setTab] = useState<'upcoming' | 'results' | null>(null);
   if (gameweeks.isLoading || fixtures.isLoading || sides.isLoading) return <Loading />;
   if (fixtures.error) return <ErrorText error={fixtures.error} />;
-  const sideName = new Map((sides.data ?? []).map((s) => [s.id, s.name]));
+  const sideList = sides.data ?? [];
+  const sideShort = new Map(sideList.map((s) => [s.id, s.short_name]));
   const all = gameweeks.data ?? [];
+  const list = fixtures.data ?? [];
+  const played = (f: (typeof list)[number]) => f.goals_for !== null && f.goals_against !== null;
+  const upcoming = all.filter((gw) => list.some((f) => f.gameweek_id === gw.id && !played(f)));
+  const results = all
+    .filter((gw) => list.some((f) => f.gameweek_id === gw.id && played(f)))
+    .reverse();
+  const shown = tab ?? (upcoming.length ? 'upcoming' : 'results');
+  const weeks = shown === 'upcoming' ? upcoming : results;
 
   return (
     <>
-      <h1>Fixtures &amp; results</h1>
-      {all.map((gw) => {
-        const list = (fixtures.data ?? []).filter((f) => f.gameweek_id === gw.id);
-        if (!list.length) return null;
+      <h1>Fixtures</h1>
+      <div className="mb-4 flex rounded-full bg-surface p-1 shadow-card" role="tablist">
+        {(['upcoming', 'results'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={shown === t}
+            onClick={() => setTab(t)}
+            className={`min-h-[40px] flex-1 rounded-full font-display text-sm font-bold uppercase ${shown === t ? 'bg-brand text-white' : 'text-ink-soft'}`}
+          >
+            {t === 'upcoming' ? 'Upcoming' : 'Results'}
+          </button>
+        ))}
+      </div>
+      {weeks.map((gw) => {
+        const games = list
+          .filter((f) => f.gameweek_id === gw.id && (shown === 'upcoming' ? !played(f) : played(f)))
+          .sort(
+            (a, b) =>
+              (sideList.find((s) => s.id === a.side_id)?.sort_order ?? 0) -
+              (sideList.find((s) => s.id === b.side_id)?.sort_order ?? 0),
+          );
+        const idle = sideList.filter(
+          (s) => !list.some((f) => f.gameweek_id === gw.id && f.side_id === s.id),
+        );
         return (
-          <section key={gw.id} className="card">
-            <h2>
-              {gameweekLabel(gw, all)}{' '}
-              <small className="muted font-normal">deadline {formatDayTime(gw.deadline)}</small>
-            </h2>
-            <table className="table">
-              <tbody>
-                {list.map((f) => (
-                  <tr key={f.id}>
-                    <td className="muted whitespace-nowrap">{formatWeekdayTime(f.kickoff)}</td>
-                    <td>
-                      <strong>{sideName.get(f.side_id)}</strong> {f.is_home ? 'v' : '@'}{' '}
-                      {f.opponent}
-                    </td>
-                    <td className="num whitespace-nowrap">
-                      {f.goals_for === null || f.goals_against === null
-                        ? 'v'
-                        : `${f.goals_for} - ${f.goals_against}`}
-                    </td>
-                    <td className="muted hidden text-xs sm:table-cell">{f.competition}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <section key={gw.id} className="card !p-0">
+            <div className="flex items-baseline justify-between gap-2 border-b border-line px-4 py-3">
+              <h2 className="m-0">
+                {shown === 'upcoming'
+                  ? gameweekLabel(gw, all)
+                  : `${gameweekLabel(gw, all).split(' ')[0]} results`}
+              </h2>
+              <span className="muted text-sm">
+                {shown === 'upcoming'
+                  ? `Deadline ${formatWeekdayTime(gw.deadline)}`
+                  : formatShortDate(gw.start_date)}
+              </span>
+            </div>
+            <ul>
+              {games.map((f) => {
+                const res =
+                  f.goals_for === null || f.goals_against === null
+                    ? null
+                    : f.goals_for > f.goals_against
+                      ? 'W'
+                      : f.goals_for < f.goals_against
+                        ? 'L'
+                        : 'D';
+                return (
+                  <li
+                    key={f.id}
+                    className="flex min-h-[52px] items-center gap-3 border-b border-line px-4 py-2 last:border-0"
+                  >
+                    <span className="w-9 shrink-0 rounded-md bg-[#16181d] py-0.5 text-center font-display text-sm font-bold text-white">
+                      {sideShort.get(f.side_id)}
+                    </span>
+                    <span className="min-w-0 flex-1 font-semibold">
+                      {shortOpponent(f.opponent)}{' '}
+                      <span className="text-sm font-bold text-ink-soft">
+                        {f.is_home ? 'H' : 'A'}
+                      </span>
+                    </span>
+                    {res ? (
+                      <>
+                        <span className="display-num text-xl">
+                          {f.goals_for}-{f.goals_against}
+                        </span>
+                        <span
+                          className={`flex h-7 w-7 items-center justify-center rounded-md font-display font-bold text-white ${res === 'W' ? 'bg-[#1f7a4d]' : res === 'L' ? 'bg-[#b3261e]' : 'bg-[#6b7280]'}`}
+                          aria-label={res === 'W' ? 'Won' : res === 'L' ? 'Lost' : 'Drew'}
+                        >
+                          {res}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="muted whitespace-nowrap text-sm tabular-nums">
+                        {formatWeekdayTime(f.kickoff)}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {shown === 'upcoming' && idle.length > 0 && (
+              <p className="muted border-t border-line px-4 py-2 text-sm">
+                No game: {idle.map((s) => s.name).join(', ')}
+              </p>
+            )}
           </section>
         );
       })}
-      {!all.length && <p className="muted">No fixtures yet.</p>}
+      {!weeks.length && (
+        <p className="muted">
+          {shown === 'upcoming' ? 'No fixtures to come yet.' : 'No results yet.'}
+        </p>
+      )}
     </>
   );
 }

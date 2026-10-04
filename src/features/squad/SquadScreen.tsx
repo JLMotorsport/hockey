@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ErrorText, Loading, Notices, PosBadge, PriceTrend, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { formatDayTime, gameweekLabel, shortName } from '@/lib/format';
+import { formatWeekdayTime, gameweekLabel, shortName } from '@/lib/format';
 import {
   keys,
   nextOpenGameweek,
@@ -68,9 +68,9 @@ export function SquadScreen() {
     () =>
       formByPlayer(
         gameweekPoints.data ?? [],
-        lockedGameweeks(all).map((g) => g.id),
+        lockedGameweeks(gameweeks.data ?? []).map((g) => g.id),
       ),
-    [gameweekPoints.data, all],
+    [gameweekPoints.data, gameweeks.data],
   );
   const wildcard = Boolean(
     gameweek && chips.data?.some((c) => c.chip === 'wildcard' && c.gameweek_id === gameweek.id),
@@ -389,34 +389,35 @@ export function SquadScreen() {
 
   return (
     <>
-      <section className="hero">
-        <p className="font-display text-sm font-bold uppercase tracking-widest text-white/80">
-          Pick your squad
-        </p>
-        <h1 className="mb-1 mt-0 text-4xl">{gameweekLabel(gameweek, all)}</h1>
-        <p className="text-sm text-white/85">Deadline {formatDayTime(gameweek.deadline)}</p>
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-xl bg-white/15 px-2 py-2">
-            <span className="display-num block text-2xl">
-              {summary.count}/{STARTERS + BENCH}
-            </span>
-            <span className="text-xs uppercase tracking-wide text-white/80">Players</span>
-          </div>
-          <div className="rounded-xl bg-white/15 px-2 py-2">
-            <span className={`display-num block text-2xl ${bank < 0 ? 'text-[#ffd0d0]' : ''}`}>
+      <section className="hero !pb-3 !pt-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <h1 className="m-0 text-3xl leading-none">{gameweekLabel(gameweek, all)}</h1>
+          <span className="text-sm text-white/90">
+            Deadline {formatWeekdayTime(gameweek.deadline)}
+          </span>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+          <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
+            <span className={`display-num text-xl ${bank < 0 ? 'text-[#ffd0d0]' : ''}`}>
               {formatPrice(bank)}m
             </span>
-            <span className="text-xs uppercase tracking-wide text-white/80">Bank</span>
+            <span className="text-[0.7rem] uppercase text-white/85">Bank</span>
           </div>
-          <div className="rounded-xl bg-white/15 px-2 py-2">
-            <span className="display-num block text-2xl">
+          <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
+            <span className="display-num text-xl">
               {summary.transfers === null
                 ? 'Free'
                 : wildcard
-                  ? 'Wildcard'
+                  ? 'WC'
                   : `${summary.transfers}/${s.transfers_per_gameweek}`}
             </span>
-            <span className="text-xs uppercase tracking-wide text-white/80">Transfers</span>
+            <span className="text-[0.7rem] uppercase text-white/85">Transfers</span>
+          </div>
+          <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
+            <span className="display-num text-xl">
+              {summary.count}/{STARTERS + BENCH}
+            </span>
+            <span className="text-[0.7rem] uppercase text-white/85">Squad</span>
           </div>
         </div>
       </section>
@@ -432,6 +433,35 @@ export function SquadScreen() {
       />
 
       <div className="mb-3 flex items-center justify-between gap-2">
+        {view === 'pitch' ? (
+          <label className="relative">
+            <span className="sr-only">Formation</span>
+            <select
+              className="min-h-tap appearance-none rounded-full bg-[#16181d] py-0 pl-4 pr-9 font-display text-xl font-extrabold tabular-nums text-white"
+              value={formation}
+              onChange={(e) => setChosenFormation(e.target.value)}
+            >
+              {allowed.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </label>
+        ) : (
+          <span />
+        )}
         <div className="inline-flex rounded-full bg-surface p-1 shadow-card" role="tablist">
           {(['pitch', 'list'] as const).map((v) => (
             <button
@@ -442,48 +472,30 @@ export function SquadScreen() {
               onClick={() => setView(v)}
               className={`min-h-[36px] rounded-full px-4 font-display text-sm font-bold uppercase ${view === v ? 'bg-brand text-white' : 'text-ink-soft'}`}
             >
-              {v === 'pitch' ? 'Pitch view' : 'List view'}
+              {v === 'pitch' ? 'Pitch' : 'List'}
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          className="btn hidden sm:inline-flex"
-          disabled={saving}
-          onClick={() => void save()}
-        >
-          {saving ? 'Saving' : 'Save squad'}
-        </button>
       </div>
 
       {summary.problems.length > 0 && selected.size > 0 && (
-        <ul className="muted mb-3 list-disc pl-5 text-sm">
-          {summary.problems.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
+        <details className="mb-3 rounded-xl border border-[#f2c27a] bg-[#fff4e5] px-3 py-2 text-sm font-semibold text-[#6b3d00] dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8]">
+          <summary className="cursor-pointer">
+            {summary.problems[0]}
+            {summary.problems.length > 1 && ` (+${summary.problems.length - 1} more)`}
+          </summary>
+          {summary.problems.length > 1 && (
+            <ul className="mt-1 list-disc pl-5 font-normal">
+              {summary.problems.slice(1).map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          )}
+        </details>
       )}
 
       {view === 'pitch' ? (
         <>
-          <div
-            className="mb-3 flex gap-2 overflow-x-auto pb-1"
-            role="radiogroup"
-            aria-label="Formation"
-          >
-            {allowed.map((f) => (
-              <button
-                key={f}
-                type="button"
-                role="radio"
-                aria-checked={formation === f}
-                onClick={() => setChosenFormation(f)}
-                className={`min-h-[40px] shrink-0 rounded-full px-4 font-display text-lg font-extrabold tabular-nums ${formation === f ? 'bg-[#16181d] text-white' : 'bg-surface text-ink-soft shadow-card'}`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
           {Object.keys(extra).length > 0 && (
             <p className="mb-3 rounded-xl border border-brand/40 bg-brand/5 px-3 py-2 text-sm font-semibold">
               To play {formation}, remove{' '}
@@ -506,12 +518,17 @@ export function SquadScreen() {
             </div>
           )}
           <Pitch rows={slots} bench={benchSlots} />
-          <p className="muted mt-3 text-center text-sm">
-            Under each player: who their side plays this gameweek. Tap an empty shirt to add a
-            player, or a player to make them captain (C) or vice (V), or swap them. If your captain
-            doesn&apos;t play, your vice scores double instead. If a starter doesn&apos;t play, the
-            first sub who did comes on, as long as the team still lines up in an allowed formation.
-          </p>
+          <details className="muted mt-3 text-center text-sm">
+            <summary className="min-h-tap cursor-pointer font-semibold text-brand">
+              The strip shows who their side plays. How subs and captains work
+            </summary>
+            <p className="mt-1 text-left">
+              Tap an empty shirt to add a player, or a player to make them captain (C) or vice (V),
+              or swap them with a sub. If your captain doesn&apos;t play, your vice scores double
+              instead. If a starter doesn&apos;t play, the first sub who did comes on, as long as
+              the team still lines up in an allowed formation.
+            </p>
+          </details>
         </>
       ) : (
         <>
@@ -629,18 +646,23 @@ export function SquadScreen() {
         </>
       )}
 
-      {/* Save stays in reach above the tab bar on phones. */}
-      <div className="fixed inset-x-0 bottom-16 z-20 px-4 pb-[env(safe-area-inset-bottom)] sm:hidden">
-        <button
-          type="button"
-          className="btn w-full shadow-lg"
-          disabled={saving}
-          onClick={() => void save()}
-        >
+      {/* Save stays in reach: above the tab bar on phones, pinned at the bottom on desktop. */}
+      <div className="fixed inset-x-0 bottom-16 z-20 flex items-center gap-3 border-t border-line bg-surface px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:sticky sm:bottom-4 sm:mt-4 sm:rounded-2xl sm:border sm:shadow-card">
+        <div className="flex flex-col leading-tight">
+          <span className="text-xs uppercase tracking-wide text-ink-soft">
+            {summary.problems.length && selected.size
+              ? `${summary.problems.length} to fix`
+              : 'Ready'}
+          </span>
+          <span className={`font-bold ${bank < 0 ? 'text-brand' : ''}`}>
+            Bank {formatPrice(bank)}m
+          </span>
+        </div>
+        <button type="button" className="btn flex-1" disabled={saving} onClick={() => void save()}>
           {saving ? 'Saving' : 'Save squad'}
         </button>
       </div>
-      <div className="h-16 sm:hidden" />
+      <div className="h-20 sm:hidden" />
 
       {picker && (
         <Sheet
@@ -720,93 +742,86 @@ export function SquadScreen() {
       )}
 
       {focused && (
-        <Sheet title={focused.name} onClose={() => setFocus(null)}>
-          <div className="mb-4 flex items-center gap-3">
-            <Shirt keeper={focused.position === 'GK'} className="h-14 w-14" />
-            <div>
-              <p className="font-semibold">
-                {POSITION_NAMES[focused.position]} · {sideById.get(focused.side_id)?.name}
-                {focusedSlot >= 0 &&
-                  ` · ${focusedSlot === 0 ? 'Sub keeper' : `Sub ${focusedSlot}`}`}
-              </p>
-              <p className="muted text-sm">
-                {formatPrice(focused.price)}m · {points.data?.get(focused.id) ?? 0} pts this season
-              </p>
-              <p className="text-sm font-semibold">
-                {nextFor(focused) === 'No game'
-                  ? 'No game this gameweek'
-                  : `Next: v ${nextFor(focused)}`}{' '}
-                · Form {formFor(focused.id)}
-              </p>
-            </div>
-          </div>
-          <div className="grid gap-2">
-            {focusedSlot < 0 && (
-              <div className="grid grid-cols-2 gap-2">
+        <Sheet
+          title={
+            focusedSlot < 0
+              ? focused.name
+              : `${focused.name} (${focusedSlot === 0 ? 'sub keeper' : `sub ${focusedSlot}`})`
+          }
+          onClose={() => setFocus(null)}
+        >
+          <PlayerDetail
+            playerId={focused.id}
+            gameweekId={lastPlayed?.id}
+            actions={
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  {focusedSlot < 0 ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={captainId === focused.id}
+                        onClick={() => {
+                          makeCaptain(focused.id);
+                          setFocus(null);
+                        }}
+                      >
+                        {captainId === focused.id ? 'Captain' : 'Make captain'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-quiet"
+                        disabled={viceId === focused.id}
+                        onClick={() => {
+                          makeVice(focused.id);
+                          setFocus(null);
+                        }}
+                      >
+                        {viceId === focused.id ? 'Vice-captain' : 'Make vice'}
+                      </button>
+                    </>
+                  ) : null}
+                  <button
+                    type="button"
+                    className={`btn ${focusedSlot < 0 ? 'btn-quiet' : ''}`}
+                    onClick={() => {
+                      setSwapFrom(focused.id);
+                      setFocus(null);
+                      setView('pitch');
+                    }}
+                  >
+                    {focusedSlot < 0 ? 'Swap with sub' : 'Bring on'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-quiet"
+                    onClick={() => {
+                      remove(focused.id);
+                      setFocus(null);
+                      setPicker(
+                        focusedSlot < 0
+                          ? { positions: [focused.position] }
+                          : { positions: focusedSlot === 0 ? ['GK'] : outfield, slot: focusedSlot },
+                      );
+                    }}
+                  >
+                    Transfer out
+                  </button>
+                </div>
                 <button
                   type="button"
-                  className="btn"
-                  disabled={captainId === focused.id}
+                  className="min-h-tap w-full text-sm font-semibold text-brand underline"
                   onClick={() => {
-                    makeCaptain(focused.id);
+                    remove(focused.id);
                     setFocus(null);
                   }}
                 >
-                  {captainId === focused.id ? 'Captain' : 'Make captain'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-quiet"
-                  disabled={viceId === focused.id}
-                  onClick={() => {
-                    makeVice(focused.id);
-                    setFocus(null);
-                  }}
-                >
-                  {viceId === focused.id ? 'Vice-captain' : 'Make vice'}
+                  Remove from squad
                 </button>
               </div>
-            )}
-            <button
-              type="button"
-              className={focusedSlot < 0 ? 'btn btn-quiet' : 'btn'}
-              onClick={() => {
-                setSwapFrom(focused.id);
-                setFocus(null);
-                setView('pitch');
-              }}
-            >
-              {focusedSlot < 0 ? 'Swap with a sub' : 'Bring on, or change sub order'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-quiet"
-              onClick={() => {
-                remove(focused.id);
-                setFocus(null);
-                setPicker(
-                  focusedSlot < 0
-                    ? { positions: [focused.position] }
-                    : { positions: focusedSlot === 0 ? ['GK'] : outfield, slot: focusedSlot },
-                );
-              }}
-            >
-              Transfer out
-            </button>
-            <button
-              type="button"
-              className="btn btn-quiet"
-              onClick={() => {
-                remove(focused.id);
-                setFocus(null);
-              }}
-            >
-              Remove
-            </button>
-          </div>
-          <div className="mt-5 border-t border-line pt-4">
-            <PlayerDetail playerId={focused.id} gameweekId={lastPlayed?.id} />
-          </div>
+            }
+          />
         </Sheet>
       )}
 

@@ -112,3 +112,10 @@
     transform: translateX(-50%);
   }
 }
+
+/* Archivo condensed for headings, labels and numbers. */
+@layer utilities {
+  .font-display {
+    font-stretch: 68%;
+  }
+}

@@ -117,7 +117,7 @@ export function Shirt({
         x="32"
         y="37.6"
         textAnchor="middle"
-        fontFamily="Barlow, Arial, sans-serif"
+        fontFamily="Archivo, Arial, sans-serif"
         fontWeight="700"
         fontSize="6.4"
         fill="#16181d"
@@ -176,7 +176,7 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
         <span className="mt-0.5 flex w-full flex-1 flex-col overflow-hidden rounded-md text-center shadow">
           {/* Full name always: it wraps (side tag last) rather than being cut off. */}
           <span className="flex flex-1 flex-wrap content-center items-baseline justify-center gap-x-1 bg-white px-0.5 py-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] [overflow-wrap:break-word] sm:text-xs">
-            <span className="max-w-full">
+            <span className="max-w-full [font-stretch:85%]">
               {/* Keep "J." with the surname when the plate wraps. */}
               {slot.name.replace(/^(\S+\.) /, '$1\u00a0')}
             </span>

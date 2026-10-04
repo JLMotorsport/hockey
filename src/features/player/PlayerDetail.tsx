@@ -1,8 +1,13 @@
 import { Shirt } from '@/components/Pitch';
 import { Sheet } from '@/components/Sheet';
 import { Loading, PosBadge, PriceTrend } from '@/components/ui';
-import { formatShortDate, gameweekLabel } from '@/lib/format';
+import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
+import type { ReactNode } from 'react';
+import { fixtureLabel, formByPlayer } from '@/lib/form';
 import {
+  lockedGameweeks,
+  nextOpenGameweek,
+  useFixtures,
   useGameweeks,
   usePlayerHistory,
   usePlayers,
@@ -43,10 +48,13 @@ export function PlayerDetail({
   playerId,
   gameweekId,
   teamPoints,
+  actions,
 }: {
   playerId: number;
   /** Show this gameweek's breakdown first. */
   gameweekId?: number;
+  /** Buttons (captain, transfer...) shown under the stats. */
+  actions?: ReactNode;
   /** What they scored for a fantasy team that week, if boosted (captain, chips). */
   teamPoints?: TeamPoints;
 }) {
@@ -55,6 +63,7 @@ export function PlayerDetail({
   const gameweeks = useGameweeks();
   const trend = usePriceTrend();
   const history = usePlayerHistory(playerId);
+  const fixtures = useFixtures();
   const player = players.data?.find((p) => p.id === playerId);
   if (!player || history.isLoading) return <Loading />;
 
@@ -74,35 +83,65 @@ export function PlayerDetail({
   }
   const weeks = all.filter((g) => byWeek.has(g.id));
   const best = Math.max(1, ...byWeek.values());
+  const form = formByPlayer(
+    [...byWeek].map(([gameweek_id, points]) => ({ player_id: player.id, gameweek_id, points })),
+    lockedGameweeks(all).map((g) => g.id),
+  ).get(player.id);
+  const next = nextOpenGameweek(all);
+  const nextLabel = next ? fixtureLabel(fixtures.data ?? [], player.side_id, next.id) : null;
+  const nextFixture = next
+    ? (fixtures.data ?? []).find((f) => f.side_id === player.side_id && f.gameweek_id === next.id)
+    : undefined;
 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Shirt keeper={player.position === 'GK'} className="h-16 w-16 shrink-0" />
-        <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sm">
-            <PosBadge position={player.position} /> {POSITION_NAMES[player.position]} ·{' '}
-            {sideName(player.side_id)}
-          </p>
-          <div className="mt-2 flex gap-4">
-            <div>
-              <span className="display-num block text-2xl">
-                {formatPrice(player.price)}m
-                <PriceTrend change={trend.data?.get(player.id)} />
-              </span>
-              <span className="muted text-xs uppercase">Price</span>
-            </div>
-            <div>
-              <span className="display-num block text-2xl">{season}</span>
-              <span className="muted text-xs uppercase">Season pts</span>
-            </div>
-            <div>
-              <span className="display-num block text-2xl">{matches.length}</span>
-              <span className="muted text-xs uppercase">Games</span>
-            </div>
-          </div>
+        <Shirt keeper={player.position === 'GK'} className="h-14 w-14 shrink-0" />
+        <p className="flex items-center gap-2 text-sm">
+          <PosBadge position={player.position} /> {POSITION_NAMES[player.position]} ·{' '}
+          {sideName(player.side_id)}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-4 gap-1 rounded-2xl bg-paper px-1 py-2.5 text-center">
+        <div>
+          <span className="display-num block text-2xl">
+            {formatPrice(player.price)}m
+            <PriceTrend change={trend.data?.get(player.id)} />
+          </span>
+          <span className="muted text-[0.7rem] uppercase">Price</span>
+        </div>
+        <div>
+          <span className="display-num block text-2xl">{season}</span>
+          <span className="muted text-[0.7rem] uppercase">Season</span>
+        </div>
+        <div>
+          <span className="display-num block text-2xl">{form?.toFixed(1) ?? '-'}</span>
+          <span className="muted text-[0.7rem] uppercase">Form</span>
+        </div>
+        <div>
+          <span className="display-num block text-2xl">{matches.length}</span>
+          <span className="muted text-[0.7rem] uppercase">Games</span>
         </div>
       </div>
+
+      {nextLabel && (
+        <p className="flex items-center gap-2 rounded-xl border border-line px-3 py-2.5 text-sm">
+          <span className="font-display text-xs font-bold uppercase tracking-wider text-ink-soft">
+            Next
+          </span>
+          <span className="font-semibold">
+            {nextLabel === 'No game'
+              ? `No ${sideShort(player.side_id)} game this gameweek`
+              : `${sideShort(player.side_id)} v ${nextLabel}`}
+          </span>
+          {nextFixture && (
+            <span className="muted ml-auto">{formatWeekdayTime(nextFixture.kickoff)}</span>
+          )}
+        </p>
+      )}
+
+      {actions}
 
       {gw && (
         <section>
@@ -113,34 +152,37 @@ export function PlayerDetail({
             thisWeek.map((m) => {
               const items = lines(m, player.position);
               return (
-                <div key={m.fixture_id} className="mb-3 rounded-xl border border-line">
-                  <p className="border-b border-line px-3 py-2 text-sm font-semibold">
-                    {sideShort(m.fixture?.side_id ?? 0)} {m.fixture?.is_home ? 'v' : '@'}{' '}
-                    {m.fixture?.opponent}{' '}
-                    <span className="muted font-normal">
-                      {m.fixture?.goals_for ?? ''}-{m.fixture?.goals_against ?? ''}
+                <div key={m.fixture_id} className="mb-3 space-y-2">
+                  <p className="flex items-baseline justify-between gap-2 text-sm">
+                    <span className="muted">
+                      {sideShort(m.fixture?.side_id ?? 0)} {m.fixture?.is_home ? 'v' : 'at'}{' '}
+                      {m.fixture?.opponent}
+                      {m.fixture?.goals_for != null && m.fixture?.goals_against != null && (
+                        <>
+                          ,{' '}
+                          {m.fixture.goals_for > m.fixture.goals_against
+                            ? 'won'
+                            : m.fixture.goals_for < m.fixture.goals_against
+                              ? 'lost'
+                              : 'drew'}{' '}
+                          {m.fixture.goals_for}-{m.fixture.goals_against}
+                        </>
+                      )}
+                    </span>
+                    <span className="display-num shrink-0 text-xl text-brand">
+                      {total(items)} pts
                     </span>
                   </p>
-                  <table className="table">
-                    <tbody>
-                      {items.map(([label, pts]) => (
-                        <tr key={label}>
-                          <td>{label}</td>
-                          <td
-                            className={`num font-semibold ${pts < 0 ? 'text-red-700 dark:text-red-400' : ''}`}
-                          >
-                            {pts > 0 ? `+${pts}` : pts}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <th>Points</th>
-                        <th className="num">{total(items)}</th>
-                      </tr>
-                    </tfoot>
-                  </table>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {items.map(([label, pts]) => (
+                      <li
+                        key={label}
+                        className={`rounded-full px-2.5 py-1 text-sm font-semibold ${pts < 0 ? 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-300' : 'bg-paper'}`}
+                      >
+                        {label} {pts > 0 ? `+${pts}` : pts}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               );
             })
