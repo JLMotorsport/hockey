@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { Pitch, type PitchSlot } from '@/components/Pitch';
 import { formationOf, pitchRows } from '@/lib/formation';
-import { useFixtures, type Player, type Side, type SquadRow } from '@/lib/queries';
+import {
+  useFixtures,
+  useGameweekSides,
+  type Player,
+  type Side,
+  type SquadRow,
+} from '@/lib/queries';
 import { fixtureLabel } from '@/lib/form';
 import { POSITIONS, type Position } from '@/lib/scoring';
 import { shortName } from '@/lib/format';
@@ -33,6 +39,8 @@ export function SquadPitch({
   fixturesFor?: number;
 }) {
   const fixtures = useFixtures();
+  // For a past gameweek, tag each player with the side they actually played for.
+  const played = useGameweekSides(showPoints ? gameweekId : undefined);
   const [open, setOpen] = useState<{ id: number; teamPoints: TeamPoints } | null>(null);
   const byId = new Map(players.map((p) => [p.id, p]));
   const sideShort = new Map(sides.map((s) => [s.id, s.short_name]));
@@ -65,7 +73,9 @@ export function SquadPitch({
     key: `p${r.player_id}`,
     position: r.position,
     name: shortName(r.player.name),
-    tag: sideShort.get(r.player.side_id),
+    tag: (played.data?.get(r.player_id) ?? [r.player.side_id])
+      .map((id) => sideShort.get(id))
+      .join('/'),
     sub: r.sub === 'on' ? `On · ${pts(r)}` : r.sub === 'off' ? `Off · ${pts(r)}` : pts(r),
     captain: r.is_captain,
     badge: r.is_vice

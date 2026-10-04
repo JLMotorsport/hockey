@@ -254,6 +254,40 @@ export function useAllGameweekPoints() {
   });
 }
 
+/**
+ * The side each player actually played for in a gameweek (players move up and
+ * down). Two games for different sides: both, in kick-off order.
+ */
+export function useGameweekSides(gameweekId: number | undefined) {
+  return useQuery({
+    queryKey: ['gameweek-sides', gameweekId ?? 0],
+    enabled: Boolean(gameweekId),
+    queryFn: async () => {
+      const rows = (await fetchAll((from, to) =>
+        requireSupabase()
+          .from('performances')
+          .select('player_id, fixture:fixtures!inner(side_id, gameweek_id, kickoff)')
+          .eq('fixture.gameweek_id', gameweekId as number)
+          .order('id')
+          .range(from, to),
+      )) as unknown as {
+        player_id: number;
+        fixture: { side_id: number; kickoff: string } | null;
+      }[];
+      const out = new Map<number, number[]>();
+      for (const r of rows.sort((a, b) =>
+        (a.fixture?.kickoff ?? '').localeCompare(b.fixture?.kickoff ?? ''),
+      )) {
+        if (!r.fixture) continue;
+        const list = out.get(r.player_id) ?? [];
+        if (!list.includes(r.fixture.side_id)) list.push(r.fixture.side_id);
+        out.set(r.player_id, list);
+      }
+      return out;
+    },
+  });
+}
+
 /** Ids of gameweeks that have any points recorded. */
 export function useScoredGameweeks() {
   const all = useAllGameweekPoints();

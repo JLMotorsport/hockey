@@ -10,6 +10,7 @@ import {
   lockedGameweeks,
   useGameweeks,
   useGameweekScores,
+  useGameweekSides,
   useScoredGameweeks,
   usePlayers,
   useSettings,
@@ -64,6 +65,7 @@ export function TeamOfWeekScreen() {
   const wanted = Number(params.get('gw'));
   const gameweek = locked.find((g) => g.id === wanted) ?? locked.at(-1);
   const scores = useGameweekScores(gameweek?.id);
+  const played = useGameweekSides(gameweek?.id);
   // The image is made ahead of the tap: iPhones only open the share sheet if
   // it's asked for straight after the tap, not after seconds of drawing.
   const prepKey = `${gameweek?.id ?? 0}-${scores.dataUpdatedAt}`;
@@ -105,6 +107,11 @@ export function TeamOfWeekScreen() {
 
   const byId = new Map((players.data ?? []).map((p) => [p.id, p]));
   const sideShort = new Map((sides.data ?? []).map((s) => [s.id, s.short_name]));
+  // The side they played for that week ("M2/M1" for two games), else their usual one.
+  const sideFor = (playerId: number) =>
+    (played.data?.get(playerId) ?? [byId.get(playerId)?.side_id ?? 0])
+      .map((id) => sideShort.get(id))
+      .join('/');
   const scorers: Scorer[] = (scores.data ?? []).flatMap((r) => {
     const p = byId.get(r.player_id ?? 0);
     return p
@@ -126,7 +133,7 @@ export function TeamOfWeekScreen() {
               key: `p${p.player_id}`,
               position: pos,
               name: shortName(p.name),
-              tag: sideShort.get(byId.get(p.player_id)?.side_id ?? 0),
+              tag: sideFor(p.player_id),
               sub: `${p.points} pts`,
               badge: p.player_id === star?.player_id ? '★' : undefined,
               onClick: () => setOpen(p.player_id),
@@ -223,11 +230,8 @@ export function TeamOfWeekScreen() {
                   ★ Player of the week
                 </span>
                 <span className="text-right text-lg font-extrabold">
-                  {star.name}{' '}
-                  <span className="text-[#ff6b6b]">
-                    {sideShort.get(byId.get(star.player_id)?.side_id ?? 0)}
-                  </span>{' '}
-                  · {star.points} pts
+                  {star.name} <span className="text-[#ff6b6b]">{sideFor(star.player_id)}</span> ·{' '}
+                  {star.points} pts
                 </span>
               </div>
             )}
@@ -265,11 +269,8 @@ export function TeamOfWeekScreen() {
                     ★ Player of the week
                   </span>
                   <span className="text-right text-xl font-extrabold">
-                    {star.name}{' '}
-                    <span className="text-[#ff6b6b]">
-                      {sideShort.get(byId.get(star.player_id)?.side_id ?? 0)}
-                    </span>{' '}
-                    · {star.points} pts
+                    {star.name} <span className="text-[#ff6b6b]">{sideFor(star.player_id)}</span> ·{' '}
+                    {star.points} pts
                   </span>
                 </div>
               )}
