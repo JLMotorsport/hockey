@@ -30,11 +30,11 @@ Integration tests need `SUPABASE_TEST_URL`, `SUPABASE_TEST_ANON_KEY` and
 
 ## Deploying
 
-| What               | How it reaches production                                                 |
-| ------------------ | ------------------------------------------------------------------------- |
-| Frontend (the app) | **`git push` to `main`. Cloudflare builds automatically.**                |
-| Migrations (SQL)   | Applied by hand: paste the migration into the Supabase SQL editor         |
-| Edge function      | Manual: `npx supabase functions deploy eh-sync --no-verify-jwt --use-api` |
+| What               | How it reaches production                                                  |
+| ------------------ | -------------------------------------------------------------------------- |
+| Frontend (the app) | **`git push` to `main`. Cloudflare builds automatically.**                 |
+| Migrations (SQL)   | Applied by hand: paste the migration into the Supabase SQL editor          |
+| Edge function      | GitHub Actions (`deploy-functions.yml`) on push to `main`, or Run workflow |
 
 - Do not tell the user to run `npx wrangler deploy` for a frontend change; the push does it.
 - Migrations are pasted by hand, so write them to be re-runnable: `if not exists`,
