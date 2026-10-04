@@ -201,6 +201,7 @@ export function AdminFixtureScreen() {
   if (detail.error || !detail.data) return <ErrorText error={detail.error} />;
   const { fixture } = detail.data;
   const sideById = new Map((sides.data ?? []).map((s) => [s.id, s]));
+  const performanceShirt = new Map(detail.data.performances.map((p) => [p.player_id, p.shirt]));
   const gw = gameweeks.data?.find((g) => g.id === fixture.gameweek_id);
   const order = (a: { position: string; name: string }, b: { position: string; name: string }) =>
     POSITIONS.indexOf(a.position as never) - POSITIONS.indexOf(b.position as never) ||
@@ -366,6 +367,11 @@ export function AdminFixtureScreen() {
                   </td>
                   <td className="whitespace-nowrap">
                     <PosBadge position={p.position} /> {p.name}
+                    {performanceShirt.get(p.id) && (
+                      <span className="muted ml-1 text-xs font-bold">
+                        #{performanceShirt.get(p.id)}
+                      </span>
+                    )}
                     {p.side_id !== fixture.side_id && (
                       <span className="muted"> ({sideById.get(p.side_id)?.short_name})</span>
                     )}

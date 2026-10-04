@@ -18,6 +18,7 @@ import {
 import { POSITIONS, type Position } from '@/lib/scoring';
 import { parsePlayerLines } from '@/lib/players';
 import { ALL_FORMATIONS } from '@/lib/formation';
+import { WithheldEvidence } from './WithheldEvidence';
 import { WithheldName } from './WithheldName';
 import { formatPrice, parsePrice } from '@/lib/squad';
 import { errorLines, requireSupabase } from '@/lib/supabase';
@@ -83,10 +84,10 @@ function PricesCard({ onDone }: { onDone: (notices: Notice[]) => void }) {
     <section className="card">
       <h2>Prices</h2>
       <p className="muted text-sm">
-        Starting prices come from each player&apos;s points per game so far, compared with others in
-        the same position, from 4.0m to 10.0m. After each gameweek, players who played move up or
-        down by up to 0.3m depending on how they scored against their position&apos;s average. That
-        runs automatically with the Sunday and Monday sync.
+        Starting prices come from each player&apos;s total points so far, everyone ranked together,
+        from 4.0m to 10.0m: more points always means a higher price. After each gameweek, players
+        who played move up or down by up to 0.3m depending on how they scored against
+        everyone&apos;s average that week. That runs automatically with the sync.
       </p>
       <p className="mt-2 text-sm font-semibold">
         {started
@@ -174,14 +175,18 @@ export function AdminPlayersScreen() {
           <h2>Names to correct ({unnamed.length})</h2>
           <p className="muted text-sm">
             These players keep their GMS profile private, so England Hockey shows &quot;Name
-            withheld&quot;. Their goals and cards still count. Type each real name once (the shirt
-            number and side help you work out who it is), or merge them into a player you already
-            added.
+            withheld&quot;. Their goals and cards still count. Each one lists the matches they
+            played, the shirt they wore and what they did, to help you work out who it is. Type the
+            real name once, or merge them into a player you already added.
           </p>
           <ul className="divide-y divide-line">
             {unnamed.map((p) => (
-              <li key={p.id} className="py-2">
+              <li key={p.id} className="py-3">
                 <span className="font-semibold">{p.name}</span>
+                <WithheldEvidence
+                  playerId={p.id}
+                  sideName={(id) => sideList.find((x) => x.id === id)?.short_name ?? ''}
+                />
                 <WithheldName
                   player={p}
                   players={players.data ?? []}

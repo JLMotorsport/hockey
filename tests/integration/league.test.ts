@@ -892,14 +892,21 @@ describe.skipIf(!configured)('league database', () => {
     const avg = all.reduce((sum, p) => sum + p.price, 0) / all.length;
     expect(avg).toBeGreaterThan(55);
     expect(avg).toBeLessThan(85);
-    // The striker who scored twice is the best forward; players who haven't
-    // played sit mid-range, not at the bottom.
-    const striker = playerIds[9]!;
-    expect(all.find((p) => p.id === striker)!.price).toBe(100);
-    const unplayed = playerIds[12]!;
-    const unplayedPrice = all.find((p) => p.id === unplayed)!.price;
-    expect(unplayedPrice).toBeGreaterThan(40);
-    expect(unplayedPrice).toBeLessThan(100);
+    // More points always means a price at least as high, whatever the position.
+    const season = new Map(
+      ((await anon.from('player_season_points').select('*')).data ?? []).map((r) => [
+        r.player_id,
+        r.points ?? 0,
+      ]),
+    );
+    const pts = (id: number) => season.get(id) ?? 0;
+    for (const a of all) {
+      for (const b of all) {
+        if (pts(a.id) > pts(b.id)) expect(a.price).toBeGreaterThanOrEqual(b.price);
+      }
+    }
+    const top = [...all].sort((a, b) => pts(b.id) - pts(a.id))[0]!;
+    expect(top.price).toBe(100);
     const locked = (
       await anon.from('gameweeks').select('id').lte('deadline', new Date().toISOString())
     ).data!;

@@ -170,6 +170,7 @@ export type Database = {
           player_id: number;
           player_of_match: boolean;
           red_cards: number;
+          shirt: string | null;
           yellow_cards: number;
         };
         Insert: {
@@ -181,6 +182,7 @@ export type Database = {
           player_id: number;
           player_of_match?: boolean;
           red_cards?: number;
+          shirt?: string | null;
           yellow_cards?: number;
         };
         Update: {
@@ -192,6 +194,7 @@ export type Database = {
           player_id?: number;
           player_of_match?: boolean;
           red_cards?: number;
+          shirt?: string | null;
           yellow_cards?: number;
         };
         Relationships: [

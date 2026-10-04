@@ -72,7 +72,7 @@ $$);
 
 Defaults, changeable in Manage > Settings: 11 players in one of the allowed formations (4-4-2, 4-3-3, 3-4-3, 3-5-2, 5-3-2, 4-5-1, 5-4-1), 100.0m budget, max 4 from one side, 2 transfers per gameweek (the first squad is free). Squads carry over each week until changed, and other people's squads are hidden until the deadline.
 
-**Prices.** Manage > Players > "Set prices from points" prices everyone from their points per game so far, ranked against their own position, from 4.0m to 10.0m. After each gameweek's weekend, everyone who played moves by up to 0.3m depending on how they scored against their position's average that week. The sync applies this automatically, once per gameweek.
+**Prices.** Manage > Players > "Set prices from points" prices everyone from their total points so far, all players ranked together, from 4.0m to 10.0m, so more points always means a higher price. After each gameweek's weekend, everyone who played moves by up to 0.3m depending on how they scored against everyone's average that week. The sync applies this automatically, once per gameweek.
 
 | Event                     | Points                 |
 | ------------------------- | ---------------------- |
