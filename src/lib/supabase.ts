@@ -1,4 +1,4 @@
-import { createClient, processLock, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env, isSupabaseConfigured } from './env';
 import type { Database } from '@/types/database';
 
@@ -11,15 +11,7 @@ let client: DbClient | null = null;
 
 if (isSupabaseConfigured) {
   client = createClient<Database>(env.supabaseUrl as string, env.supabaseAnonKey as string, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      // The default cross-tab lock (navigator.locks) can stay held after a
-      // phone suspends the tab, leaving every request waiting for good. An
-      // in-page lock can't get stuck that way.
-      lock: processLock,
-    },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
 }
 

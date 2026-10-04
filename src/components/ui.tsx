@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import type { ReactNode } from 'react';
 import type { Position } from '@/lib/scoring';
 
@@ -73,6 +74,28 @@ export function Loading({ label = 'Loading' }: { label?: string }) {
             onClick={() => window.location.reload()}
           >
             Reload
+          </button>
+          {' or '}
+          {/* A saved login in a bad state survives a reload; this clears it. */}
+          <button
+            type="button"
+            className="min-h-tap font-semibold text-brand underline"
+            onClick={() => {
+              const done = () => {
+                // In case signing out itself is stuck: drop the saved login.
+                try {
+                  for (const key of Object.keys(localStorage))
+                    if (key.startsWith('sb-')) localStorage.removeItem(key);
+                } catch {
+                  // Storage blocked: nothing saved to clear.
+                }
+                window.location.assign('/login');
+              };
+              void (supabase?.auth.signOut({ scope: 'local' }) ?? Promise.resolve()).finally(done);
+              setTimeout(done, 3000);
+            }}
+          >
+            sign out and back in
           </button>
         </p>
       )}
