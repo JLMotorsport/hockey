@@ -1,4 +1,4 @@
-import { fixtureLabel, formByPlayer, shortOpponent } from '@/lib/form';
+import { fixtureLabel, formByPlayer, shortOpponent, sideForm } from '@/lib/form';
 
 describe('fixtures for picking', () => {
   it('shortens opponent names', () => {
@@ -33,5 +33,27 @@ describe('form', () => {
     const form = formByPlayer(rows, [1, 2, 3, 4, 5]);
     expect(form.get(1)).toBe(3.3);
     expect(form.get(2)).toBe(7);
+  });
+});
+
+describe('side form', () => {
+  it('gives the last results, oldest first, ignoring games not yet played', () => {
+    const f = (kickoff: string, gf: number | null, ga: number | null, side_id = 1) => ({
+      side_id,
+      kickoff,
+      goals_for: gf,
+      goals_against: ga,
+    });
+    const fixtures = [
+      f('2026-09-19', 2, 1),
+      f('2026-09-12', 0, 3),
+      f('2026-09-26', 1, 1),
+      f('2026-10-03', 4, 0),
+      f('2026-10-10', null, null),
+      f('2026-10-03', 0, 5, 2),
+    ];
+    expect(sideForm(fixtures, 1)).toEqual(['L', 'W', 'D', 'W']);
+    expect(sideForm(fixtures, 1, 2)).toEqual(['D', 'W']);
+    expect(sideForm(fixtures, 3)).toEqual([]);
   });
 });

@@ -1,9 +1,9 @@
 import { Shirt } from '@/components/Pitch';
 import { Sheet } from '@/components/Sheet';
-import { Loading, PosBadge, PriceTrend } from '@/components/ui';
+import { FormBoxes, Loading, PosBadge, PriceTrend } from '@/components/ui';
 import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
 import type { ReactNode } from 'react';
-import { fixtureLabel, formByPlayer } from '@/lib/form';
+import { fixtureLabel, formByPlayer, sideForm } from '@/lib/form';
 import {
   lockedGameweeks,
   nextOpenGameweek,
@@ -140,6 +140,13 @@ export function PlayerDetail({
           )}
         </p>
       )}
+
+      <p className="flex items-center gap-2 px-1 text-sm">
+        <span className="font-display text-xs font-bold uppercase tracking-wider text-ink-soft">
+          {sideShort(player.side_id)} form
+        </span>
+        <FormBoxes results={sideForm(fixtures.data ?? [], player.side_id)} />
+      </p>
 
       {actions}
 

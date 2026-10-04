@@ -131,3 +131,31 @@ export function PriceTrend({ change }: { change: number | undefined }) {
     </span>
   );
 }
+
+const RESULT_STYLE = {
+  W: 'bg-[#1f7a4d]',
+  D: 'bg-[#6b7280]',
+  L: 'bg-[#b3261e]',
+} as const;
+const RESULT_NAME = { W: 'won', D: 'drew', L: 'lost' } as const;
+
+/** A side's recent results as W/D/L boxes, oldest first (letter and colour both). */
+export function FormBoxes({ results }: { results: ('W' | 'D' | 'L')[] }) {
+  if (!results.length) return <span className="muted text-sm">No results yet</span>;
+  return (
+    <span
+      className="inline-flex gap-1"
+      aria-label={`Last ${results.length}: ${results.map((r) => RESULT_NAME[r]).join(', ')}`}
+    >
+      {results.map((r, i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          className={`flex h-5 w-5 items-center justify-center rounded font-display text-xs font-bold text-white ${RESULT_STYLE[r]}`}
+        >
+          {r}
+        </span>
+      ))}
+    </span>
+  );
+}

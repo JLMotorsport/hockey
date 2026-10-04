@@ -61,3 +61,23 @@ export function formByPlayer(
   }
   return out;
 }
+
+export type Result = 'W' | 'D' | 'L';
+
+export interface ResultLike {
+  side_id: number;
+  kickoff: string;
+  goals_for: number | null;
+  goals_against: number | null;
+}
+
+/** A Felixstowe side's last `n` results, oldest first. */
+export function sideForm(fixtures: ResultLike[], sideId: number, n = 5): Result[] {
+  return fixtures
+    .filter((f) => f.side_id === sideId && f.goals_for !== null && f.goals_against !== null)
+    .sort((a, b) => a.kickoff.localeCompare(b.kickoff))
+    .slice(-n)
+    .map((f) =>
+      f.goals_for! > f.goals_against! ? 'W' : f.goals_for! < f.goals_against! ? 'L' : 'D',
+    );
+}

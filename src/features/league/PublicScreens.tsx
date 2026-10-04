@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ErrorText, Loading, PosBadge, PriceTrend } from '@/components/ui';
+import { ErrorText, FormBoxes, Loading, PosBadge, PriceTrend } from '@/components/ui';
 import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
-import { fixtureLabel, formByPlayer, shortOpponent } from '@/lib/form';
+import { fixtureLabel, formByPlayer, shortOpponent, sideForm } from '@/lib/form';
 import {
   lockedGameweeks,
   nextOpenGameweek,
@@ -242,6 +242,21 @@ export function FixturesScreen() {
   return (
     <>
       <h1>Fixtures</h1>
+      <section className="card !py-3">
+        <h2 className="mb-2">Form</h2>
+        <ul className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+          {sideList.map((side) => (
+            <li key={side.id} className="flex items-center gap-3">
+              <span className="w-9 shrink-0 rounded-md bg-[#16181d] py-0.5 text-center font-display text-sm font-bold text-white">
+                {side.short_name}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm">{side.name}</span>
+              <FormBoxes results={sideForm(list, side.id)} />
+            </li>
+          ))}
+        </ul>
+        <p className="muted mt-2 text-xs">Last 5 results, most recent on the right.</p>
+      </section>
       <div className="mb-4 flex rounded-full bg-surface p-1 shadow-card" role="tablist">
         {(['upcoming', 'results'] as const).map((t) => (
           <button
