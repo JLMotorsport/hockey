@@ -211,17 +211,53 @@ export function useGameweekScores(gameweekId: number | undefined) {
   });
 }
 
+/**
+ * Every row of a query, a page at a time: the API returns at most 1,000 rows
+ * per request, which the league passes partway through a season. The query
+ * must have a stable order.
+ */
+async function fetchAll<T>(
+  page: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const size = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += size) {
+    const { data, error } = await page(from, from + size - 1);
+    if (error) throw new Error(error.message);
+    out.push(...(data ?? []));
+    if (!data || data.length < size) return out;
+  }
+}
+
+/** Every player's points in every gameweek they played. */
+export function useAllGameweekPoints() {
+  return useQuery({
+    queryKey: ['all-gameweek-points'],
+    queryFn: async () =>
+      (
+        await fetchAll((from, to) =>
+          requireSupabase()
+            .from('player_gameweek_points')
+            .select('player_id, gameweek_id, points')
+            .order('gameweek_id')
+            .order('player_id')
+            .range(from, to),
+        )
+      ).map((r) => ({
+        player_id: r.player_id ?? 0,
+        gameweek_id: r.gameweek_id ?? 0,
+        points: r.points ?? 0,
+      })),
+  });
+}
+
 /** Ids of gameweeks that have any points recorded. */
 export function useScoredGameweeks() {
-  return useQuery({
-    queryKey: ['scored-gameweeks'],
-    queryFn: async () => {
-      const rows = unwrap(
-        await requireSupabase().from('player_gameweek_points').select('gameweek_id'),
-      );
-      return new Set(rows.map((r) => r.gameweek_id ?? 0));
-    },
-  });
+  const all = useAllGameweekPoints();
+  return { ...all, data: all.data ? new Set(all.data.map((r) => r.gameweek_id)) : undefined };
 }
 
 /** Pitchero team sheets plus every England Hockey appearance, for suggestions. */
@@ -230,12 +266,21 @@ export function usePitcheroEvidence() {
     queryKey: ['pitchero-evidence'],
     queryFn: async () => {
       const db = requireSupabase();
-      const sheets = unwrap(await db.from('pitchero_lineups').select('fixture_id, name, position'));
-      const rows = unwrap(
-        await db
+      const sheets = await fetchAll((from, to) =>
+        db
+          .from('pitchero_lineups')
+          .select('fixture_id, name, position')
+          .order('fixture_id')
+          .order('pitchero_player_id')
+          .range(from, to),
+      );
+      const rows = (await fetchAll((from, to) =>
+        db
           .from('performances')
-          .select('fixture_id, player_id, player:players(name, name_withheld)'),
-      ) as unknown as {
+          .select('fixture_id, player_id, player:players(name, name_withheld)')
+          .order('id')
+          .range(from, to),
+      )) as unknown as {
         fixture_id: number;
         player_id: number;
         player: { name: string; name_withheld: boolean } | null;

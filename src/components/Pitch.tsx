@@ -139,6 +139,8 @@ export interface PitchSlot {
   /** Shown on the name line, e.g. the player's side ("M3"). */
   tag?: string;
   sub?: ReactNode;
+  /** Grey strip instead of red, e.g. "No game". */
+  subMuted?: boolean;
   captain?: boolean;
   /** Small badge on the shirt; defaults to "C" for the captain. */
   badge?: string;
@@ -185,7 +187,9 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
             )}
           </span>
           {slot.sub !== undefined && (
-            <span className="block bg-[#d91414] px-1 py-0.5 font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs">
+            <span
+              className={`block px-1 py-0.5 font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
+            >
               {slot.sub}
             </span>
           )}

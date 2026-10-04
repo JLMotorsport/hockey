@@ -13,9 +13,13 @@ import {
   useSeasonPoints,
   useSettings,
   useSides,
+  useAllGameweekPoints,
   useChips,
+  useFixtures,
   useSquad,
+  lockedGameweeks,
 } from '@/lib/queries';
+import { fixtureLabel, formByPlayer } from '@/lib/form';
 import { ChipsCard } from './ChipsCard';
 import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
 import { DEFAULT_FORMATIONS, formationOf, overflow, pitchRows } from '@/lib/formation';
@@ -57,6 +61,17 @@ export function SquadScreen() {
   const current = useSquad(userId, gameweek?.id);
   const previous = useSquad(userId, previousGw?.id);
   const chips = useChips(userId);
+  const fixtures = useFixtures();
+  const gameweekPoints = useAllGameweekPoints();
+  // Average over each player's last 3 games, finished gameweeks only.
+  const form = useMemo(
+    () =>
+      formByPlayer(
+        gameweekPoints.data ?? [],
+        lockedGameweeks(all).map((g) => g.id),
+      ),
+    [gameweekPoints.data, all],
+  );
   const wildcard = Boolean(
     gameweek && chips.data?.some((c) => c.chip === 'wildcard' && c.gameweek_id === gameweek.id),
   );
@@ -159,6 +174,9 @@ export function SquadScreen() {
   );
   const inSquad = (id: number) => selected.has(id) || bench.includes(id);
   const isKeeper = (id: number) => poolById.get(id)?.position === 'GK';
+  // Who the player's side plays in the gameweek being picked.
+  const nextFor = (p: SquadPlayer) => fixtureLabel(fixtures.data ?? [], p.side_id, gameweek.id);
+  const formFor = (id: number) => form.get(id)?.toFixed(1) ?? '-';
   const benchSlot = (id: number) => bench.indexOf(id);
 
   /** Add to the starting 11 if there's room, else the first fitting bench slot. */
@@ -304,7 +322,8 @@ export function SquadScreen() {
               position: pos,
               name: shortName(p.name),
               tag: sideById.get(p.side_id)?.short_name,
-              sub: `${points.data?.get(p.id) ?? 0} pts`,
+              sub: nextFor(p),
+              subMuted: nextFor(p) === 'No game',
               captain: captainId === p.id,
               badge: viceId === p.id ? 'V' : undefined,
               highlight: swapFrom !== null && canSwap(swapFrom, p.id),
@@ -336,7 +355,8 @@ export function SquadScreen() {
           position: p.position,
           name: shortName(p.name),
           tag: sideById.get(p.side_id)?.short_name,
-          sub: `${points.data?.get(p.id) ?? 0} pts`,
+          sub: nextFor(p),
+          subMuted: nextFor(p) === 'No game',
           badge: i === 0 ? undefined : String(i),
           highlight: swapFrom !== null && canSwap(swapFrom, p.id),
           onClick: () => (swapFrom !== null ? swap(swapFrom, p.id) : setFocus(p.id)),
@@ -487,10 +507,10 @@ export function SquadScreen() {
           )}
           <Pitch rows={slots} bench={benchSlots} />
           <p className="muted mt-3 text-center text-sm">
-            Tap an empty shirt to add a player, or a player to make them captain (C) or vice (V), or
-            swap them. If your captain doesn&apos;t play, your vice scores double instead. If a
-            starter doesn&apos;t play, the first sub who did comes on, as long as the team still
-            lines up in an allowed formation.
+            Under each player: who their side plays this gameweek. Tap an empty shirt to add a
+            player, or a player to make them captain (C) or vice (V), or swap them. If your captain
+            doesn&apos;t play, your vice scores double instead. If a starter doesn&apos;t play, the
+            first sub who did comes on, as long as the team still lines up in an allowed formation.
           </p>
         </>
       ) : (
@@ -582,6 +602,10 @@ export function SquadScreen() {
                       </td>
                       <td>
                         {p.name}
+                        <span className="muted block text-xs">
+                          {nextFor(p) === 'No game' ? 'No game' : `v ${nextFor(p)}`} · Form{' '}
+                          {formFor(p.id)}
+                        </span>
                         {slot >= 0 && (
                           <span className="muted"> ({slot === 0 ? 'sub GK' : `sub ${slot}`})</span>
                         )}
@@ -659,9 +683,15 @@ export function SquadScreen() {
                   <Shirt keeper={p.position === 'GK'} className="h-9 w-9 shrink-0" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{p.name}</span>
-                    <span className="muted text-xs">
+                    <span className="muted block text-xs">
                       {picker.positions.length > 1 && `${p.position} · `}
                       {sideById.get(p.side_id)?.name}
+                    </span>
+                    <span
+                      className={`block text-xs font-semibold ${nextFor(p) === 'No game' ? 'text-ink-soft' : ''}`}
+                    >
+                      {nextFor(p) === 'No game' ? 'No game' : `v ${nextFor(p)}`} · Form{' '}
+                      {formFor(p.id)}
                     </span>
                   </span>
                   <span className="text-right">
@@ -701,6 +731,12 @@ export function SquadScreen() {
               </p>
               <p className="muted text-sm">
                 {formatPrice(focused.price)}m · {points.data?.get(focused.id) ?? 0} pts this season
+              </p>
+              <p className="text-sm font-semibold">
+                {nextFor(focused) === 'No game'
+                  ? 'No game this gameweek'
+                  : `Next: v ${nextFor(focused)}`}{' '}
+                · Form {formFor(focused.id)}
               </p>
             </div>
           </div>
