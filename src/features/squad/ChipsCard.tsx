@@ -22,12 +22,15 @@ export function ChipsCard({
   gameweeks,
   sides,
   onNotice,
+  only,
 }: {
   userId: string;
   gameweek: Gameweek;
   gameweeks: Gameweek[];
   sides: Side[];
   onNotice: (notices: Notice[]) => void;
+  /** Which chips belong on this page (team chips on Pick team, wildcard on Transfers). */
+  only?: ChipKey[];
 }) {
   const queryClient = useQueryClient();
   const chips = useChips(userId);
@@ -36,6 +39,7 @@ export function ChipsCard({
   const [busy, setBusy] = useState(false);
   const states = chipStates(chips.data ?? [], gameweeks, gameweek.id);
   const active = CHIPS.find((c) => states[c.key].state === 'active');
+  const shown = CHIPS.filter((c) => !only || only.includes(c.key));
   const wildcardLocked = active?.key === 'wildcard';
   const sideShort = (id: number | null) => sides.find((s) => s.id === id)?.short_name ?? '';
 
@@ -64,8 +68,10 @@ export function ChipsCard({
 
   return (
     <section className="mb-3" aria-label="Chips">
-      <div className="grid grid-cols-4 gap-1.5">
-        {CHIPS.map((c) => {
+      <div
+        className={`grid gap-1.5 ${shown.length === 1 ? 'mx-auto max-w-[11rem] grid-cols-1' : shown.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}
+      >
+        {shown.map((c) => {
           const state = states[c.key];
           const Icon = CHIP_ICONS[c.key];
           return (

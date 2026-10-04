@@ -85,7 +85,8 @@ export function RegisterScreen() {
   const [busy, setBusy] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
 
-  if (session) return <Navigate to="/squad" replace />;
+  // A new account has no squad yet: start on Transfers to pick the 15.
+  if (session) return <Navigate to="/transfers" replace />;
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm({ ...form, [k]: e.target.value });
@@ -114,7 +115,7 @@ export function RegisterScreen() {
         { kind: 'info', text: 'Check your email to confirm your account, then log in.' },
       ]);
     } else {
-      navigate('/squad');
+      navigate('/transfers');
     }
   }
 

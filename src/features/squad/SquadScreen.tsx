@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ErrorText, Loading, Notices, PosBadge, PriceTrend, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { formatWeekdayTime, gameweekLabel, shortName } from '@/lib/format';
@@ -22,14 +22,28 @@ import {
 import { fixtureLabel, formByPlayer } from '@/lib/form';
 import { ChipsCard } from './ChipsCard';
 import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
-import { DEFAULT_FORMATIONS, formationOf, overflow, pitchRows } from '@/lib/formation';
+import { DEFAULT_FORMATIONS, formationOf, pitchRows } from '@/lib/formation';
 import { Pitch, Shirt, type PitchSlot } from '@/components/Pitch';
 import { Sheet } from '@/components/Sheet';
 import { PlayerDetail, PlayerSheet } from '@/features/player/PlayerDetail';
-import { BENCH, formatPrice, STARTERS, summariseSquad, type SquadPlayer } from '@/lib/squad';
+import {
+  autoArrange,
+  BENCH,
+  formatPrice,
+  isValidArrangement,
+  SQUAD_QUOTA,
+  STARTERS,
+  summariseSquad,
+  type SquadPlayer,
+} from '@/lib/squad';
 import { errorLines, requireSupabase } from '@/lib/supabase';
 
-export function SquadScreen() {
+/**
+ * Two pages over the same squad, as in FPL. Pick team: the starting 11, subs,
+ * captain and vice, and the team chips. Transfers: who is in the 15, the
+ * bank and the wildcard.
+ */
+export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) {
   const { session } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -94,7 +108,6 @@ export function SquadScreen() {
   const [swapFrom, setSwapFrom] = useState<number | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const [statsFor, setStatsFor] = useState<number | null>(null);
-  const [chosenFormation, setChosenFormation] = useState<string | null>(null);
 
   // Start from the saved squad once it arrives.
   useEffect(() => {
@@ -156,6 +169,7 @@ export function SquadScreen() {
     );
   }
   const s = settings.data!;
+  const allowed = s.formations.length ? s.formations : DEFAULT_FORMATIONS;
   const picked = pool.filter((p) => selected.has(p.id));
   const poolById = new Map(pool.map((p) => [p.id, p]));
   const benchPlayers = bench.map((id) => (id === null ? null : (poolById.get(id) ?? null)));
@@ -172,6 +186,19 @@ export function SquadScreen() {
     { base: bankBefore.data ?? s.budget, priceOf: (id) => priceById.get(id) ?? 0 },
     currentStarters,
   );
+  // Transfers is about who's in the 15: the line-up (formation, armbands,
+  // subs order) is sorted out on save and on Pick team, so not listed here.
+  const lineUp =
+    /^(That's a |Start exactly|The first sub|Subs 1 to 3|Choose a (captain|vice)|Pick \d+ (starters|subs))/;
+  const problems =
+    mode === 'transfers'
+      ? [
+          ...(summary.count < STARTERS + BENCH
+            ? [`Pick ${STARTERS + BENCH} players (you have ${summary.count}).`]
+            : []),
+          ...summary.problems.filter((p) => !lineUp.test(p)),
+        ]
+      : summary.problems;
   const inSquad = (id: number) => selected.has(id) || bench.includes(id);
   const isKeeper = (id: number) => poolById.get(id)?.position === 'GK';
   // Who the player's side plays in the gameweek being picked.
@@ -187,7 +214,8 @@ export function SquadScreen() {
       setBench(next);
       return;
     }
-    if (selected.size < STARTERS) {
+    const keeperStarts = [...selected].some((x) => isKeeper(x));
+    if (selected.size < STARTERS && !(isKeeper(id) && keeperStarts)) {
       setSelected(new Set([...selected, id]));
       return;
     }
@@ -201,6 +229,12 @@ export function SquadScreen() {
       return;
     }
     add(id, free);
+  }
+
+  /** To Transfers, checking first if there are unsaved changes here. */
+  function goTransfers() {
+    if (!dirty || window.confirm('You have unsaved changes. Leave without saving?'))
+      navigate('/transfers');
   }
 
   function remove(id: number) {
@@ -252,7 +286,6 @@ export function SquadScreen() {
       // Two subs: change the bench order.
       setBench(bench.map((x) => (x === a ? b : x === b ? a : x)));
     }
-    setChosenFormation(null);
   }
 
   /** Move a sub into an empty pitch slot, or a starter into an empty bench slot. */
@@ -272,19 +305,47 @@ export function SquadScreen() {
       setBench(subs);
       if (captainId === id) setCaptainId(null);
       if (viceId === id) setViceId(null);
-      setChosenFormation(null);
       return true;
     }
     return false;
   }
 
   async function save() {
+    let starters = [...selected];
+    let subs = bench.filter((b): b is number => b !== null);
+    let captain = captainId;
+    let vice = viceId;
+    if (mode === 'transfers') {
+      // New players went wherever there was room; if that isn't a team that
+      // can line up, lay the 15 out again (Pick team can change it after).
+      const squad = [...starters, ...subs].map((id) => poolById.get(id)!).filter(Boolean);
+      const valid = isValidArrangement(
+        starters.map((id) => poolById.get(id)!),
+        bench.map((id) => (id === null ? null : (poolById.get(id) ?? null))),
+        allowed,
+      );
+      if (!valid) {
+        const arranged = autoArrange(squad, allowed, [...starters, ...subs]);
+        if (arranged) {
+          starters = arranged.starters;
+          subs = arranged.bench;
+        }
+      }
+      // Armbands go to the best starters when theirs have gone.
+      const ranked = starters
+        .filter((id) => !isKeeper(id))
+        .sort((a, b) => (points.data?.get(b) ?? 0) - (points.data?.get(a) ?? 0));
+      if (captain === null || !starters.includes(captain))
+        captain = ranked.find((id) => id !== vice) ?? null;
+      if (vice === null || !starters.includes(vice) || vice === captain)
+        vice = ranked.find((id) => id !== captain) ?? null;
+    }
     setSaving(true);
     const { error } = await requireSupabase().rpc('save_squad', {
-      p_starters: [...selected],
-      p_bench: bench.filter((b): b is number => b !== null),
-      p_captain_id: captainId ?? 0,
-      p_vice_id: viceId ?? 0,
+      p_starters: starters,
+      p_bench: subs,
+      p_captain_id: captain ?? 0,
+      p_vice_id: vice ?? 0,
     });
     setSaving(false);
     if (error) {
@@ -295,7 +356,11 @@ export function SquadScreen() {
     await queryClient.invalidateQueries({ queryKey: ['squad'] });
     await queryClient.invalidateQueries({ queryKey: ['bank-before'] });
     await queryClient.invalidateQueries({ queryKey: keys.table });
-    navigate('/dashboard');
+    // After transfers, on to picking the team, as in FPL.
+    if (mode === 'transfers') {
+      setLoadedFrom(null);
+      navigate('/squad');
+    } else navigate('/dashboard');
   }
 
   const visible = pool.filter(
@@ -305,12 +370,11 @@ export function SquadScreen() {
       (!onlyPicked || inSquad(p.id)),
   );
 
-  const allowed = s.formations.length ? s.formations : DEFAULT_FORMATIONS;
   const pickedShape = formationOf(summary.byPosition);
-  // Start from the saved squad's shape, or the first allowed formation.
-  const formation = chosenFormation ?? (allowed.includes(pickedShape) ? pickedShape : allowed[0]!);
+  // The shape the starters make; with fewer than 11, room for the first allowed one.
+  const formation =
+    selected.size === STARTERS || allowed.includes(pickedShape) ? pickedShape : allowed[0]!;
   const rows = pitchRows(picked, formation);
-  const extra = overflow(summary.byPosition, formation);
   const bank = summary.bank;
   const slots = Object.fromEntries(
     POSITIONS.map((pos) => [
@@ -338,14 +402,12 @@ export function SquadScreen() {
                 bench.includes(swapFrom) &&
                 poolById.get(swapFrom)?.position === pos,
               onClick: () => {
-                if (swapFrom === null || !moveTo(swapFrom, { position: pos }))
-                  setPicker({ positions: [pos] });
+                if (swapFrom === null || !moveTo(swapFrom, { position: pos })) goTransfers();
               },
             },
       ),
     ]),
   ) as Record<Position, PitchSlot[]>;
-  const outfield: Position[] = ['DEF', 'MID', 'FWD'];
   const benchSlots = bench.map((id, i): PitchSlot => {
     const p = id === null ? null : poolById.get(id);
     const label = i === 0 ? 'Sub GK' : `Sub ${i}`;
@@ -369,8 +431,7 @@ export function SquadScreen() {
           highlight:
             swapFrom !== null && selected.has(swapFrom) && (i === 0) === isKeeper(swapFrom),
           onClick: () => {
-            if (swapFrom === null || !moveTo(swapFrom, { bench: i }))
-              setPicker({ positions: i === 0 ? ['GK'] : outfield, slot: i });
+            if (swapFrom === null || !moveTo(swapFrom, { bench: i })) goTransfers();
           },
         };
   });
@@ -387,8 +448,80 @@ export function SquadScreen() {
         )
     : [];
 
+  // Transfers: the 15 by position, price above each, empty slots up to FPL's
+  // 2 GK, 5 DEF, 5 MID, 3 FWD while the squad isn't full.
+  const squadPlayers = [...picked, ...benchPlayers.filter((p): p is SquadPlayer => p !== null)];
+  let room = STARTERS + BENCH - squadPlayers.length;
+  const transferRows = Object.fromEntries(
+    POSITIONS.map((pos) => {
+      const here = squadPlayers.filter((p) => p.position === pos);
+      const empty = Math.max(0, Math.min(room, SQUAD_QUOTA[pos] - here.length));
+      room -= empty;
+      return [
+        pos,
+        [
+          ...here.map((p): PitchSlot => ({
+            key: `t${p.id}`,
+            position: pos,
+            name: shortName(p.name),
+            tag: sideById.get(p.side_id)?.short_name,
+            heading: `${formatPrice(p.price)}m`,
+            headingPill: true,
+            sub: nextFor(p),
+            subMuted: nextFor(p) === 'No game',
+            onClick: () => setFocus(p.id),
+          })),
+          ...Array.from({ length: empty }, (_, i): PitchSlot => ({
+            key: `t-${pos}${i}`,
+            position: pos,
+            name: null,
+            onClick: () => setPicker({ positions: [pos] }),
+          })),
+        ],
+      ];
+    }),
+  ) as Record<Position, PitchSlot[]>;
+
+  // Unsaved changes, so switching page can warn first.
+  const savedStarters = new Set(currentStarters);
+  const savedBench = [null, null, null, null] as (number | null)[];
+  for (const r of current.data ?? [])
+    if (r.bench_order) savedBench[r.bench_order - 1] = r.player_id;
+  const dirty =
+    selected.size !== savedStarters.size ||
+    [...selected].some((id) => !savedStarters.has(id)) ||
+    bench.some((id, i) => id !== savedBench[i]) ||
+    captainId !== (current.data?.find((r) => r.is_captain)?.player_id ?? null) ||
+    viceId !== (current.data?.find((r) => r.is_vice)?.player_id ?? null);
+  const leave = (to: string) => (e: { preventDefault: () => void }) => {
+    if (dirty && !window.confirm('You have unsaved changes. Leave without saving?'))
+      e.preventDefault();
+    else setLoadedFrom(null);
+    void to;
+  };
+  const empty = squadPlayers.length === 0;
+
   return (
     <>
+      <nav className="mb-3 flex rounded-full bg-surface p-1 shadow-card" aria-label="Squad pages">
+        {(
+          [
+            ['/squad', 'Pick team', 'pick'],
+            ['/transfers', 'Transfers', 'transfers'],
+          ] as const
+        ).map(([to, label, m]) => (
+          <Link
+            key={to}
+            to={to}
+            onClick={mode === m ? undefined : leave(to)}
+            aria-current={mode === m ? 'page' : undefined}
+            className={`flex min-h-[40px] flex-1 items-center justify-center rounded-full font-display text-sm font-bold uppercase no-underline hover:no-underline ${mode === m ? 'bg-brand text-white' : 'text-ink-soft'}`}
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
+
       <section className="hero !pb-3 !pt-3">
         <div className="flex items-baseline justify-between gap-2">
           <h1 className="m-0 text-3xl leading-none">{gameweekLabel(gameweek, all)}</h1>
@@ -396,30 +529,37 @@ export function SquadScreen() {
             Deadline {formatWeekdayTime(gameweek.deadline)}
           </span>
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
-          <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
-            <span className={`display-num text-xl ${bank < 0 ? 'text-[#ffd0d0]' : ''}`}>
-              {formatPrice(bank)}m
-            </span>
-            <span className="text-[0.7rem] uppercase text-white/85">Bank</span>
+        {mode === 'pick' ? (
+          <p className="mt-1 text-sm text-white/90">
+            {selected.size === STARTERS ? `Lining up ${pickedShape}. ` : ''}
+            Tap a player for captain, vice or a sub.
+          </p>
+        ) : (
+          <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+            <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
+              <span className={`display-num text-xl ${bank < 0 ? 'text-[#ffd0d0]' : ''}`}>
+                {formatPrice(bank)}m
+              </span>
+              <span className="text-[0.7rem] uppercase text-white/85">Bank</span>
+            </div>
+            <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
+              <span className="display-num text-xl">
+                {summary.transfers === null
+                  ? 'Free'
+                  : wildcard
+                    ? 'WC'
+                    : `${summary.transfers}/${s.transfers_per_gameweek}`}
+              </span>
+              <span className="text-[0.7rem] uppercase text-white/85">Transfers</span>
+            </div>
+            <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
+              <span className="display-num text-xl">
+                {summary.count}/{STARTERS + BENCH}
+              </span>
+              <span className="text-[0.7rem] uppercase text-white/85">Squad</span>
+            </div>
           </div>
-          <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
-            <span className="display-num text-xl">
-              {summary.transfers === null
-                ? 'Free'
-                : wildcard
-                  ? 'WC'
-                  : `${summary.transfers}/${s.transfers_per_gameweek}`}
-            </span>
-            <span className="text-[0.7rem] uppercase text-white/85">Transfers</span>
-          </div>
-          <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
-            <span className="display-num text-xl">
-              {summary.count}/{STARTERS + BENCH}
-            </span>
-            <span className="text-[0.7rem] uppercase text-white/85">Squad</span>
-          </div>
-        </div>
+        )}
       </section>
 
       <Notices items={notices} />
@@ -430,63 +570,37 @@ export function SquadScreen() {
         gameweeks={all}
         sides={sides.data ?? []}
         onNotice={setNotices}
+        only={mode === 'pick' ? ['triple_captain', 'rolling_subs', 'team_bus'] : ['wildcard']}
       />
 
-      <div className="mb-3 flex items-center justify-between gap-2">
-        {view === 'pitch' ? (
-          <label className="relative">
-            <span className="sr-only">Formation</span>
-            <select
-              className="min-h-tap appearance-none rounded-full bg-[#16181d] py-0 pl-4 pr-9 font-display text-xl font-extrabold tabular-nums text-white"
-              value={formation}
-              onChange={(e) => setChosenFormation(e.target.value)}
-            >
-              {allowed.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-            >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </label>
-        ) : (
-          <span />
-        )}
-        <div className="inline-flex rounded-full bg-surface p-1 shadow-card" role="tablist">
-          {(['pitch', 'list'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              role="tab"
-              aria-selected={view === v}
-              onClick={() => setView(v)}
-              className={`min-h-[36px] rounded-full px-4 font-display text-sm font-bold uppercase ${view === v ? 'bg-brand text-white' : 'text-ink-soft'}`}
-            >
-              {v === 'pitch' ? 'Pitch' : 'List'}
-            </button>
-          ))}
+      {mode === 'transfers' && (
+        <div className="mb-3 flex justify-center">
+          <div className="inline-flex rounded-full bg-surface p-1 shadow-card" role="tablist">
+            {(['pitch', 'list'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={`min-h-[36px] rounded-full px-5 font-display text-sm font-bold uppercase ${view === v ? 'bg-[#16181d] text-white' : 'text-ink-soft'}`}
+              >
+                {v === 'pitch' ? 'Pitch' : 'List'}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {summary.problems.length > 0 && selected.size > 0 && (
+      {problems.length > 0 && (selected.size > 0 || bench.some((b) => b !== null)) && (
         <details className="mb-3 rounded-xl border border-[#f2c27a] bg-[#fff4e5] px-3 py-2 text-sm font-semibold text-[#6b3d00] dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8]">
           <summary className="cursor-pointer">
-            {summary.problems[0]}
-            {summary.problems.length > 1 && ` (+${summary.problems.length - 1} more)`}
+            {problems[0]}
+            {problems.length > 1 && ` (+${problems.length - 1} more)`}
           </summary>
-          {summary.problems.length > 1 && (
+          {problems.length > 1 && (
             <ul className="mt-1 list-disc pl-5 font-normal">
-              {summary.problems.slice(1).map((p) => (
+              {problems.slice(1).map((p) => (
                 <li key={p}>{p}</li>
               ))}
             </ul>
@@ -494,17 +608,24 @@ export function SquadScreen() {
         </details>
       )}
 
-      {view === 'pitch' ? (
+      {mode === 'pick' && empty ? (
+        <section className="card text-center">
+          <h2>No squad yet</h2>
+          <p className="muted mb-3">Pick your 15 players on Transfers first.</p>
+          <Link className="btn" to="/transfers">
+            Go to transfers
+          </Link>
+        </section>
+      ) : mode === 'transfers' && view === 'pitch' ? (
         <>
-          {Object.keys(extra).length > 0 && (
-            <p className="mb-3 rounded-xl border border-brand/40 bg-brand/5 px-3 py-2 text-sm font-semibold">
-              To play {formation}, remove{' '}
-              {Object.entries(extra)
-                .map(([pos, n]) => `${n} ${pos}`)
-                .join(' and ')}
-              . Tap a player to remove or swap them.
-            </p>
-          )}
+          <Pitch rows={transferRows} />
+          <p className="muted mt-3 text-center text-sm">
+            Tap a player to transfer them out, or an empty shirt to add one. Like for like: a
+            defender out, a defender in.
+          </p>
+        </>
+      ) : mode === 'pick' ? (
+        <>
           {swapping && (
             <div className="fixed inset-x-4 bottom-[8.5rem] z-30 flex items-center sm:static sm:mb-3 justify-between gap-2 rounded-xl bg-[#16181d] px-3 py-2 text-sm font-semibold text-white shadow-card">
               <span>Tap who {swapping.name} swaps with</span>
@@ -571,8 +692,6 @@ export function SquadScreen() {
               <thead>
                 <tr>
                   <th>Pick</th>
-                  <th>C</th>
-                  <th>VC</th>
                   <th>Player</th>
                   <th>Pos</th>
                   <th>Side</th>
@@ -593,28 +712,6 @@ export function SquadScreen() {
                           aria-label={`Pick ${p.name}`}
                           checked={isPicked}
                           onChange={() => toggle(p.id)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="radio"
-                          name="captain"
-                          className="h-5 w-5 accent-[#d91414]"
-                          aria-label={`Captain ${p.name}`}
-                          disabled={!selected.has(p.id)}
-                          checked={captainId === p.id}
-                          onChange={() => makeCaptain(p.id)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="radio"
-                          name="vice"
-                          className="h-5 w-5 accent-[#16181d]"
-                          aria-label={`Vice-captain ${p.name}`}
-                          disabled={!selected.has(p.id)}
-                          checked={viceId === p.id}
-                          onChange={() => makeVice(p.id)}
                         />
                       </td>
                       <td>
@@ -651,16 +748,19 @@ export function SquadScreen() {
       <div className="fixed inset-x-0 bottom-[calc(4rem+1px+env(safe-area-inset-bottom))] z-20 flex items-center gap-3 border-t border-line bg-surface px-4 py-2 sm:sticky sm:bottom-4 sm:mt-4 sm:rounded-2xl sm:border sm:shadow-card">
         <div className="flex flex-col leading-tight">
           <span className="text-xs uppercase tracking-wide text-ink-soft">
-            {summary.problems.length && selected.size
-              ? `${summary.problems.length} to fix`
-              : 'Ready'}
+            {problems.length && squadPlayers.length ? `${problems.length} to fix` : 'Ready'}
           </span>
           <span className={`font-bold ${bank < 0 ? 'text-brand' : ''}`}>
-            Bank {formatPrice(bank)}m
+            {mode === 'transfers' ? `Bank ${formatPrice(bank)}m` : pickedShape}
           </span>
         </div>
-        <button type="button" className="btn flex-1" disabled={saving} onClick={() => void save()}>
-          {saving ? 'Saving' : 'Save squad'}
+        <button
+          type="button"
+          className="btn flex-1"
+          disabled={saving || (mode === 'pick' && empty)}
+          onClick={() => void save()}
+        >
+          {saving ? 'Saving' : mode === 'transfers' ? 'Save transfers' : 'Save team'}
         </button>
       </div>
       <div className="h-16 sm:hidden" />
@@ -755,9 +855,40 @@ export function SquadScreen() {
             playerId={focused.id}
             gameweekId={lastPlayed?.id}
             actions={
-              <div className="space-y-2">
+              mode === 'transfers' ? (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    className="btn w-full"
+                    onClick={() => {
+                      remove(focused.id);
+                      setFocus(null);
+                      setPicker(
+                        focusedSlot < 0
+                          ? { positions: [focused.position] }
+                          : {
+                              positions: focusedSlot === 0 ? ['GK'] : [focused.position],
+                              slot: focusedSlot,
+                            },
+                      );
+                    }}
+                  >
+                    Transfer out
+                  </button>
+                  <button
+                    type="button"
+                    className="min-h-tap w-full text-sm font-semibold text-brand underline"
+                    onClick={() => {
+                      remove(focused.id);
+                      setFocus(null);
+                    }}
+                  >
+                    Remove (leave the slot empty)
+                  </button>
+                </div>
+              ) : (
                 <div className="grid grid-cols-2 gap-2">
-                  {focusedSlot < 0 ? (
+                  {focusedSlot < 0 && (
                     <>
                       <button
                         type="button"
@@ -782,45 +913,26 @@ export function SquadScreen() {
                         {viceId === focused.id ? 'Vice-captain' : 'Make vice'}
                       </button>
                     </>
-                  ) : null}
+                  )}
                   <button
                     type="button"
                     className={`btn ${focusedSlot < 0 ? 'btn-quiet' : ''}`}
                     onClick={() => {
                       setSwapFrom(focused.id);
                       setFocus(null);
-                      setView('pitch');
                     }}
                   >
                     {focusedSlot < 0 ? 'Swap with sub' : 'Bring on'}
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-quiet"
-                    onClick={() => {
-                      remove(focused.id);
-                      setFocus(null);
-                      setPicker(
-                        focusedSlot < 0
-                          ? { positions: [focused.position] }
-                          : { positions: focusedSlot === 0 ? ['GK'] : outfield, slot: focusedSlot },
-                      );
-                    }}
+                  <Link
+                    to="/transfers"
+                    onClick={leave('/transfers')}
+                    className="btn btn-quiet no-underline hover:no-underline"
                   >
-                    Transfer out
-                  </button>
+                    Transfer
+                  </Link>
                 </div>
-                <button
-                  type="button"
-                  className="min-h-tap w-full text-sm font-semibold text-brand underline"
-                  onClick={() => {
-                    remove(focused.id);
-                    setFocus(null);
-                  }}
-                >
-                  Remove from squad
-                </button>
-              </div>
+              )
             }
           />
         </Sheet>

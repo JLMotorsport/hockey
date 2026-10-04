@@ -1,4 +1,11 @@
-import { formatPrice, parsePrice, summariseSquad, type SquadPlayer } from '@/lib/squad';
+import {
+  autoArrange,
+  formatPrice,
+  isValidArrangement,
+  parsePrice,
+  summariseSquad,
+  type SquadPlayer,
+} from '@/lib/squad';
 
 const settings = {
   budget: 1000,
@@ -135,5 +142,33 @@ describe('prices', () => {
     expect(parsePrice('0')).toBeNull();
     expect(parsePrice('100.0')).toBeNull();
     expect(parsePrice('100.0', 10000)).toBe(1000);
+  });
+});
+
+describe('autoArrange', () => {
+  const formations = ['4-4-2', '4-3-3', '3-5-2'];
+  const fifteen = () => [...xi(), ...subs()]; // 2 GK, 5 DEF, 5 MID, 3 FWD
+
+  it('starts one keeper and fills an allowed formation, the rest on the bench', () => {
+    const a = autoArrange(fifteen(), formations)!;
+    expect(a.starters).toHaveLength(11);
+    expect(a.bench[0]).toBe(12); // the other keeper
+    const starters = fifteen().filter((p) => a.starters.includes(p.id));
+    const bench = a.bench.map((id) => fifteen().find((p) => p.id === id)!);
+    expect(isValidArrangement(starters, bench, formations)).toBe(true);
+  });
+
+  it('keeps the shape and players the user already started', () => {
+    // Starters as saved: the 3-5-2 made by 1 GK, DEF 2-4 and 13, MID 6-9 and 14, FWD 10-11.
+    const order = [1, 2, 3, 4, 6, 7, 8, 9, 14, 10, 11];
+    const a = autoArrange(fifteen(), formations, order)!;
+    expect(a.starters.sort((x, y) => x - y)).toEqual([...order].sort((x, y) => x - y));
+  });
+
+  it('gives up when no formation fits', () => {
+    const noForwards = fifteen().map((p) =>
+      p.position === 'FWD' ? { ...p, position: 'MID' as const } : p,
+    );
+    expect(autoArrange(noForwards, ['4-4-2'])).toBeNull();
   });
 });

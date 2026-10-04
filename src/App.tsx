@@ -60,7 +60,8 @@ export function App() {
               <Route path="register" element={<RegisterScreen />} />
               <Route path="account" element={<AccountScreen />} />
               <Route path="dashboard" element={<DashboardScreen />} />
-              <Route path="squad" element={<SquadScreen />} />
+              <Route path="squad" element={<SquadScreen mode="pick" />} />
+              <Route path="transfers" element={<SquadScreen mode="transfers" />} />
               <Route path="table" element={<TableScreen />} />
               <Route path="teams/:userId" element={<TeamScreen />} />
               <Route path="players" element={<PlayersScreen />} />

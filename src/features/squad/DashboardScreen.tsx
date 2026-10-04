@@ -95,7 +95,7 @@ export function DashboardScreen() {
         </div>
         {next && (
           <Link
-            to="/squad"
+            to={upcoming.data?.length ? '/squad' : '/transfers'}
             className="mt-3 flex min-h-tap items-center gap-3 rounded-xl bg-black/20 px-3 py-2 text-white no-underline hover:no-underline"
           >
             <span className="flex flex-1 flex-col leading-tight">

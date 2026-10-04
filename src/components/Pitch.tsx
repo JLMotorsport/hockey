@@ -148,6 +148,8 @@ export interface PitchSlot {
   label?: string;
   /** Small label above the shirt, e.g. a sub's position. */
   heading?: string;
+  /** Show the heading as a dark pill (on the pitch) rather than plain text (on the bench). */
+  headingPill?: boolean;
   /** Ringed while choosing who to swap with. */
   highlight?: boolean;
   /** Greyed out, e.g. a starter who was subbed off. */
@@ -163,7 +165,13 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
   const inner = (
     <>
       {slot.heading !== undefined && (
-        <span className="mb-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-[#1b6e41]">
+        <span
+          className={
+            slot.headingPill
+              ? 'mb-0.5 rounded bg-black/55 px-1.5 font-display text-xs font-bold text-white'
+              : 'mb-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-[#1b6e41]'
+          }
+        >
           {slot.heading || '\u00a0'}
         </span>
       )}

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import { CalendarIcon, HomeIcon, MenuIcon, PitchIcon, SwapIcon, TrophyIcon } from './icons';
@@ -10,12 +10,19 @@ function Crest({ className = '' }: { className?: string }) {
   return <img src="/crest.png" alt="" className={`brightness-0 invert ${className}`} />;
 }
 
+/** Pick covers both squad pages: Pick team (/squad) and Transfers. */
+function useAlsoActive(to: string) {
+  const { pathname } = useLocation();
+  return to === '/squad' && pathname.startsWith('/transfers');
+}
+
 function TopLink({ to, children }: { to: string; children: string }) {
+  const also = useAlsoActive(to);
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `rounded-full px-3 py-1.5 font-display text-[0.95rem] font-bold uppercase tracking-wide text-white no-underline hover:bg-white/15 hover:no-underline ${isActive ? 'bg-white/20' : ''}`
+        `rounded-full px-3 py-1.5 font-display text-[0.95rem] font-bold uppercase tracking-wide text-white no-underline hover:bg-white/15 hover:no-underline ${isActive || also ? 'bg-white/20' : ''}`
       }
     >
       {children}
@@ -24,12 +31,13 @@ function TopLink({ to, children }: { to: string; children: string }) {
 }
 
 function Tab({ to, icon, children }: { to: string; icon: ReactNode; children: string }) {
+  const also = useAlsoActive(to);
   return (
     <NavLink
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
-        `flex h-16 flex-1 flex-col items-center justify-center gap-0.5 font-display text-[0.7rem] font-bold uppercase no-underline hover:no-underline ${isActive ? 'text-brand' : 'text-ink-soft'}`
+        `flex h-16 flex-1 flex-col items-center justify-center gap-0.5 font-display text-[0.7rem] font-bold uppercase no-underline hover:no-underline ${isActive || also ? 'text-brand' : 'text-ink-soft'}`
       }
     >
       {icon}
