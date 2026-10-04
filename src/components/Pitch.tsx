@@ -146,6 +146,8 @@ export interface PitchSlot {
   badge?: string;
   /** Text for an empty slot instead of the position, e.g. "Sub 1". */
   label?: string;
+  /** Small label above the shirt, e.g. a sub's position. */
+  heading?: string;
   /** Ringed while choosing who to swap with. */
   highlight?: boolean;
   /** Greyed out, e.g. a starter who was subbed off. */
@@ -160,6 +162,11 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
     : `Add ${slot.label ?? slot.position}`;
   const inner = (
     <>
+      {slot.heading !== undefined && (
+        <span className="mb-0.5 font-display text-xs font-extrabold uppercase tracking-wider text-[#1b6e41]">
+          {slot.heading || '\u00a0'}
+        </span>
+      )}
       <span className="relative">
         <Shirt
           keeper={slot.position === 'GK'}
@@ -237,13 +244,18 @@ export function Pitch({
     <div className="mx-auto w-full max-w-[26rem] overflow-hidden rounded-2xl bg-[#1b6e41] shadow-card">
       <PitchField rows={rows} order={order} />
       {bench && (
-        <div className="bg-[#cfe6d6] px-1 pb-3 pt-2">
-          <p className="mb-1 text-center font-display text-xs font-bold uppercase tracking-widest text-[#1b6e41]">
-            Subs
-          </p>
+        <div className="bg-[#cfe6d6] px-1 pb-3 pt-2" aria-label="Subs">
           <div className="flex justify-center gap-0.5 sm:gap-2">
+            {/* Each sub's position above them, as in FPL; blank over an empty outfield slot. */}
             {bench.map((slot) => (
-              <PlayerSpot key={slot.key} slot={slot} />
+              <PlayerSpot
+                key={slot.key}
+                slot={{
+                  ...slot,
+                  heading:
+                    slot.heading ?? (slot.name || slot.position === 'GK' ? slot.position : ''),
+                }}
+              />
             ))}
           </div>
         </div>

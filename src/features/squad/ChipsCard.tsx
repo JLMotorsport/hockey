@@ -78,18 +78,18 @@ export function ChipsCard({
                 setSideId(state.state === 'active' && state.sideId ? String(state.sideId) : '');
                 setOpen(c);
               }}
-              className={`flex flex-col items-center gap-1 rounded-xl px-1 pb-1.5 pt-2 text-center shadow-card ${state.state === 'used' ? 'bg-surface opacity-55' : 'bg-surface'}`}
+              className={`flex flex-col items-center gap-0.5 rounded-xl px-1 pb-1.5 pt-1.5 text-center shadow-card ${state.state === 'used' ? 'bg-surface opacity-55' : 'bg-surface'}`}
             >
               <span
-                className={`flex h-8 w-8 items-center justify-center rounded-full ${state.state === 'active' ? 'bg-brand text-white' : 'bg-[#16181d] text-white dark:bg-white dark:text-[#16181d]'}`}
+                className={`flex h-6 w-6 items-center justify-center rounded-full [&>svg]:h-4 [&>svg]:w-4 ${state.state === 'active' ? 'bg-brand text-white' : 'bg-[#16181d] text-white dark:bg-white dark:text-[#16181d]'}`}
               >
                 <Icon />
               </span>
-              <span className="flex min-h-[2rem] items-center font-display text-[0.78rem] font-extrabold uppercase leading-tight">
+              <span className="whitespace-nowrap font-display text-[0.72rem] font-extrabold uppercase leading-tight">
                 {c.name}
               </span>
               <span
-                className={`w-full rounded-md py-1 font-display text-[0.72rem] font-bold uppercase ${
+                className={`w-full rounded-md py-0.5 font-display text-[0.68rem] font-bold uppercase ${
                   state.state === 'active'
                     ? 'bg-brand text-white'
                     : state.state === 'used'
