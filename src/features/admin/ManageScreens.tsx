@@ -138,7 +138,10 @@ function PositionsCard({
   const [busy, setBusy] = useState(false);
   const byId = new Map(players.map((p) => [p.id, p]));
   const changes = suggestPositions(appearances, sheets)
-    .filter((s) => byId.get(s.player_id) && byId.get(s.player_id)!.position !== s.position)
+    .filter((s) => {
+      const p = byId.get(s.player_id);
+      return p && !p.position_confirmed && p.position !== s.position;
+    })
     .sort((a, b) => byId.get(a.player_id)!.name.localeCompare(byId.get(b.player_id)!.name));
   if (!changes.length) return null;
   const chosen = changes.filter((c) => !skip.has(c.player_id));
@@ -159,12 +162,25 @@ function PositionsCard({
     await queryClient.invalidateQueries({ queryKey: keys.players });
   }
 
+  /** Pitchero has it wrong: keep the current position and stop suggesting. */
+  async function reject(ids: number[]) {
+    setBusy(true);
+    const { error } = await requireSupabase()
+      .from('players')
+      .update({ position_confirmed: true })
+      .in('id', ids);
+    setBusy(false);
+    if (error) onDone(errorLines(error).map((text) => ({ kind: 'error', text })));
+    await queryClient.invalidateQueries({ queryKey: keys.players });
+  }
+
   return (
     <section className="card">
       <h2>Positions from Pitchero ({changes.length})</h2>
       <p className="muted text-sm">
         Where each player most often lines up on Pitchero team sheets (wingers count as midfield).
-        Untick any you want to keep as they are.
+        Untick any to leave for now, or reject the ones Pitchero has wrong and they won&apos;t be
+        suggested again. Changing a position by hand also stops suggestions for that player.
       </p>
       <table className="table">
         <thead>
@@ -174,6 +190,7 @@ function PositionsCard({
             <th>Now</th>
             <th>Pitchero</th>
             <th>Seen as</th>
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -203,6 +220,17 @@ function PositionsCard({
                   <PosBadge position={c.position} />
                 </td>
                 <td className="muted text-xs">{c.evidence}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn btn-quiet"
+                    disabled={busy}
+                    aria-label={`Reject Pitchero position for ${p.name}`}
+                    onClick={() => void reject([c.player_id])}
+                  >
+                    Reject
+                  </button>
+                </td>
               </tr>
             );
           })}
@@ -216,6 +244,16 @@ function PositionsCard({
       >
         {busy ? 'Updating' : `Apply ${chosen.length} position(s)`}
       </button>
+      {skip.size > 0 && (
+        <button
+          type="button"
+          className="btn btn-quiet mt-3 ml-2"
+          disabled={busy}
+          onClick={() => void reject([...skip]).then(() => setSkip(new Set()))}
+        >
+          Reject {skip.size} unticked
+        </button>
+      )}
     </section>
   );
 }

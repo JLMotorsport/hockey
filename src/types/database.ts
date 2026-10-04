@@ -304,6 +304,7 @@ export type Database = {
           name_withheld: boolean;
           needs_review: boolean;
           position: string;
+          position_confirmed: boolean;
           price: number;
           side_id: number;
         };
@@ -315,6 +316,7 @@ export type Database = {
           name_withheld?: boolean;
           needs_review?: boolean;
           position: string;
+          position_confirmed?: boolean;
           price?: number;
           side_id: number;
         };
@@ -326,6 +328,7 @@ export type Database = {
           name_withheld?: boolean;
           needs_review?: boolean;
           position?: string;
+          position_confirmed?: boolean;
           price?: number;
           side_id?: number;
         };
