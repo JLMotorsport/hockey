@@ -174,3 +174,31 @@ export function useGameweekPricing() {
     queryFn: async () => unwrap(await requireSupabase().from('gameweek_pricing').select('*')),
   });
 }
+
+/** Every player's points in one gameweek. */
+export function useGameweekScores(gameweekId: number | undefined) {
+  return useQuery({
+    queryKey: ['gameweek-scores', gameweekId ?? 0],
+    enabled: Boolean(gameweekId),
+    queryFn: async () =>
+      unwrap(
+        await requireSupabase()
+          .from('player_gameweek_points')
+          .select('*')
+          .eq('gameweek_id', gameweekId as number),
+      ),
+  });
+}
+
+/** Ids of gameweeks that have any points recorded. */
+export function useScoredGameweeks() {
+  return useQuery({
+    queryKey: ['scored-gameweeks'],
+    queryFn: async () => {
+      const rows = unwrap(
+        await requireSupabase().from('player_gameweek_points').select('gameweek_id'),
+      );
+      return new Set(rows.map((r) => r.gameweek_id ?? 0));
+    },
+  });
+}

@@ -115,6 +115,23 @@ export function DashboardScreen() {
         !next && <p className="muted">No upcoming gameweeks yet.</p>
       )}
 
+      {last && (
+        <Link
+          to="/team-of-the-week"
+          className="card flex items-center justify-between gap-3 text-ink no-underline hover:border-brand hover:no-underline"
+        >
+          <span>
+            <span className="block font-display text-sm font-bold uppercase tracking-wide text-ink-soft">
+              {gameweekLabel(last, all).split(' ')[0]}
+            </span>
+            <span className="font-display text-2xl font-extrabold uppercase">Team of the week</span>
+          </span>
+          <span className="font-display text-3xl text-brand" aria-hidden="true">
+            ›
+          </span>
+        </Link>
+      )}
+
       {locked.length > 0 && (
         <section className="card">
           <h2>Points by gameweek</h2>

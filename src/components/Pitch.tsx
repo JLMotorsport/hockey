@@ -1,3 +1,5 @@
+import { LEAD_SPONSORS, OTHER_SPONSORS } from '@/lib/sponsors';
+import { SponsorBoards } from './SponsorBoards';
 import type { ReactNode } from 'react';
 import type { Position } from '@/lib/scoring';
 
@@ -101,6 +103,8 @@ export interface PitchSlot {
   tag?: string;
   sub?: ReactNode;
   captain?: boolean;
+  /** Small badge on the shirt; defaults to "C" for the captain. */
+  badge?: string;
   onClick?: () => void;
 }
 
@@ -117,9 +121,9 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
           empty={!slot.name}
           className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
         />
-        {slot.captain && (
+        {(slot.captain || slot.badge) && (
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#16181d] font-display text-xs font-bold text-white ring-2 ring-white">
-            C
+            {slot.badge ?? 'C'}
           </span>
         )}
       </span>
@@ -162,14 +166,34 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
   );
 }
 
-/** Players on the pitch: forwards at the top, keeper at the bottom. */
-export function Pitch({ rows }: { rows: Record<Position, PitchSlot[]> }) {
+/** Players on the pitch: forwards at the top, keeper at the bottom, sponsor boards at each end. */
+export function Pitch({
+  rows,
+  stillBoards = false,
+}: {
+  rows: Record<Position, PitchSlot[]>;
+  stillBoards?: boolean;
+}) {
   const order: Position[] = ['FWD', 'MID', 'DEF', 'GK'];
   return (
-    <div
-      className="relative mx-auto w-full max-w-[26rem] overflow-hidden rounded-2xl shadow-card"
-      style={{ aspectRatio: '590 / 954' }}
-    >
+    <div className="mx-auto w-full max-w-[26rem] overflow-hidden rounded-2xl bg-[#1b6e41] shadow-card">
+      <SponsorBoards
+        sponsors={[...LEAD_SPONSORS, ...OTHER_SPONSORS.slice(0, 6)]}
+        still={stillBoards}
+      />
+      <PitchField rows={rows} order={order} />
+      <SponsorBoards
+        sponsors={[...OTHER_SPONSORS.slice(6), ...LEAD_SPONSORS]}
+        still={stillBoards}
+        reverse
+      />
+    </div>
+  );
+}
+
+function PitchField({ rows, order }: { rows: Record<Position, PitchSlot[]>; order: Position[] }) {
+  return (
+    <div className="relative w-full overflow-hidden" style={{ aspectRatio: '590 / 954' }}>
       <PitchMarkings />
       <div className="relative flex h-full flex-col justify-around px-1 py-6">
         {order.map((pos) => (

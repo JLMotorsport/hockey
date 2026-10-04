@@ -22,6 +22,7 @@ import {
 import { DashboardScreen } from './features/squad/DashboardScreen';
 import { SquadScreen } from './features/squad/SquadScreen';
 import { TeamScreen } from './features/squad/TeamScreen';
+import { TeamOfWeekScreen } from './features/totw/TeamOfWeekScreen';
 import { useAuth } from './lib/auth/AuthProvider';
 import { isSupabaseConfigured } from './lib/env';
 
@@ -63,6 +64,7 @@ export function App() {
               <Route path="table" element={<TableScreen />} />
               <Route path="teams/:userId" element={<TeamScreen />} />
               <Route path="players" element={<PlayersScreen />} />
+              <Route path="team-of-the-week" element={<TeamOfWeekScreen />} />
               <Route path="fixtures" element={<FixturesScreen />} />
               <Route path="rules" element={<RulesScreen />} />
               <Route path="manage" element={<AdminLayout />}>

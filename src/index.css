@@ -101,3 +101,12 @@
     @apply relative -mx-4 mb-4 overflow-hidden bg-gradient-to-br from-brand to-brand-dark px-4 pb-6 pt-5 text-brand-ink sm:mx-0 sm:mt-4 sm:rounded-2xl;
   }
 }
+
+@keyframes boards {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}

@@ -69,6 +69,7 @@ export function Layout() {
             {session && <TopLink to="/dashboard">My team</TopLink>}
             {session && <TopLink to="/squad">Pick</TopLink>}
             <TopLink to="/table">Table</TopLink>
+            <TopLink to="/team-of-the-week">TOTW</TopLink>
             <TopLink to="/players">Players</TopLink>
             <TopLink to="/fixtures">Fixtures</TopLink>
             <TopLink to="/rules">Rules</TopLink>
@@ -144,6 +145,7 @@ export function Layout() {
         <Sheet title="Menu" onClose={() => setMenuOpen(false)}>
           <ul className="divide-y divide-line">
             {[
+              ['/team-of-the-week', 'Team of the week'],
               ['/players', 'Players'],
               ['/rules', 'How it works'],
               ...(profile?.is_admin ? [['/manage', 'Manager dashboard']] : []),
