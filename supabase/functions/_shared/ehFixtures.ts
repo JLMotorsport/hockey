@@ -108,7 +108,10 @@ export function fixtureFeedUrl(teamFeedUrl: string, fixtureId: string): string {
 
 export interface LineupPlayer {
   member_id: string;
-  name: string;
+  /** Null when the player's name is withheld on England Hockey. */
+  name: string | null;
+  withheld: boolean;
+  shirt: string | null;
   is_gk: boolean;
   goals: number;
   green_cards: number;
@@ -118,8 +121,10 @@ export interface LineupPlayer {
 
 export interface ParsedLineup {
   players: LineupPlayer[];
-  /** Players who have withheld their name: they can't be matched or scored. */
+  /** Withheld names that come with a member id: imported under a placeholder. */
   withheld: number;
+  /** Listed players with no member id at all: can't be matched or scored. */
+  unmatched: number;
   /** Event codes we don't score, so a new code shows up in the sync report. */
   unknownEvents: string[];
 }
@@ -144,17 +149,22 @@ export function parseLineup(payload: unknown, teamId: string): ParsedLineup {
 
   const players = new Map<string, LineupPlayer>();
   let withheld = 0;
+  let unmatched = 0;
   for (const p of roster.map(obj)) {
     if (p.teamId !== teamId) continue;
     const memberId = str(p.memberId);
     const name = str(p.displayName);
-    if (!memberId || !name || p.consent === false || /^name withheld$/i.test(name)) {
-      withheld += 1;
+    if (!memberId) {
+      unmatched += 1;
       continue;
     }
+    const isWithheld = !name || p.consent === false || /^name withheld$/i.test(name);
+    if (isWithheld) withheld += 1;
     players.set(memberId, {
       member_id: memberId,
-      name: name.trim(),
+      name: isWithheld ? null : name.trim(),
+      withheld: isWithheld,
+      shirt: str(p.shirtNumber),
       is_gk: /\bGK\b/i.test(String(p.otherRoleDescription ?? '')),
       goals: 0,
       green_cards: 0,
@@ -178,5 +188,5 @@ export function parseLineup(payload: unknown, teamId: string): ParsedLineup {
       unknown.add(code);
     }
   }
-  return { players: [...players.values()], withheld, unknownEvents: [...unknown] };
+  return { players: [...players.values()], withheld, unmatched, unknownEvents: [...unknown] };
 }

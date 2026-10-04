@@ -1,6 +1,12 @@
 import { formatPrice, parsePrice, summariseSquad, type SquadPlayer } from '@/lib/squad';
 
-const settings = { budget: 1000, squad_size: 11, max_per_side: 4, transfers_per_gameweek: 2 };
+const settings = {
+  budget: 1000,
+  squad_size: 11,
+  max_per_side: 4,
+  transfers_per_gameweek: 2,
+  formations: ['4-4-2', '4-3-3', '3-5-2'],
+};
 const shape = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'MID', 'FWD', 'FWD'] as const;
 
 function squad(price = 80): SquadPlayer[] {
@@ -31,6 +37,13 @@ describe('summariseSquad', () => {
     expect(s.problems.join(' ')).toMatch(/budget/);
     expect(s.problems.join(' ')).toMatch(/Max 3 players from Side/);
     expect(s.problems.join(' ')).toMatch(/captain/);
+  });
+
+  it('only allows the league formations', () => {
+    const players = squad(); // 4-4-2
+    expect(
+      summariseSquad(players, 1, { ...settings, formations: ['4-3-3'] }, [], []).problems,
+    ).toEqual(["That's a 4-4-2. Pick one of: 4-3-3."]);
   });
 
   it('counts transfers against the previous squad', () => {

@@ -331,6 +331,56 @@ describe.skipIf(!configured)('league database', () => {
       await boss.db.from('league_settings').update({ max_per_side: 4 }).eq('id', 1);
     });
 
+    it('only accepts the league formations', async () => {
+      const ids = (idx: number[]) => idx.map((i) => playerIds[i]!);
+      // 0 GK, 1-4 DEF, 5-8 MID, 9-10 FWD, 11 GK, 12 FWD, 13 DEF
+      const fourFourTwo = ids([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      const threeFourThree = ids([0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 12]);
+      const fourThreeThree = ids([0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 12]);
+      expect(
+        (
+          await bob.db.rpc('save_squad', {
+            p_player_ids: fourFourTwo,
+            p_captain_id: fourFourTwo[0]!,
+          })
+        ).error,
+      ).toBeNull();
+
+      await boss.db
+        .from('league_settings')
+        .update({ formations: ['3-4-3'] })
+        .eq('id', 1);
+      // A saved 4-4-2 can still change captain after 4-4-2 is switched off.
+      expect(
+        (
+          await bob.db.rpc('save_squad', {
+            p_player_ids: fourFourTwo,
+            p_captain_id: fourFourTwo[1]!,
+          })
+        ).error,
+      ).toBeNull();
+      expect(
+        (
+          await bob.db.rpc('save_squad', {
+            p_player_ids: threeFourThree,
+            p_captain_id: threeFourThree[0]!,
+          })
+        ).error,
+      ).toBeNull();
+      const res = await bob.db.rpc('save_squad', {
+        p_player_ids: fourThreeThree,
+        p_captain_id: fourThreeThree[0]!,
+      });
+      expect(res.error!.message).toBe("That's a 4-3-3. Pick one of: 3-4-3.");
+
+      await boss.db
+        .from('league_settings')
+        .update({ formations: ['4-4-2', '4-3-3', '3-4-3', '3-5-2', '5-3-2', '4-5-1', '5-4-1'] })
+        .eq('id', 1);
+      // Leave Bob without a squad; later tests expect him on zero.
+      await service.from('picks').delete().eq('user_id', bob.id);
+    });
+
     it('hides squads from others until the deadline', async () => {
       const peek = await bob.db.rpc('squad_for', { p_user: alice.id, p_gameweek: openGw });
       expect(peek.error!.message).toMatch(/hidden until the deadline/);
@@ -607,5 +657,151 @@ describe.skipIf(!configured)('league database', () => {
     expect(
       (await anon.from('performances').select('id').eq('fixture_id', fixtureId)).data,
     ).toHaveLength(2);
+  });
+
+  it('imports withheld players under a placeholder, keeps a corrected name, and merges', async () => {
+    const m3 = sides[2]!.id;
+    const mk = async (eh: string) =>
+      (
+        await service
+          .from('fixtures')
+          .insert({
+            side_id: m3,
+            kickoff: '2026-09-19T14:00:00+01:00',
+            opponent: eh,
+            gameweek_id: 0,
+            goals_for: 2,
+            goals_against: 1,
+            eh_fixture_id: eh,
+          })
+          .select('id')
+          .single()
+      ).data!.id;
+    const f1 = await mk('eh-withheld-1');
+    const f2 = await mk('eh-withheld-2');
+    const hidden = {
+      member_id: 'm-hidden',
+      name: null,
+      withheld: true,
+      shirt: '7',
+      is_gk: false,
+      goals: 2,
+      green_cards: 1,
+      yellow_cards: 0,
+      red_cards: 0,
+    };
+    const res = await service.rpc('import_lineup', {
+      p_fixture_id: f1,
+      p_players: [hidden] as never,
+      p_withheld: 0,
+    });
+    expect(res.data).toEqual({ created: 1, players: 1 });
+    const placeholder = (
+      await anon.from('players').select('*').eq('eh_member_id', 'm-hidden').single()
+    ).data!;
+    expect(placeholder).toMatchObject({
+      name: 'Name withheld #7 (M3)',
+      name_withheld: true,
+      needs_review: true,
+    });
+    expect(
+      (await anon.from('performances').select('goals, green_cards').eq('fixture_id', f1).single())
+        .data,
+    ).toEqual({ goals: 2, green_cards: 1 });
+
+    // The manager corrects the name; the next sync keeps it.
+    await boss.db.from('players').update({ name: 'Real Person' }).eq('id', placeholder.id);
+    await service.rpc('import_lineup', {
+      p_fixture_id: f2,
+      p_players: [{ ...hidden, goals: 1 }] as never,
+      p_withheld: 0,
+    });
+    expect(
+      (await anon.from('players').select('name, name_withheld').eq('id', placeholder.id).single())
+        .data,
+    ).toEqual({
+      name: 'Real Person',
+      name_withheld: false,
+    });
+    expect(
+      (await anon.from('performances').select('player_id').eq('fixture_id', f2).single()).data
+        ?.player_id,
+    ).toBe(placeholder.id);
+
+    // A second withheld player turns out to be someone the manager added by hand.
+    const manual = (
+      await boss.db
+        .from('players')
+        .insert({ name: 'Hand Added', position: 'MID', side_id: m3, price: 55 })
+        .select('id')
+        .single()
+    ).data!.id;
+    await boss.db.rpc('save_match_stats', {
+      p_fixture_id: f1,
+      p_goals_for: 2,
+      p_goals_against: 1,
+      p_stats: [
+        { player_id: placeholder.id, goals: 2, green_cards: 1 },
+        { player_id: manual, goals: 0, player_of_match: true },
+      ],
+      p_complete: true,
+    });
+    await service.rpc('import_lineup', {
+      p_fixture_id: f1,
+      p_players: [
+        hidden,
+        {
+          ...hidden,
+          member_id: 'm-hidden-2',
+          shirt: '9',
+          goals: 0,
+          green_cards: 0,
+          yellow_cards: 1,
+        },
+      ] as never,
+      p_withheld: 0,
+    });
+    const dupe = (await anon.from('players').select('id').eq('eh_member_id', 'm-hidden-2').single())
+      .data!.id;
+    expect(
+      (await alice.db.rpc('merge_players', { p_from: dupe, p_into: manual })).error,
+    ).not.toBeNull();
+    expect((await boss.db.rpc('merge_players', { p_from: dupe, p_into: manual })).error).toBeNull();
+
+    expect((await anon.from('players').select('id').eq('id', dupe)).data).toEqual([]);
+    expect(
+      (await anon.from('players').select('eh_member_id').eq('id', manual).single()).data
+        ?.eh_member_id,
+    ).toBe('m-hidden-2');
+    // One row for the merged player: England Hockey's card, the manager's player of the match.
+    expect(
+      (
+        await anon
+          .from('performances')
+          .select('player_id, yellow_cards, player_of_match')
+          .eq('fixture_id', f1)
+          .eq('player_id', manual)
+      ).data,
+    ).toEqual([{ player_id: manual, yellow_cards: 1, player_of_match: true }]);
+    // Later syncs now land on the merged player.
+    await service.rpc('import_lineup', {
+      p_fixture_id: f2,
+      p_players: [{ ...hidden, member_id: 'm-hidden-2' }] as never,
+      p_withheld: 0,
+    });
+    expect(
+      (
+        await anon
+          .from('performances')
+          .select('player_id')
+          .eq('fixture_id', f2)
+          .eq('player_id', manual)
+      ).data,
+    ).toHaveLength(1);
+    // Two different England Hockey people can't be merged.
+    expect(
+      (await boss.db.rpc('merge_players', { p_from: placeholder.id, p_into: manual })).error
+        ?.message,
+    ).toMatch(/different people/);
   });
 });

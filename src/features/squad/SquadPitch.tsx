@@ -1,5 +1,5 @@
 import { Pitch, type PitchSlot } from '@/components/Pitch';
-import { pitchRows } from '@/lib/formation';
+import { formationOf, pitchRows } from '@/lib/formation';
 import type { Player, Side, SquadRow } from '@/lib/queries';
 import { POSITIONS, type Position } from '@/lib/scoring';
 import { shortName } from '@/lib/format';
@@ -24,7 +24,9 @@ export function SquadPitch({
       return p ? { ...r, player: p, position: p.position } : null;
     })
     .filter((x): x is SquadRow & { player: Player; position: Position } => x !== null);
-  const laid = pitchRows(picked);
+  const counts = { GK: 0, DEF: 0, MID: 0, FWD: 0 } as Record<Position, number>;
+  for (const r of picked) counts[r.position] += 1;
+  const laid = pitchRows(picked, formationOf(counts));
   const slots = Object.fromEntries(
     POSITIONS.map((pos) => [
       pos,

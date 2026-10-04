@@ -13,6 +13,7 @@ import {
 } from '@/lib/queries';
 import { POSITIONS } from '@/lib/scoring';
 import { errorLines, requireSupabase } from '@/lib/supabase';
+import { WithheldName } from './WithheldName';
 
 export function AdminFixturesScreen() {
   const gameweeks = useGameweeks();
@@ -315,10 +316,18 @@ export function AdminFixtureScreen() {
 
       <section className="card">
         <h2>Who played</h2>
+        {shown.some((p) => p.name_withheld && lines.get(p.id)?.played) && (
+          <p className="mb-3 rounded-lg border border-brand/40 bg-brand/5 px-3 py-2 text-sm">
+            Players marked <strong>Name withheld</strong> keep their GMS profile private, but their
+            goals and cards still come through. Type their real name once and every future match
+            keeps it. If you already added them by hand, use &quot;or this is…&quot; to merge.
+          </p>
+        )}
         {fixture.withheld_count > 0 && (
           <p className="mb-3 rounded-lg border border-accent bg-accent/10 px-3 py-2 text-sm">
-            England Hockey lists {fixture.withheld_count} player(s) with their name withheld. Tick
-            them below (or add them from another side), with any goals or cards, then save.
+            England Hockey lists {fixture.withheld_count} player(s) with no member id, so they
+            can&apos;t be imported. Tick them below (or add them from another side), with any goals
+            or cards, then save.
           </p>
         )}
         <p className="muted mb-3 text-sm">
@@ -359,6 +368,15 @@ export function AdminFixtureScreen() {
                     <PosBadge position={p.position} /> {p.name}
                     {p.side_id !== fixture.side_id && (
                       <span className="muted"> ({sideById.get(p.side_id)?.short_name})</span>
+                    )}
+                    {p.name_withheld && (
+                      <WithheldName
+                        player={p}
+                        players={players.data ?? []}
+                        onError={(lines) =>
+                          setNotices(lines.map((text) => ({ kind: 'error', text })))
+                        }
+                      />
                     )}
                   </td>
                   {STAT_FIELDS.map((field) => (

@@ -1,3 +1,4 @@
+import { formationOf } from './formation';
 import type { Position } from './scoring';
 
 // Live summary for the squad picker. save_squad() in the database enforces the
@@ -18,6 +19,7 @@ export interface SquadSettings {
   squad_size: number;
   max_per_side: number;
   transfers_per_gameweek: number;
+  formations: string[];
 }
 
 export interface SquadSummary {
@@ -58,9 +60,10 @@ export function summariseSquad(
       problems.push(`${p.name} isn't available for selection.`);
   }
   if (byPosition.GK !== 1) problems.push('Pick exactly 1 goalkeeper.');
-  if (byPosition.DEF < 3) problems.push('Pick at least 3 DEF.');
-  if (byPosition.MID < 3) problems.push('Pick at least 3 MID.');
-  if (byPosition.FWD < 1) problems.push('Pick at least 1 FWD.');
+  const shape = formationOf(byPosition);
+  if (picked.length === settings.squad_size && !settings.formations.includes(shape) && !unchanged) {
+    problems.push(`That's a ${shape}. Pick one of: ${settings.formations.join(', ')}.`);
+  }
   if (cost > settings.budget && !unchanged) {
     problems.push(
       `Squad costs ${formatPrice(cost)}m, over the ${formatPrice(settings.budget)}m budget.`,

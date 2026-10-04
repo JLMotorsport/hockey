@@ -113,6 +113,7 @@ export type Database = {
       league_settings: {
         Row: {
           budget: number;
+          formations: string[];
           id: number;
           max_per_side: number;
           squad_size: number;
@@ -120,6 +121,7 @@ export type Database = {
         };
         Insert: {
           budget?: number;
+          formations?: string[];
           id?: number;
           max_per_side?: number;
           squad_size?: number;
@@ -127,6 +129,7 @@ export type Database = {
         };
         Update: {
           budget?: number;
+          formations?: string[];
           id?: number;
           max_per_side?: number;
           squad_size?: number;
@@ -234,6 +237,7 @@ export type Database = {
           eh_member_id: string | null;
           id: number;
           name: string;
+          name_withheld: boolean;
           needs_review: boolean;
           position: string;
           price: number;
@@ -244,6 +248,7 @@ export type Database = {
           eh_member_id?: string | null;
           id?: number;
           name: string;
+          name_withheld?: boolean;
           needs_review?: boolean;
           position: string;
           price?: number;
@@ -254,6 +259,7 @@ export type Database = {
           eh_member_id?: string | null;
           id?: number;
           name?: string;
+          name_withheld?: boolean;
           needs_review?: boolean;
           position?: string;
           price?: number;
@@ -404,6 +410,7 @@ export type Database = {
           user_id: string;
         }[];
       };
+      merge_players: { Args: { p_from: number; p_into: number }; Returns: undefined };
       performance_points: {
         Args: {
           p_assists: number;

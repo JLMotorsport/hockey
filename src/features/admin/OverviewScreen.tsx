@@ -20,6 +20,7 @@ export function OverviewScreen() {
     (f) => f.goals_for !== null && f.goals_against !== null && !f.stats_complete,
   );
   const fresh = (players.data ?? []).filter((p) => p.needs_review).length;
+  const unnamed = (players.data ?? []).filter((p) => p.name_withheld).length;
   const playerCount = new Map<number, number>();
   for (const p of players.data ?? [])
     playerCount.set(p.side_id, (playerCount.get(p.side_id) ?? 0) + 1);
@@ -31,6 +32,15 @@ export function OverviewScreen() {
         <Stat value={table.data?.length ?? 0} label="Accounts" />
         <Stat value={all.length} label="Gameweeks" />
       </div>
+      {unnamed > 0 && (
+        <section className="card border-brand/40">
+          <h2>{unnamed} withheld names to correct</h2>
+          <p className="text-sm">
+            Their goals and cards are counting under &quot;Name withheld&quot;.{' '}
+            <Link to="/manage/players">Correct names</Link>
+          </p>
+        </section>
+      )}
       {fresh > 0 && (
         <section className="card border-accent">
           <h2>{fresh} new players from England Hockey</h2>

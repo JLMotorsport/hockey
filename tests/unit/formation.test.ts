@@ -1,4 +1,4 @@
-import { pitchRows } from '@/lib/formation';
+import { formationOf, overflow, pitchRows } from '@/lib/formation';
 import type { Position } from '@/lib/scoring';
 
 const p = (position: Position) => ({ position });
@@ -6,36 +6,24 @@ const shape = (rows: ReturnType<typeof pitchRows>) =>
   (['GK', 'DEF', 'MID', 'FWD'] as Position[]).map((k) => rows[k].length).join('-');
 
 describe('pitchRows', () => {
-  it('shows an empty squad as 1-4-4-2', () => {
+  it('lays out an empty squad in the chosen formation', () => {
     expect(shape(pitchRows([]))).toBe('1-4-4-2');
+    expect(shape(pitchRows([], '3-5-2'))).toBe('1-3-5-2');
   });
 
-  it('keeps a picked 5-3-2 and leaves no extra slots', () => {
-    const squad = [
-      p('GK'),
-      ...Array(5).fill(p('DEF')),
-      ...Array(3).fill(p('MID')),
-      p('FWD'),
-      p('FWD'),
-    ];
-    const rows = pitchRows(squad);
-    expect(shape(rows)).toBe('1-5-3-2');
-    expect(
-      Object.values(rows)
-        .flat()
-        .filter((x) => x === null),
-    ).toHaveLength(0);
+  it('fills picked players first, then empty shirts', () => {
+    const rows = pitchRows([p('GK'), p('DEF'), p('FWD')], '4-3-3');
+    expect(shape(rows)).toBe('1-4-3-3');
+    expect(rows.DEF.filter(Boolean)).toHaveLength(1);
   });
 
-  it('reserves slots for missing minimums first', () => {
-    // 6 DEF and 2 MID picked, 3 slots left: GK, a MID, a FWD.
-    const rows = pitchRows([...Array(6).fill(p('DEF')), p('MID'), p('MID')]);
-    expect(shape(rows)).toBe('1-6-3-1');
+  it('keeps extra players visible after switching formation', () => {
+    const rows = pitchRows([...Array(4).fill(p('DEF'))], '3-4-3');
+    expect(rows.DEF).toHaveLength(4);
+    expect(overflow({ GK: 0, DEF: 4, MID: 0, FWD: 0 }, '3-4-3')).toEqual({ DEF: 1 });
   });
 
-  it('adds no empty slots once the squad is full', () => {
-    const rows = pitchRows(Array(12).fill(p('MID')));
-    expect(Object.values(rows).flat()).toHaveLength(12);
-    expect(rows.GK).toEqual([]);
+  it('names a squad by its formation', () => {
+    expect(formationOf({ GK: 1, DEF: 5, MID: 3, FWD: 2 })).toBe('5-3-2');
   });
 });

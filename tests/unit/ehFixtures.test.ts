@@ -110,9 +110,38 @@ describe('parseLineup (real Colchester 2 v Felixstowe 2 match, names anonymised)
   const felixstowe = match.awayTeamId as string;
   const lineup = parseLineup(match, felixstowe);
 
-  it('takes only Felixstowe players and skips withheld names', () => {
-    expect(lineup.players).toHaveLength(13);
+  it('takes only Felixstowe players, keeping withheld names by member id', () => {
+    expect(lineup.players).toHaveLength(14);
     expect(lineup.withheld).toBe(1);
+    expect(lineup.unmatched).toBe(0);
+    const hidden = lineup.players.find((p) => p.withheld)!;
+    expect(hidden).toMatchObject({ name: null, shirt: '5' });
+    expect(hidden.member_id).toBeTruthy();
+  });
+
+  it('credits goals and cards to withheld players by member id', () => {
+    const hidden = lineup.players.find((p) => p.withheld)!;
+    const odd = {
+      ...match,
+      fixtureEvents: [
+        {
+          eventType: 'FG',
+          teamId: felixstowe,
+          memberId: hidden.member_id,
+          displayName: 'Name Withheld',
+        },
+        {
+          eventType: 'GC',
+          teamId: felixstowe,
+          memberId: hidden.member_id,
+          displayName: 'Name Withheld',
+        },
+      ],
+    };
+    expect(parseLineup(odd, felixstowe).players.find((p) => p.withheld)).toMatchObject({
+      goals: 1,
+      green_cards: 1,
+    });
   });
 
   it('marks the goalkeeper', () => {

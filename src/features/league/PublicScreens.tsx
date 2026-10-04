@@ -172,7 +172,10 @@ export function RulesScreen() {
           {s ? (
             <ul className="list-disc space-y-1 pl-5">
               <li>{s.squad_size} players from any Felixstowe adult side.</li>
-              <li>1 goalkeeper, at least 3 defenders, 3 midfielders and 1 forward.</li>
+              <li>
+                1 goalkeeper and a formation: {s.formations.join(', ')}{' '}
+                (defenders-midfielders-forwards).
+              </li>
               <li>Budget of {formatPrice(s.budget)}m.</li>
               <li>Max {s.max_per_side} players from any one side.</li>
               <li>

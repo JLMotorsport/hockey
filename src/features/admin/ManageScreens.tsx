@@ -15,6 +15,8 @@ import {
 } from '@/lib/queries';
 import { POSITIONS, type Position } from '@/lib/scoring';
 import { parsePlayerLines } from '@/lib/players';
+import { ALL_FORMATIONS } from '@/lib/formation';
+import { WithheldName } from './WithheldName';
 import { formatPrice, parsePrice } from '@/lib/squad';
 import { errorLines, requireSupabase } from '@/lib/supabase';
 
@@ -47,6 +49,7 @@ export function AdminPlayersScreen() {
   );
   const fresh = sorted.filter((p) => p.needs_review);
   const list = sorted.filter((p) => !p.needs_review);
+  const unnamed = sorted.filter((p) => p.name_withheld);
 
   async function addBulk(e: FormEvent) {
     e.preventDefault();
@@ -84,6 +87,29 @@ export function AdminPlayersScreen() {
           <button className="btn mt-2">Add</button>
         </form>
       </section>
+      {unnamed.length > 0 && (
+        <section className="card border-brand/40">
+          <h2>Names to correct ({unnamed.length})</h2>
+          <p className="muted text-sm">
+            These players keep their GMS profile private, so England Hockey shows &quot;Name
+            withheld&quot;. Their goals and cards still count. Type each real name once (the shirt
+            number and side help you work out who it is), or merge them into a player you already
+            added.
+          </p>
+          <ul className="divide-y divide-line">
+            {unnamed.map((p) => (
+              <li key={p.id} className="py-2">
+                <span className="font-semibold">{p.name}</span>
+                <WithheldName
+                  player={p}
+                  players={players.data ?? []}
+                  onError={(l) => n.set(l.map((text) => ({ kind: 'error', text })))}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {fresh.length > 0 && (
         <section className="card border-accent">
           <h2>New from England Hockey ({fresh.length})</h2>
@@ -673,13 +699,19 @@ export function AdminSettingsScreen() {
   const settings = useSettings();
   const queryClient = useQueryClient();
   const n = useNotices();
-  const [form, setForm] = useState<{ budget: string; max: string; transfers: string } | null>(null);
+  const [form, setForm] = useState<{
+    budget: string;
+    max: string;
+    transfers: string;
+    formations: string[];
+  } | null>(null);
   if (settings.isLoading || !settings.data) return <Loading />;
   const s = settings.data;
   const f = form ?? {
     budget: formatPrice(s.budget),
     max: String(s.max_per_side),
     transfers: String(s.transfers_per_gameweek),
+    formations: s.formations,
   };
 
   async function save(e: FormEvent) {
@@ -689,12 +721,17 @@ export function AdminSettingsScreen() {
       n.fail({ message: 'Budget should be a number like 100.0.' });
       return;
     }
+    if (!f.formations.length) {
+      n.fail({ message: 'Allow at least one formation.' });
+      return;
+    }
     const { error } = await requireSupabase()
       .from('league_settings')
       .update({
         budget,
         max_per_side: Math.max(1, Number(f.max) || 1),
         transfers_per_gameweek: Math.max(0, Number(f.transfers) || 0),
+        formations: ALL_FORMATIONS.filter((x) => f.formations.includes(x)),
       })
       .eq('id', 1);
     if (error) n.fail(error);
@@ -705,7 +742,7 @@ export function AdminSettingsScreen() {
   }
 
   return (
-    <section className="card max-w-md">
+    <section className="card max-w-xl">
       <Notices items={n.notices} />
       <form onSubmit={(e) => void save(e)}>
         <label className="field">
@@ -737,6 +774,36 @@ export function AdminSettingsScreen() {
             onChange={(e) => setForm({ ...f, transfers: e.target.value })}
           />
         </label>
+        <fieldset className="mb-4">
+          <legend className="field mb-1">
+            Allowed formations (defenders-midfielders-forwards)
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {ALL_FORMATIONS.map((x) => {
+              const on = f.formations.includes(x);
+              return (
+                <button
+                  key={x}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() =>
+                    setForm({
+                      ...f,
+                      formations: on ? f.formations.filter((y) => y !== x) : [...f.formations, x],
+                    })
+                  }
+                  className={`min-h-[40px] rounded-full px-4 font-display text-lg font-extrabold tabular-nums ${on ? 'bg-brand text-white' : 'bg-paper text-ink-soft ring-1 ring-line'}`}
+                >
+                  {x}
+                </button>
+              );
+            })}
+          </div>
+          <p className="muted mt-2 text-sm">
+            Squads already saved in a formation you switch off stay as they are until their owner
+            next changes them.
+          </p>
+        </fieldset>
         <button className="btn">Save</button>
       </form>
     </section>

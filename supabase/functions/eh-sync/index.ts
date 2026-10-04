@@ -111,6 +111,7 @@ async function importLineups(
   let imported = 0;
   let created = 0;
   let withheld = 0;
+  let unmatched = 0;
   const unknown = new Set<string>();
   for (const fx of due ?? []) {
     const teamId = teamIds.get(fx.eh_fixture_id);
@@ -121,11 +122,12 @@ async function importLineups(
     );
     lineup.unknownEvents.forEach((e) => unknown.add(e));
     withheld += lineup.withheld;
+    unmatched += lineup.unmatched;
     if (!lineup.players.length) continue;
     const { data, error: rpcError } = await admin.rpc('import_lineup', {
       p_fixture_id: fx.id,
       p_players: lineup.players,
-      p_withheld: lineup.withheld,
+      p_withheld: lineup.unmatched,
     });
     if (rpcError) throw new Error(rpcError.message);
     const res = data as { created?: number; players?: number; skipped?: boolean };
@@ -135,7 +137,8 @@ async function importLineups(
     }
   }
   let message = `${imported} line-ups, ${created} new players`;
-  if (withheld) message += `, ${withheld} withheld names`;
+  if (withheld) message += `, ${withheld} withheld-name appearances`;
+  if (unmatched) message += `, ${unmatched} players with no England Hockey id`;
   if (unknown.size) message += ` (unscored events: ${[...unknown].join(', ')})`;
   return message;
 }

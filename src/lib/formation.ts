@@ -1,33 +1,65 @@
 import type { Position } from './scoring';
 
-// Lay out a squad on the pitch. Picked players go in their position's row and
-// the empty slots fill the rows needed to make a legal 11 (1 GK, 3+ DEF,
-// 3+ MID, 1+ FWD), then a 4-4-2 shape.
-const MIN: Record<Position, number> = { GK: 1, DEF: 3, MID: 3, FWD: 1 };
-const SHAPE: Record<Position, number> = { GK: 1, DEF: 4, MID: 4, FWD: 2 };
-const FILL_ORDER: Position[] = ['GK', 'DEF', 'MID', 'FWD'];
+// Formations are "defenders-midfielders-forwards", always with 1 goalkeeper.
+// Every formation the manager can allow (matches the check in
+// supabase/migrations/0005_formations.sql) and the default set.
+export const ALL_FORMATIONS = [
+  '4-4-2',
+  '4-3-3',
+  '3-4-3',
+  '3-5-2',
+  '5-3-2',
+  '4-5-1',
+  '5-4-1',
+  '3-3-4',
+  '4-2-4',
+  '5-2-3',
+  '3-6-1',
+  '6-3-1',
+] as const;
+export const DEFAULT_FORMATIONS = ['4-4-2', '4-3-3', '3-4-3', '3-5-2', '5-3-2', '4-5-1', '5-4-1'];
+
+export type Shape = Record<Position, number>;
+
+export function parseFormation(formation: string): Shape {
+  const [def, mid, fwd] = formation.split('-').map(Number);
+  return { GK: 1, DEF: def ?? 4, MID: mid ?? 4, FWD: fwd ?? 2 };
+}
+
+export function formationOf(counts: Record<Position, number>): string {
+  return `${counts.DEF}-${counts.MID}-${counts.FWD}`;
+}
 
 export type Rows<T> = Record<Position, (T | null)[]>;
 
-export function pitchRows<T extends { position: Position }>(picked: T[], size = 11): Rows<T> {
+/**
+ * Lay out a squad on the pitch in a formation: each line gets that many
+ * slots, picked players first, empty shirts for the rest. Players beyond the
+ * formation's count (after switching formation) stay visible so they can be
+ * removed.
+ */
+export function pitchRows<T extends { position: Position }>(
+  picked: T[],
+  formation = '4-4-2',
+): Rows<T> {
+  const shape = parseFormation(formation);
   const rows: Rows<T> = { GK: [], DEF: [], MID: [], FWD: [] };
   for (const p of picked) rows[p.position].push(p);
-  let empty = Math.max(0, size - picked.length);
-
-  const fillTo = (target: Record<Position, number>) => {
-    for (const pos of FILL_ORDER) {
-      while (empty > 0 && rows[pos].length < target[pos]) {
-        rows[pos].push(null);
-        empty -= 1;
-      }
-    }
-  };
-  fillTo(MIN);
-  fillTo(SHAPE);
-  // Anything left (only if a row went past the shape) goes in midfield.
-  while (empty > 0) {
-    rows.MID.push(null);
-    empty -= 1;
+  for (const pos of Object.keys(rows) as Position[]) {
+    while (rows[pos].length < shape[pos]) rows[pos].push(null);
   }
   return rows;
+}
+
+/** How many players to drop from each line to fit the formation. */
+export function overflow(
+  counts: Record<Position, number>,
+  formation: string,
+): Partial<Record<Position, number>> {
+  const shape = parseFormation(formation);
+  const out: Partial<Record<Position, number>> = {};
+  for (const pos of Object.keys(shape) as Position[]) {
+    if (counts[pos] > shape[pos]) out[pos] = counts[pos] - shape[pos];
+  }
+  return out;
 }

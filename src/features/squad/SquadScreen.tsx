@@ -15,7 +15,7 @@ import {
   useSquad,
 } from '@/lib/queries';
 import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
-import { pitchRows } from '@/lib/formation';
+import { DEFAULT_FORMATIONS, formationOf, overflow, pitchRows } from '@/lib/formation';
 import { Pitch, Shirt, type PitchSlot } from '@/components/Pitch';
 import { Sheet } from '@/components/Sheet';
 import { formatPrice, summariseSquad, type SquadPlayer } from '@/lib/squad';
@@ -51,6 +51,7 @@ export function SquadScreen() {
   const [view, setView] = useState<'pitch' | 'list'>('pitch');
   const [picker, setPicker] = useState<Position | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
+  const [chosenFormation, setChosenFormation] = useState<string | null>(null);
 
   // Start from the saved squad once it arrives.
   useEffect(() => {
@@ -138,7 +139,12 @@ export function SquadScreen() {
       (!onlyPicked || selected.has(p.id)),
   );
 
-  const rows = pitchRows(picked, s.squad_size);
+  const allowed = s.formations.length ? s.formations : DEFAULT_FORMATIONS;
+  const pickedShape = formationOf(summary.byPosition);
+  // Start from the saved squad's shape, or the first allowed formation.
+  const formation = chosenFormation ?? (allowed.includes(pickedShape) ? pickedShape : allowed[0]!);
+  const rows = pitchRows(picked, formation);
+  const extra = overflow(summary.byPosition, formation);
   const bank = s.budget - summary.cost;
   const slots = Object.fromEntries(
     POSITIONS.map((pos) => [
@@ -237,6 +243,33 @@ export function SquadScreen() {
 
       {view === 'pitch' ? (
         <>
+          <div
+            className="mb-3 flex gap-2 overflow-x-auto pb-1"
+            role="radiogroup"
+            aria-label="Formation"
+          >
+            {allowed.map((f) => (
+              <button
+                key={f}
+                type="button"
+                role="radio"
+                aria-checked={formation === f}
+                onClick={() => setChosenFormation(f)}
+                className={`min-h-[40px] shrink-0 rounded-full px-4 font-display text-lg font-extrabold tabular-nums ${formation === f ? 'bg-[#16181d] text-white' : 'bg-surface text-ink-soft shadow-card'}`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          {Object.keys(extra).length > 0 && (
+            <p className="mb-3 rounded-xl border border-brand/40 bg-brand/5 px-3 py-2 text-sm font-semibold">
+              To play {formation}, remove{' '}
+              {Object.entries(extra)
+                .map(([pos, n]) => `${n} ${pos}`)
+                .join(' and ')}
+              . Tap a player to remove or swap them.
+            </p>
+          )}
           <Pitch rows={slots} />
           <p className="muted mt-3 text-center text-sm">
             Tap an empty shirt to add a player, or a player to make them captain or swap them.
