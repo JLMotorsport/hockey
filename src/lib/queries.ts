@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { DEFAULT_FORMATIONS } from './formation';
 import { requireSupabase } from './supabase';
 import type { Position } from './scoring';
 import type { Database } from '@/types/database';
@@ -62,8 +63,13 @@ export function useGameweeks() {
 export function useSettings() {
   return useQuery({
     queryKey: keys.settings,
-    queryFn: async () =>
-      unwrap(await requireSupabase().from('league_settings').select('*').eq('id', 1).single()),
+    queryFn: async () => {
+      const row = unwrap(
+        await requireSupabase().from('league_settings').select('*').eq('id', 1).single(),
+      );
+      // Before migration 0005 is applied there is no formations column.
+      return { ...row, formations: row.formations ?? DEFAULT_FORMATIONS };
+    },
   });
 }
 
