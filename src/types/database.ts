@@ -38,7 +38,8 @@ export type Database = {
           score_overridden: boolean;
           side_id: number;
           stats_complete: boolean;
-          stats_overridden: boolean;
+          stats_locked: boolean;
+          withheld_count: number;
         };
         Insert: {
           competition?: string | null;
@@ -54,7 +55,8 @@ export type Database = {
           score_overridden?: boolean;
           side_id: number;
           stats_complete?: boolean;
-          stats_overridden?: boolean;
+          stats_locked?: boolean;
+          withheld_count?: number;
         };
         Update: {
           competition?: string | null;
@@ -70,7 +72,8 @@ export type Database = {
           score_overridden?: boolean;
           side_id?: number;
           stats_complete?: boolean;
-          stats_overridden?: boolean;
+          stats_locked?: boolean;
+          withheld_count?: number;
         };
         Relationships: [
           {
@@ -385,7 +388,10 @@ export type Database = {
         Args: { p_competition: string; p_rows: Json; p_side_id: number };
         Returns: Json;
       };
-      import_lineup: { Args: { p_fixture_id: number; p_players: Json }; Returns: Json };
+      import_lineup: {
+        Args: { p_fixture_id: number; p_players: Json; p_withheld: number };
+        Returns: Json;
+      };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       league_table: {
         Args: Record<PropertyKey, never>;
@@ -426,6 +432,7 @@ export type Database = {
       save_squad: { Args: { p_captain_id: number; p_player_ids: number[] }; Returns: number };
       set_admin: { Args: { p_user: string; p_value: boolean }; Returns: undefined };
       set_deadline: { Args: { p_deadline: string; p_gameweek_id: number }; Returns: undefined };
+      set_stats_lock: { Args: { p_fixture_id: number; p_locked: boolean }; Returns: undefined };
       squad_for: {
         Args: { p_gameweek: number; p_user: string };
         Returns: {
@@ -435,7 +442,6 @@ export type Database = {
         }[];
       };
       squad_source_gameweek: { Args: { p_gameweek: number; p_user: string }; Returns: number };
-      use_eh_stats: { Args: { p_fixture_id: number }; Returns: undefined };
     };
     Enums: {
       [_ in never]: never;

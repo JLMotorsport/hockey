@@ -48,5 +48,6 @@ public key, imports fixtures and scores via `import_fixtures()`, then reads each
 feed (`/api/fixtures/<id>`) for line-ups, goals (FG/PC/PS) and cards (GC/YC/RC) and imports them
 via `import_lineup()`. Players are matched by England Hockey member id (or by name, once, for
 players a manager added by hand). Assists, player of the match and outfield positions are not
-published. A manager editing a match's stats sets `stats_overridden`, which the sync respects.
+published. The sync only writes goals and cards for players with an England Hockey id; manual rows
+(withheld names), assists and player of the match are kept. `stats_locked` stops the sync for a match.
 The parser in `supabase/functions/_shared/ehFixtures.ts` is pure TS, shared with vitest.

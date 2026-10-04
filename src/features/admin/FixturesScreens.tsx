@@ -251,18 +251,13 @@ export function AdminFixtureScreen() {
     await queryClient.invalidateQueries();
   }
 
-  async function handBackToEh() {
-    const { error } = await requireSupabase().rpc('use_eh_stats', { p_fixture_id: fixture.id });
+  async function setLock(locked: boolean) {
+    const { error } = await requireSupabase().rpc('set_stats_lock', {
+      p_fixture_id: fixture.id,
+      p_locked: locked,
+    });
     if (error) setNotices(errorLines(error).map((text) => ({ kind: 'error', text })));
-    else {
-      setNotices([
-        {
-          kind: 'info',
-          text: 'Handed back to England Hockey. Press Sync to re-import this match.',
-        },
-      ]);
-      await queryClient.invalidateQueries({ queryKey: keys.fixture(fixture.id) });
-    }
+    else await queryClient.invalidateQueries({ queryKey: keys.fixture(fixture.id) });
   }
 
   async function remove() {
@@ -320,27 +315,20 @@ export function AdminFixtureScreen() {
 
       <section className="card">
         <h2>Who played</h2>
+        {fixture.withheld_count > 0 && (
+          <p className="mb-3 rounded-lg border border-accent bg-accent/10 px-3 py-2 text-sm">
+            England Hockey lists {fixture.withheld_count} player(s) with their name withheld. Tick
+            them below (or add them from another side), with any goals or cards, then save.
+          </p>
+        )}
         <p className="muted mb-3 text-sm">
-          {fixture.stats_overridden ? (
-            <>
-              Edited by hand, so England Hockey sync leaves this match alone.{' '}
-              {fixture.eh_fixture_id && (
-                <button
-                  type="button"
-                  className="text-brand underline"
-                  onClick={() => void handBackToEh()}
-                >
-                  Use England Hockey stats again
-                </button>
-              )}
-            </>
-          ) : fixture.lineup_imported_at ? (
-            `Line-up, goals and cards from England Hockey (updated ${formatDayTime(fixture.lineup_imported_at)}). Add player of the match and assists here; saving takes this match off the automatic sync.`
-          ) : fixture.eh_fixture_id ? (
-            'No line-up on England Hockey yet. It will be imported on the next sync once the team enters it, or fill it in here.'
-          ) : (
-            'Manual fixture: fill in who played.'
-          )}
+          {fixture.stats_locked
+            ? 'Locked: England Hockey sync leaves this match alone.'
+            : fixture.lineup_imported_at
+              ? `Goals and cards for named players come from England Hockey (updated ${formatDayTime(fixture.lineup_imported_at)}). Player of the match, assists and players you add by hand are kept when it syncs.`
+              : fixture.eh_fixture_id
+                ? 'No line-up on England Hockey yet. It will be imported on the next sync once the team enters it, or fill it in here.'
+                : 'Manual fixture: fill in who played.'}
         </p>
         <table className="table">
           <thead>
@@ -439,6 +427,18 @@ export function AdminFixtureScreen() {
           />{' '}
           Stats for this match are complete
         </label>
+        {fixture.eh_fixture_id && (
+          <label className="mt-2 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="h-5 w-5"
+              checked={fixture.stats_locked}
+              onChange={(e) => void setLock(e.target.checked)}
+            />{' '}
+            Lock this match so England Hockey sync can&apos;t change it (use if their goals or cards
+            are wrong)
+          </label>
+        )}
         <button className="btn mt-3">Save match</button>
       </section>
       {!fixture.eh_fixture_id && (

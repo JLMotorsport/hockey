@@ -88,7 +88,7 @@ async function fetchFeed(slug: string): Promise<{ feed: FeedLocation; payload: u
 type Admin = ReturnType<typeof createClient>;
 
 // Read line-ups, goals and cards for this side's played fixtures that are new,
-// recent, or not yet imported, skipping any a manager has edited by hand.
+// recent, or not yet imported, skipping any a manager has locked.
 async function importLineups(
   admin: Admin,
   sideId: number,
@@ -100,7 +100,7 @@ async function importLineups(
     .from('fixtures')
     .select('id, eh_fixture_id')
     .eq('side_id', sideId)
-    .eq('stats_overridden', false)
+    .eq('stats_locked', false)
     .not('goals_for', 'is', null)
     .not('eh_fixture_id', 'is', null)
     .lte('kickoff', new Date().toISOString())
@@ -125,6 +125,7 @@ async function importLineups(
     const { data, error: rpcError } = await admin.rpc('import_lineup', {
       p_fixture_id: fx.id,
       p_players: lineup.players,
+      p_withheld: lineup.withheld,
     });
     if (rpcError) throw new Error(rpcError.message);
     const res = data as { created?: number; players?: number; skipped?: boolean };

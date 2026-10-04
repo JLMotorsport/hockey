@@ -462,7 +462,7 @@ describe.skipIf(!configured)('league database', () => {
     ).not.toBeNull();
   });
 
-  it('imports England Hockey line-ups: links, creates, scores and respects manual edits', async () => {
+  it('imports England Hockey line-ups alongside manual entries for withheld players', async () => {
     const w2 = sides[5]!.id;
     const fixtureId = (
       await service
@@ -479,9 +479,16 @@ describe.skipIf(!configured)('league database', () => {
         .select('id')
         .single()
     ).data!.id;
-    await boss.db
-      .from('players')
-      .insert({ name: 'Linked Name', position: 'DEF', side_id: w2, price: 70 });
+    const added = (
+      await boss.db
+        .from('players')
+        .insert([
+          { name: 'Linked Name', position: 'DEF', side_id: w2, price: 70 },
+          { name: 'Withheld Wendy', position: 'FWD', side_id: w2, price: 60 },
+        ])
+        .select('id, name')
+    ).data!;
+    const wendy = added.find((p) => p.name === 'Withheld Wendy')!.id;
 
     const lineup = [
       {
@@ -503,16 +510,23 @@ describe.skipIf(!configured)('league database', () => {
         red_cards: 0,
       },
     ];
+    const run = (players: unknown[], withheld = 1) =>
+      service.rpc('import_lineup', {
+        p_fixture_id: fixtureId,
+        p_players: players as never,
+        p_withheld: withheld,
+      });
     expect(
-      (await alice.db.rpc('import_lineup', { p_fixture_id: fixtureId, p_players: lineup as never }))
-        .error,
+      (
+        await alice.db.rpc('import_lineup', {
+          p_fixture_id: fixtureId,
+          p_players: lineup as never,
+          p_withheld: 0,
+        })
+      ).error,
     ).not.toBeNull();
 
-    const first = await service.rpc('import_lineup', {
-      p_fixture_id: fixtureId,
-      p_players: lineup as never,
-    });
-    expect(first.data).toEqual({ created: 1, players: 2 });
+    expect((await run(lineup)).data).toEqual({ created: 1, players: 2 });
     const linked = (await anon.from('players').select('*').eq('name', 'Linked Name').single())
       .data!;
     expect(linked).toMatchObject({
@@ -529,59 +543,69 @@ describe.skipIf(!configured)('league database', () => {
       needs_review: true,
       side_id: w2,
     });
-
-    const perfs = (
-      await anon
-        .from('performances')
-        .select('player_id, goals, yellow_cards')
-        .eq('fixture_id', fixtureId)
-    ).data!;
-    expect(perfs.find((p) => p.player_id === linked.id)).toMatchObject({
-      goals: 2,
-      yellow_cards: 1,
-    });
+    // One withheld player, so the match isn't complete yet.
     expect(
       (
         await anon
           .from('fixtures')
-          .select('stats_complete, lineup_imported_at')
+          .select('withheld_count, stats_complete')
           .eq('id', fixtureId)
           .single()
       ).data,
-    ).toMatchObject({ stats_complete: true });
+    ).toEqual({
+      withheld_count: 1,
+      stats_complete: false,
+    });
 
-    // Re-running is harmless, and an empty line-up changes nothing.
-    expect(
-      (await service.rpc('import_lineup', { p_fixture_id: fixtureId, p_players: lineup as never }))
-        .data,
-    ).toEqual({ created: 0, players: 2 });
-    await service.rpc('import_lineup', { p_fixture_id: fixtureId, p_players: [] as never });
-    expect(
-      (await anon.from('performances').select('id').eq('fixture_id', fixtureId)).data,
-    ).toHaveLength(2);
-
-    // A manager's edit (e.g. adding player of the match) takes the match off the sync.
+    // The manager adds the withheld player and player of the match.
     await boss.db.rpc('save_match_stats', {
       p_fixture_id: fixtureId,
       p_goals_for: 3,
       p_goals_against: 0,
-      p_stats: [{ player_id: linked.id, goals: 2, yellow_cards: 1, player_of_match: true }],
+      p_stats: [
+        { player_id: linked.id, goals: 2, yellow_cards: 1, player_of_match: true },
+        { player_id: keeper.id },
+        { player_id: wendy, goals: 1, assists: 1 },
+      ],
       p_complete: true,
     });
+
+    // The next sync updates England Hockey's goals but keeps the manager's work.
+    lineup[0]!.goals = 3;
+    expect((await run(lineup)).data).toEqual({ created: 0, players: 2 });
+    const perfs = (await anon.from('performances').select('*').eq('fixture_id', fixtureId)).data!;
+    expect(perfs).toHaveLength(3);
+    expect(perfs.find((p) => p.player_id === linked.id)).toMatchObject({
+      goals: 3,
+      yellow_cards: 1,
+      player_of_match: true,
+    });
+    expect(perfs.find((p) => p.player_id === wendy)).toMatchObject({ goals: 1, assists: 1 });
     expect(
-      (await service.rpc('import_lineup', { p_fixture_id: fixtureId, p_players: lineup as never }))
-        .data,
-    ).toEqual({ skipped: true });
+      (await anon.from('fixtures').select('stats_complete').eq('id', fixtureId).single()).data
+        ?.stats_complete,
+    ).toBe(true);
+
+    // Someone removed from the England Hockey line-up goes; manual players stay.
+    await run([lineup[0]]);
+    expect(
+      (await anon.from('performances').select('player_id').eq('fixture_id', fixtureId))
+        .data!.map((p) => p.player_id)
+        .sort(),
+    ).toEqual([linked.id, wendy].sort());
+
+    // An empty line-up changes nothing; a locked match is skipped entirely.
+    await run([]);
     expect(
       (await anon.from('performances').select('id').eq('fixture_id', fixtureId)).data,
-    ).toHaveLength(1);
-
-    // Handing it back is manager-only.
-    expect((await alice.db.rpc('use_eh_stats', { p_fixture_id: fixtureId })).error).not.toBeNull();
-    await boss.db.rpc('use_eh_stats', { p_fixture_id: fixtureId });
+    ).toHaveLength(2);
     expect(
-      (await service.rpc('import_lineup', { p_fixture_id: fixtureId, p_players: lineup as never }))
-        .data,
-    ).toEqual({ created: 0, players: 2 });
+      (await alice.db.rpc('set_stats_lock', { p_fixture_id: fixtureId, p_locked: true })).error,
+    ).not.toBeNull();
+    await boss.db.rpc('set_stats_lock', { p_fixture_id: fixtureId, p_locked: true });
+    expect((await run(lineup)).data).toEqual({ skipped: true });
+    expect(
+      (await anon.from('performances').select('id').eq('fixture_id', fixtureId)).data,
+    ).toHaveLength(2);
   });
 });

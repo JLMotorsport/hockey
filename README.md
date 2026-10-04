@@ -18,7 +18,7 @@ The `eh-sync` function reads each side's page on englandhockey.co.uk (e.g. `/tea
 
 New players are created automatically the first time they appear in a line-up. Their points count straight away, but they can't be picked until a manager gives them a position and price (Manage > Players).
 
-Not published, so entered by hand on the fixture page: **player of the match**, assists, and outfield positions. Players who have withheld their name on England Hockey show as "Name Withheld" and can't be scored automatically. Editing a match's stats by hand takes it off the automatic sync; "Use England Hockey stats again" hands it back.
+Not published, so entered by hand on the fixture page: **player of the match**, assists, and outfield positions. Players who haven't made their GMS profile public show as "Name Withheld" and can't be matched, so managers add them to the match by hand; the overview lists every match with withheld players still to add. The sync only updates goals and cards for the named players it lists, so manual additions, player of the match and assists are kept. If England Hockey has something wrong, tick "Lock this match" on the fixture to stop the sync changing it.
 
 If England Hockey change their site the sync may stop working. Everything else keeps working and stats can be entered by hand.
 

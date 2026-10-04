@@ -15,6 +15,7 @@ export function OverviewScreen() {
   const all = gameweeks.data ?? [];
   const gwById = new Map(all.map((g) => [g.id, g]));
   const sideName = new Map((sides.data ?? []).map((s) => [s.id, s.name]));
+  // Played, and either no line-up yet or withheld players still to add.
   const waiting = (fixtures.data ?? []).filter(
     (f) => f.goals_for !== null && f.goals_against !== null && !f.stats_complete,
   );
@@ -42,9 +43,9 @@ export function OverviewScreen() {
       <section className="card">
         <h2>Stats to enter ({waiting.length})</h2>
         <p className="muted text-sm">
-          Line-ups, goals and cards come from England Hockey once the team has entered them there.
-          Matches listed here have a score but no line-up yet. Add player of the match and assists
-          on any fixture.
+          Line-ups, goals and cards come from England Hockey. These matches either have no line-up
+          there yet, or include players whose names are withheld, who need adding by hand. Tick
+          &quot;complete&quot; on the match once done.
         </p>
         <table className="table">
           <tbody>
@@ -60,6 +61,13 @@ export function OverviewScreen() {
                   </td>
                   <td className="num whitespace-nowrap">
                     {f.goals_for} - {f.goals_against}
+                  </td>
+                  <td className="text-sm">
+                    {f.withheld_count > 0
+                      ? `${f.withheld_count} withheld to add`
+                      : f.lineup_imported_at
+                        ? 'add player of the match'
+                        : 'no line-up yet'}
                   </td>
                 </tr>
               );
