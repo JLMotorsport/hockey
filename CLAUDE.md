@@ -43,7 +43,10 @@ Integration tests need `SUPABASE_TEST_URL`, `SUPABASE_TEST_ANON_KEY` and
 
 ## Data from England Hockey
 
-`supabase/functions/eh-sync` reads each side's englandhockey.co.uk team page for the feed URL
-and public key, then imports fixtures and scores via `import_fixtures()`. The feed has **no**
-player-level data (scorers, cards, line-ups); managers enter those on the fixture page. The
-parser in `supabase/functions/_shared/ehFixtures.ts` is pure TS, shared with vitest.
+`supabase/functions/eh-sync` reads each side's englandhockey.co.uk team page for the feed URL and
+public key, imports fixtures and scores via `import_fixtures()`, then reads each played fixture's
+feed (`/api/fixtures/<id>`) for line-ups, goals (FG/PC/PS) and cards (GC/YC/RC) and imports them
+via `import_lineup()`. Players are matched by England Hockey member id (or by name, once, for
+players a manager added by hand). Assists, player of the match and outfield positions are not
+published. A manager editing a match's stats sets `stats_overridden`, which the sync respects.
+The parser in `supabase/functions/_shared/ehFixtures.ts` is pure TS, shared with vitest.

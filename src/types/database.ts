@@ -33,10 +33,12 @@ export type Database = {
           id: number;
           is_home: boolean;
           kickoff: string;
+          lineup_imported_at: string | null;
           opponent: string;
           score_overridden: boolean;
           side_id: number;
           stats_complete: boolean;
+          stats_overridden: boolean;
         };
         Insert: {
           competition?: string | null;
@@ -47,10 +49,12 @@ export type Database = {
           id?: number;
           is_home?: boolean;
           kickoff: string;
+          lineup_imported_at?: string | null;
           opponent: string;
           score_overridden?: boolean;
           side_id: number;
           stats_complete?: boolean;
+          stats_overridden?: boolean;
         };
         Update: {
           competition?: string | null;
@@ -61,10 +65,12 @@ export type Database = {
           id?: number;
           is_home?: boolean;
           kickoff?: string;
+          lineup_imported_at?: string | null;
           opponent?: string;
           score_overridden?: boolean;
           side_id?: number;
           stats_complete?: boolean;
+          stats_overridden?: boolean;
         };
         Relationships: [
           {
@@ -222,24 +228,30 @@ export type Database = {
       players: {
         Row: {
           active: boolean;
+          eh_member_id: string | null;
           id: number;
           name: string;
+          needs_review: boolean;
           position: string;
           price: number;
           side_id: number;
         };
         Insert: {
           active?: boolean;
+          eh_member_id?: string | null;
           id?: number;
           name: string;
+          needs_review?: boolean;
           position: string;
           price?: number;
           side_id: number;
         };
         Update: {
           active?: boolean;
+          eh_member_id?: string | null;
           id?: number;
           name?: string;
+          needs_review?: boolean;
           position?: string;
           price?: number;
           side_id?: number;
@@ -373,6 +385,7 @@ export type Database = {
         Args: { p_competition: string; p_rows: Json; p_side_id: number };
         Returns: Json;
       };
+      import_lineup: { Args: { p_fixture_id: number; p_players: Json }; Returns: Json };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       league_table: {
         Args: Record<PropertyKey, never>;
@@ -422,6 +435,7 @@ export type Database = {
         }[];
       };
       squad_source_gameweek: { Args: { p_gameweek: number; p_user: string }; Returns: number };
+      use_eh_stats: { Args: { p_fixture_id: number }; Returns: undefined };
     };
     Enums: {
       [_ in never]: never;

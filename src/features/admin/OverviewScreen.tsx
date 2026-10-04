@@ -18,6 +18,7 @@ export function OverviewScreen() {
   const waiting = (fixtures.data ?? []).filter(
     (f) => f.goals_for !== null && f.goals_against !== null && !f.stats_complete,
   );
+  const fresh = (players.data ?? []).filter((p) => p.needs_review).length;
   const playerCount = new Map<number, number>();
   for (const p of players.data ?? [])
     playerCount.set(p.side_id, (playerCount.get(p.side_id) ?? 0) + 1);
@@ -29,11 +30,21 @@ export function OverviewScreen() {
         <Stat value={table.data?.length ?? 0} label="Accounts" />
         <Stat value={all.length} label="Gameweeks" />
       </div>
+      {fresh > 0 && (
+        <section className="card border-accent">
+          <h2>{fresh} new players from England Hockey</h2>
+          <p className="text-sm">
+            They&apos;re scoring already but can&apos;t be picked until they have a position.{' '}
+            <Link to="/manage/players">Allocate positions</Link>
+          </p>
+        </section>
+      )}
       <section className="card">
         <h2>Stats to enter ({waiting.length})</h2>
         <p className="muted text-sm">
-          England Hockey publishes scores but not scorers or cards. Open a fixture to record who
-          played and what they did.
+          Line-ups, goals and cards come from England Hockey once the team has entered them there.
+          Matches listed here have a score but no line-up yet. Add player of the match and assists
+          on any fixture.
         </p>
         <table className="table">
           <tbody>

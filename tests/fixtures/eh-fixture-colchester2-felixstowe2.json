@@ -1,0 +1,254 @@
+{
+  "id": "da32e2f4-1322-4793-848f-9c8171d1481d",
+  "homeTeamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+  "awayTeamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+  "homeTeam": {
+    "teamName": "Colchester 2"
+  },
+  "awayTeam": {
+    "teamName": "Felixstowe 2"
+  },
+  "homeTeamScore": "2",
+  "awayTeamScore": "1",
+  "isResult": true,
+  "fixtureEvents": [
+    {
+      "minute": 30,
+      "eventType": "PS",
+      "displayName": "Player 1",
+      "memberId": "00e5c76d-8994-45c1-bd38-ab380cd5b707",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b"
+    },
+    {
+      "minute": 50,
+      "eventType": "YC",
+      "displayName": "Player 2",
+      "memberId": "72667512-ff8c-42f8-aaf7-a7c6ae1d1037",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf"
+    },
+    {
+      "minute": 60,
+      "eventType": "FG",
+      "displayName": "Player 2",
+      "memberId": "72667512-ff8c-42f8-aaf7-a7c6ae1d1037",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf"
+    },
+    {
+      "minute": 68,
+      "eventType": "PC",
+      "displayName": "Player 1",
+      "memberId": "00e5c76d-8994-45c1-bd38-ab380cd5b707",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b"
+    }
+  ],
+  "allPlayers": [
+    {
+      "memberId": "ed856432-51e2-4754-9e64-6ef1047f006c",
+      "displayName": "Player 3",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "GK",
+      "consent": true,
+      "shirtNumber": "1"
+    },
+    {
+      "memberId": "9bae7fb0-9610-47cf-a06b-4a70e7922806",
+      "displayName": "Name Withheld",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "",
+      "consent": false,
+      "shirtNumber": null
+    },
+    {
+      "memberId": "2b03cdc7-58ab-4624-b71e-a66b5b6860e7",
+      "displayName": "Player 4",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "150"
+    },
+    {
+      "memberId": "1335a28d-0ab7-4f40-85b0-cae2525502d6",
+      "displayName": "Player 5",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "205"
+    },
+    {
+      "memberId": "5b7e757b-0fe9-4415-8e86-1d114d1196e0",
+      "displayName": "Player 6",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "208"
+    },
+    {
+      "memberId": "b10001fb-159d-4fce-ac7c-7987416d85ac",
+      "displayName": "Player 7",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "24"
+    },
+    {
+      "memberId": "00e5c76d-8994-45c1-bd38-ab380cd5b707",
+      "displayName": "Player 1",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "CAPT",
+      "consent": true,
+      "shirtNumber": "3"
+    },
+    {
+      "memberId": "cf6a22bf-30e1-4bb4-8651-03f65bd5a542",
+      "displayName": "Player 8",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "4"
+    },
+    {
+      "memberId": "1d361c21-72c7-4166-908d-0da9bfd8899b",
+      "displayName": "Player 9",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "40"
+    },
+    {
+      "memberId": "c9ebeab9-2117-4f15-b85d-846a8644b769",
+      "displayName": "Player 10",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "44"
+    },
+    {
+      "memberId": "48edb5af-29d8-49da-a314-01e472ad110b",
+      "displayName": "Player 11",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "64"
+    },
+    {
+      "memberId": "53623e63-33ca-4649-9874-0d1ac82be739",
+      "displayName": "Name Withheld",
+      "teamId": "f6d83139-8893-4b84-a907-ea94c9c78c7b",
+      "otherRoleDescription": "",
+      "consent": false,
+      "shirtNumber": null
+    },
+    {
+      "memberId": "23e97022-9e4e-4a9a-9c28-af7c29eed253",
+      "displayName": "Player 12",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "GK",
+      "consent": true,
+      "shirtNumber": "1"
+    },
+    {
+      "memberId": "0817d89e-7269-41c7-b7f0-e39bfe80570f",
+      "displayName": "Player 13",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "10"
+    },
+    {
+      "memberId": "51c0b774-e321-480a-9286-a5c17a19ec96",
+      "displayName": "Player 14",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "11"
+    },
+    {
+      "memberId": "46e16f34-3083-44c0-94f1-60b144b23078",
+      "displayName": "Player 15",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "12"
+    },
+    {
+      "memberId": "9714cc0e-bdf2-4947-b757-b76f67d583ac",
+      "displayName": "Player 16",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "13"
+    },
+    {
+      "memberId": "72667512-ff8c-42f8-aaf7-a7c6ae1d1037",
+      "displayName": "Player 2",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "14"
+    },
+    {
+      "memberId": "71df6931-41b2-40bf-9262-e16b4ae2b6b1",
+      "displayName": "Player 17",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "2"
+    },
+    {
+      "memberId": "218e9f0f-8044-4730-8e34-4b86ae18243d",
+      "displayName": "Player 18",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "3"
+    },
+    {
+      "memberId": "657dcf28-3ffc-4993-a401-ea44803362cc",
+      "displayName": "Player 19",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "4"
+    },
+    {
+      "memberId": "8ad76ad3-40fb-491d-a41a-ec4ff88be671",
+      "displayName": "Name Withheld",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": false,
+      "shirtNumber": "5"
+    },
+    {
+      "memberId": "7b568777-e773-4694-9ef2-7c35aaaf1fee",
+      "displayName": "Player 20",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "6"
+    },
+    {
+      "memberId": "07a163b6-1e5b-4202-8211-ad06fefc9d91",
+      "displayName": "Player 21",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "7"
+    },
+    {
+      "memberId": "f06ed60f-b36b-4fe8-998a-17c2d73ffc8c",
+      "displayName": "Player 22",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "CAPT",
+      "consent": true,
+      "shirtNumber": "8"
+    },
+    {
+      "memberId": "a2906990-e5eb-4fc4-af4c-f14836cdd2c6",
+      "displayName": "Player 23",
+      "teamId": "2c632bae-8108-45d7-9f73-7ea3379bcfcf",
+      "otherRoleDescription": "",
+      "consent": true,
+      "shirtNumber": "9"
+    }
+  ]
+}

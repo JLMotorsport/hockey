@@ -10,11 +10,17 @@ Built the same way as ParkManager: a React app hosted on **Cloudflare**, with lo
 
 ## What comes from England Hockey, and what doesn't
 
-Each side's page on englandhockey.co.uk (e.g. `/teams/felixstowe-1-mens`) loads fixtures from a public feed. The `eh-sync` function uses it to bring in every league fixture (date, opponent, home or away) and final scores, so clean sheets, goals conceded and wins score automatically.
+The `eh-sync` function reads each side's page on englandhockey.co.uk (e.g. `/teams/felixstowe-1-mens`) and the match page for every played fixture. It brings in:
 
-The feed does **not** include scorers, cards or line-ups, so managers enter those after each weekend. Cup games and friendlies can be added by hand.
+- every league fixture (date, opponent, home or away) and the final score
+- **line-ups**: who played, with goalkeepers marked
+- **goals** (field goals, penalty corners, penalty strokes) and **green, yellow and red cards**
 
-If England Hockey change their site the sync may stop working. Everything else keeps working and fixtures can still be added by hand.
+New players are created automatically the first time they appear in a line-up. Their points count straight away, but they can't be picked until a manager gives them a position and price (Manage > Players).
+
+Not published, so entered by hand on the fixture page: **player of the match**, assists, and outfield positions. Players who have withheld their name on England Hockey show as "Name Withheld" and can't be scored automatically. Editing a match's stats by hand takes it off the automatic sync; "Use England Hockey stats again" hands it back.
+
+If England Hockey change their site the sync may stop working. Everything else keeps working and stats can be entered by hand.
 
 ## Going live
 
@@ -59,8 +65,8 @@ $$);
 
 1. Open the site and **register first**: the first account becomes the league manager. Give others manager access from Manage > Users.
 2. Press **Sync from England Hockey**. This loads fixtures and creates the gameweeks (one per weekend, deadline Saturday 10:00 UK time). Adjust in Manage > Deadlines.
-3. **Manage > Players**: paste the squad, one per line: `Name, Position, Side, Price`, e.g. `Jo Bloggs, MID, M1, 8.5`. Positions are GK, DEF, MID, FWD. Sides are M1 to M4 and W1 to W3.
-4. Share the link. After each weekend, sync for scores, then open each fixture under **Fixtures & stats** and tick who played and what they did. The overview lists results still waiting for stats.
+3. **Manage > Players**: everyone who has played so far is listed under "New from England Hockey". Give each a position and price and press Save. You can also paste extra players, one per line: `Name, Position, Side, Price`.
+4. Share the link. After each weekend, sync (or let the schedule do it), give any new players a position, and tick player of the match on each fixture under **Fixtures & stats**.
 
 ## Game rules
 

@@ -10,6 +10,8 @@
         "homeTeamScore": "1",
         "awayTeamScore": "4",
         "status": "Result",
+        "homeTeamId": "7588ecc9-4bc5-4348-93f3-d3a933af0b7c",
+        "awayTeamId": "77b58b20-497b-459d-b429-16c06cc41113",
         "homeTeam": {
           "teamName": "Felixstowe 1",
           "entityUrlSlug": "felixstowe-1-mens"
@@ -18,8 +20,7 @@
           "teamName": "City Of Peterborough 2",
           "entityUrlSlug": "city-of-peterborough-2-mens"
         },
-        "fixtureEvents": [],
-        "allPlayers": []
+        "fixtureEvents": []
       },
       {
         "id": "a81db0c1-6e13-41ee-9117-634cec985a7b",
@@ -29,6 +30,8 @@
         "homeTeamScore": "3",
         "awayTeamScore": "2",
         "status": "Result",
+        "homeTeamId": "7588ecc9-4bc5-4348-93f3-d3a933af0b7c",
+        "awayTeamId": "57345967-2ab2-4f06-8dfc-f4dc392c5b24",
         "homeTeam": {
           "teamName": "Felixstowe 1",
           "entityUrlSlug": "felixstowe-1-mens"
@@ -37,8 +40,7 @@
           "teamName": "Cambridge South 1",
           "entityUrlSlug": "cambridge-south-1-mens"
         },
-        "fixtureEvents": [],
-        "allPlayers": []
+        "fixtureEvents": []
       },
       {
         "id": "19b5d9b9-86eb-4b84-883d-59d5a10df228",
@@ -48,6 +50,8 @@
         "homeTeamScore": "6",
         "awayTeamScore": "3",
         "status": "Result",
+        "homeTeamId": "7588ecc9-4bc5-4348-93f3-d3a933af0b7c",
+        "awayTeamId": "8ff87ea2-0526-4ab8-9842-02f1a3d0a3d3",
         "homeTeam": {
           "teamName": "Felixstowe 1",
           "entityUrlSlug": "felixstowe-1-mens"
@@ -56,8 +60,7 @@
           "teamName": "Cambridge 1",
           "entityUrlSlug": "cambridge-1-mens"
         },
-        "fixtureEvents": [],
-        "allPlayers": []
+        "fixtureEvents": []
       },
       {
         "id": "e354d2d2-b7d8-497d-8324-f47ebb4916b4",
@@ -67,6 +70,8 @@
         "homeTeamScore": "6",
         "awayTeamScore": "0",
         "status": "Result",
+        "homeTeamId": "2e22d279-360c-47a7-bd63-de0a60930b71",
+        "awayTeamId": "7588ecc9-4bc5-4348-93f3-d3a933af0b7c",
         "homeTeam": {
           "teamName": "Spalding 1",
           "entityUrlSlug": "spalding-1-mens"
@@ -75,8 +80,7 @@
           "teamName": "Felixstowe 1",
           "entityUrlSlug": "felixstowe-1-mens"
         },
-        "fixtureEvents": [],
-        "allPlayers": []
+        "fixtureEvents": []
       },
       {
         "id": "2d7bc40e-d917-4c20-94ce-5002ef0c3336",
@@ -84,6 +88,8 @@
         "isResult": false,
         "isBye": false,
         "status": "Active",
+        "homeTeamId": "7588ecc9-4bc5-4348-93f3-d3a933af0b7c",
+        "awayTeamId": "15754865-667d-4941-8402-686146604f85",
         "homeTeam": {
           "teamName": "Felixstowe 1",
           "entityUrlSlug": "felixstowe-1-mens"
@@ -92,8 +98,7 @@
           "teamName": "Kettering 1",
           "entityUrlSlug": "kettering-1-mens"
         },
-        "fixtureEvents": [],
-        "allPlayers": []
+        "fixtureEvents": []
       },
       {
         "id": "f08e8796-afa2-4c27-9bf5-b04e911043c5",
@@ -101,6 +106,8 @@
         "isResult": false,
         "isBye": false,
         "status": "Active",
+        "homeTeamId": "c8b8157f-16f2-4cd6-8d08-ffdd703e8593",
+        "awayTeamId": "7588ecc9-4bc5-4348-93f3-d3a933af0b7c",
         "homeTeam": {
           "teamName": "Bury St Edmunds 1",
           "entityUrlSlug": "bury-st-edmunds-1-mens"
@@ -109,8 +116,7 @@
           "teamName": "Felixstowe 1",
           "entityUrlSlug": "felixstowe-1-mens"
         },
-        "fixtureEvents": [],
-        "allPlayers": []
+        "fixtureEvents": []
       }
     ]
   }

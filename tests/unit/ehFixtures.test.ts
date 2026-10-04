@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import {
   EhFeedError,
   findFeed,
+  fixtureFeedUrl,
+  parseLineup,
   parseTeamFeed,
 } from '../../supabase/functions/_shared/ehFixtures.ts';
 
@@ -98,5 +100,46 @@ describe('parseTeamFeed edge cases', () => {
 
   it('rejects a non-list payload', () => {
     expect(() => parseTeamFeed({ nope: true }, 'x')).toThrow(EhFeedError);
+  });
+});
+
+describe('parseLineup (real Colchester 2 v Felixstowe 2 match, names anonymised)', () => {
+  const match = JSON.parse(
+    readFileSync(join(__dirname, '../fixtures/eh-fixture-colchester2-felixstowe2.json'), 'utf8'),
+  );
+  const felixstowe = match.awayTeamId as string;
+  const lineup = parseLineup(match, felixstowe);
+
+  it('takes only Felixstowe players and skips withheld names', () => {
+    expect(lineup.players).toHaveLength(13);
+    expect(lineup.withheld).toBe(1);
+  });
+
+  it('marks the goalkeeper', () => {
+    expect(lineup.players.filter((p) => p.is_gk)).toHaveLength(1);
+  });
+
+  it('credits Felixstowe goals and cards, not the opposition', () => {
+    const scorers = lineup.players.filter((p) => p.goals > 0);
+    expect(scorers).toHaveLength(1);
+    expect(scorers[0]).toMatchObject({ goals: 1, yellow_cards: 1 });
+    expect(lineup.players.reduce((n, p) => n + p.goals, 0)).toBe(1);
+    expect(lineup.unknownEvents).toEqual([]);
+  });
+
+  it('reads the Felixstowe team id from the team feed', () => {
+    const { rows } = parseTeamFeed(feed, 'felixstowe-1-mens');
+    expect(rows[0]!.eh_team_id).toBe('7588ecc9-4bc5-4348-93f3-d3a933af0b7c');
+    expect(
+      fixtureFeedUrl('https://ehdwapi.englandhockey.co.uk/api/teams/x/fixturesandresults', 'abc'),
+    ).toBe('https://ehdwapi.englandhockey.co.uk/api/fixtures/abc');
+  });
+
+  it('reports event codes it does not score', () => {
+    const odd = {
+      ...match,
+      fixtureEvents: [{ eventType: 'ZZ', teamId: felixstowe, memberId: 'x' }],
+    };
+    expect(parseLineup(odd, felixstowe).unknownEvents).toEqual(['ZZ']);
   });
 });

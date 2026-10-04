@@ -1,6 +1,6 @@
-// Supabase Edge Function: pull Felixstowe fixtures and scores from England
-// Hockey into the fixtures table. Player stats are not in the feed; managers
-// enter those in the app.
+// Supabase Edge Function: pull Felixstowe fixtures, scores, line-ups, goal
+// scorers and cards from England Hockey. Assists and player of the match are
+// not published; managers add those in the app.
 //
 // Two ways in:
 //   - the scheduler, holding the shared EH_SYNC_SECRET
@@ -19,7 +19,19 @@
 //   $$);
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { EH_TEAM_PAGE, EhFeedError, findFeed, parseTeamFeed } from '../_shared/ehFixtures.ts';
+import {
+  EH_TEAM_PAGE,
+  EhFeedError,
+  findFeed,
+  fixtureFeedUrl,
+  parseLineup,
+  parseTeamFeed,
+  type FeedLocation,
+} from '../_shared/ehFixtures.ts';
+
+// Line-ups are re-read for this long after a match, in case the team admin
+// fills them in or corrects them late.
+const LINEUP_REFRESH_DAYS = 14;
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -60,13 +72,71 @@ async function callerIsAllowed(authHeader: string): Promise<boolean> {
   return !error && data === true;
 }
 
-async function fetchFeed(slug: string): Promise<unknown> {
+async function fetchJson(url: string, key: string): Promise<unknown> {
+  const res = await fetch(url, { headers: { 'X-Api-Key': key } });
+  if (!res.ok) throw new EhFeedError(`feed returned ${res.status}`);
+  return res.json();
+}
+
+async function fetchFeed(slug: string): Promise<{ feed: FeedLocation; payload: unknown }> {
   const page = await fetch(EH_TEAM_PAGE + slug);
   if (!page.ok) throw new EhFeedError(`team page returned ${page.status}`);
-  const { url, key } = findFeed(await page.text());
-  const feed = await fetch(url, { headers: { 'X-Api-Key': key } });
-  if (!feed.ok) throw new EhFeedError(`feed returned ${feed.status}`);
-  return feed.json();
+  const feed = findFeed(await page.text());
+  return { feed, payload: await fetchJson(feed.url, feed.key) };
+}
+
+type Admin = ReturnType<typeof createClient>;
+
+// Read line-ups, goals and cards for this side's played fixtures that are new,
+// recent, or not yet imported, skipping any a manager has edited by hand.
+async function importLineups(
+  admin: Admin,
+  sideId: number,
+  feed: FeedLocation,
+  rows: { eh_fixture_id: string; eh_team_id: string | null }[],
+): Promise<string> {
+  const since = new Date(Date.now() - LINEUP_REFRESH_DAYS * 86_400_000).toISOString();
+  const { data: due, error } = await admin
+    .from('fixtures')
+    .select('id, eh_fixture_id')
+    .eq('side_id', sideId)
+    .eq('stats_overridden', false)
+    .not('goals_for', 'is', null)
+    .not('eh_fixture_id', 'is', null)
+    .lte('kickoff', new Date().toISOString())
+    .or(`lineup_imported_at.is.null,kickoff.gte.${since}`);
+  if (error) throw new Error(error.message);
+
+  const teamIds = new Map(rows.map((r) => [r.eh_fixture_id, r.eh_team_id]));
+  let imported = 0;
+  let created = 0;
+  let withheld = 0;
+  const unknown = new Set<string>();
+  for (const fx of due ?? []) {
+    const teamId = teamIds.get(fx.eh_fixture_id);
+    if (!teamId) continue;
+    const lineup = parseLineup(
+      await fetchJson(fixtureFeedUrl(feed.url, fx.eh_fixture_id), feed.key),
+      teamId,
+    );
+    lineup.unknownEvents.forEach((e) => unknown.add(e));
+    withheld += lineup.withheld;
+    if (!lineup.players.length) continue;
+    const { data, error: rpcError } = await admin.rpc('import_lineup', {
+      p_fixture_id: fx.id,
+      p_players: lineup.players,
+    });
+    if (rpcError) throw new Error(rpcError.message);
+    const res = data as { created?: number; players?: number; skipped?: boolean };
+    if (!res.skipped) {
+      imported += 1;
+      created += res.created ?? 0;
+    }
+  }
+  let message = `${imported} line-ups, ${created} new players`;
+  if (withheld) message += `, ${withheld} withheld names`;
+  if (unknown.size) message += ` (unscored events: ${[...unknown].join(', ')})`;
+  return message;
 }
 
 Deno.serve(async (req: Request) => {
@@ -88,7 +158,8 @@ Deno.serve(async (req: Request) => {
   const results: { side: string; ok: boolean; message: string }[] = [];
   for (const side of sides ?? []) {
     try {
-      const { competition, rows } = parseTeamFeed(await fetchFeed(side.eh_slug), side.eh_slug);
+      const { feed, payload } = await fetchFeed(side.eh_slug);
+      const { competition, rows } = parseTeamFeed(payload, side.eh_slug);
       const { data, error: rpcError } = await admin.rpc('import_fixtures', {
         p_side_id: side.id,
         p_competition: competition,
@@ -96,10 +167,11 @@ Deno.serve(async (req: Request) => {
       });
       if (rpcError) throw new Error(rpcError.message);
       const counts = data as { created: number; updated: number };
+      const lineups = await importLineups(admin, side.id, feed, rows);
       results.push({
         side: side.name,
         ok: true,
-        message: `${counts.created} new, ${counts.updated} updated`,
+        message: `${counts.created} new, ${counts.updated} updated fixtures; ${lineups}`,
       });
     } catch (err) {
       // One side failing (a renamed page, a timeout) shouldn't stop the rest.

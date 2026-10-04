@@ -65,7 +65,7 @@ export function Layout() {
         <Outlet />
       </main>
       <footer className="muted mx-auto max-w-5xl px-4 pb-8 text-xs">
-        Fixtures and scores from England Hockey. Player stats entered by club managers.
+        Fixtures, line-ups, goals and cards from England Hockey.
       </footer>
     </>
   );

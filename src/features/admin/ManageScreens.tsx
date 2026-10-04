@@ -39,12 +39,14 @@ export function AdminPlayersScreen() {
   if (players.isLoading || sides.isLoading) return <Loading />;
   const sideList = sides.data ?? [];
   const sortOrder = new Map(sideList.map((s) => [s.id, s.sort_order]));
-  const list = [...(players.data ?? [])].sort(
+  const sorted = [...(players.data ?? [])].sort(
     (a, b) =>
       (sortOrder.get(a.side_id) ?? 0) - (sortOrder.get(b.side_id) ?? 0) ||
       POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position) ||
       a.name.localeCompare(b.name),
   );
+  const fresh = sorted.filter((p) => p.needs_review);
+  const list = sorted.filter((p) => !p.needs_review);
 
   async function addBulk(e: FormEvent) {
     e.preventDefault();
@@ -82,27 +84,60 @@ export function AdminPlayersScreen() {
           <button className="btn mt-2">Add</button>
         </form>
       </section>
+      {fresh.length > 0 && (
+        <section className="card border-accent">
+          <h2>New from England Hockey ({fresh.length})</h2>
+          <p className="muted text-sm">
+            These players appeared in a line-up. Their points are already being counted. Give each
+            one a position (goalkeepers are marked already) and a price, then press Save to make
+            them pickable.
+          </p>
+          <PlayerTable players={fresh} sides={sideList} onSaved={n.ok} onError={n.fail} />
+        </section>
+      )}
       <section className="card">
         <h2>All players ({list.length})</h2>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Pos</th>
-              <th>Side</th>
-              <th>Price</th>
-              <th>Active</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((p) => (
-              <PlayerRow key={p.id} player={p} sides={sideList} onSaved={n.ok} onError={n.fail} />
-            ))}
-          </tbody>
-        </table>
+        <PlayerTable players={list} sides={sideList} onSaved={n.ok} onError={n.fail} />
       </section>
     </>
+  );
+}
+
+function PlayerTable({
+  players,
+  sides,
+  onSaved,
+  onError,
+}: {
+  players: Player[];
+  sides: { id: number; short_name: string }[];
+  onSaved: (text: string) => void;
+  onError: (error: unknown) => void;
+}) {
+  return (
+    <table className="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Pos</th>
+          <th>Side</th>
+          <th>Price</th>
+          <th>Active</th>
+          <th />
+        </tr>
+      </thead>
+      <tbody>
+        {players.map((p) => (
+          <PlayerRow
+            key={`${p.id}-${p.needs_review}`}
+            player={p}
+            sides={sides}
+            onSaved={onSaved}
+            onError={onError}
+          />
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -118,8 +153,14 @@ function PlayerRow({
   onError: (error: unknown) => void;
 }) {
   const queryClient = useQueryClient();
-  const [row, setRow] = useState({ ...player, priceText: formatPrice(player.price) });
+  // New players become pickable when first saved, so allocating a position is all it takes.
+  const [row, setRow] = useState({
+    ...player,
+    active: player.needs_review ? true : player.active,
+    priceText: formatPrice(player.price),
+  });
   const dirty =
+    player.needs_review ||
     row.name !== player.name ||
     row.position !== player.position ||
     row.side_id !== player.side_id ||
@@ -140,6 +181,7 @@ function PlayerRow({
         side_id: row.side_id,
         price,
         active: row.active,
+        needs_review: false,
       })
       .eq('id', player.id);
     if (error) onError(error);

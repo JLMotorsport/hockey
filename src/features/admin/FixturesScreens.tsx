@@ -251,6 +251,20 @@ export function AdminFixtureScreen() {
     await queryClient.invalidateQueries();
   }
 
+  async function handBackToEh() {
+    const { error } = await requireSupabase().rpc('use_eh_stats', { p_fixture_id: fixture.id });
+    if (error) setNotices(errorLines(error).map((text) => ({ kind: 'error', text })));
+    else {
+      setNotices([
+        {
+          kind: 'info',
+          text: 'Handed back to England Hockey. Press Sync to re-import this match.',
+        },
+      ]);
+      await queryClient.invalidateQueries({ queryKey: keys.fixture(fixture.id) });
+    }
+  }
+
   async function remove() {
     if (!window.confirm('Delete this fixture and its stats?')) return;
     const { error } = await requireSupabase().from('fixtures').delete().eq('id', fixture.id);
@@ -306,6 +320,28 @@ export function AdminFixtureScreen() {
 
       <section className="card">
         <h2>Who played</h2>
+        <p className="muted mb-3 text-sm">
+          {fixture.stats_overridden ? (
+            <>
+              Edited by hand, so England Hockey sync leaves this match alone.{' '}
+              {fixture.eh_fixture_id && (
+                <button
+                  type="button"
+                  className="text-brand underline"
+                  onClick={() => void handBackToEh()}
+                >
+                  Use England Hockey stats again
+                </button>
+              )}
+            </>
+          ) : fixture.lineup_imported_at ? (
+            `Line-up, goals and cards from England Hockey (updated ${formatDayTime(fixture.lineup_imported_at)}). Add player of the match and assists here; saving takes this match off the automatic sync.`
+          ) : fixture.eh_fixture_id ? (
+            'No line-up on England Hockey yet. It will be imported on the next sync once the team enters it, or fill it in here.'
+          ) : (
+            'Manual fixture: fill in who played.'
+          )}
+        </p>
         <table className="table">
           <thead>
             <tr>

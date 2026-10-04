@@ -461,4 +461,127 @@ describe.skipIf(!configured)('league database', () => {
       ).error,
     ).not.toBeNull();
   });
+
+  it('imports England Hockey line-ups: links, creates, scores and respects manual edits', async () => {
+    const w2 = sides[5]!.id;
+    const fixtureId = (
+      await service
+        .from('fixtures')
+        .insert({
+          side_id: w2,
+          kickoff: '2026-10-03T12:00:00+01:00',
+          opponent: 'Lineup Opp',
+          gameweek_id: 0,
+          goals_for: 3,
+          goals_against: 0,
+          eh_fixture_id: 'eh-lineup-1',
+        })
+        .select('id')
+        .single()
+    ).data!.id;
+    await boss.db
+      .from('players')
+      .insert({ name: 'Linked Name', position: 'DEF', side_id: w2, price: 70 });
+
+    const lineup = [
+      {
+        member_id: 'm-linked',
+        name: 'linked name',
+        is_gk: false,
+        goals: 2,
+        green_cards: 0,
+        yellow_cards: 1,
+        red_cards: 0,
+      },
+      {
+        member_id: 'm-keeper',
+        name: 'New Keeper',
+        is_gk: true,
+        goals: 0,
+        green_cards: 0,
+        yellow_cards: 0,
+        red_cards: 0,
+      },
+    ];
+    expect(
+      (await alice.db.rpc('import_lineup', { p_fixture_id: fixtureId, p_players: lineup as never }))
+        .error,
+    ).not.toBeNull();
+
+    const first = await service.rpc('import_lineup', {
+      p_fixture_id: fixtureId,
+      p_players: lineup as never,
+    });
+    expect(first.data).toEqual({ created: 1, players: 2 });
+    const linked = (await anon.from('players').select('*').eq('name', 'Linked Name').single())
+      .data!;
+    expect(linked).toMatchObject({
+      eh_member_id: 'm-linked',
+      active: true,
+      needs_review: false,
+      price: 70,
+    });
+    const keeper = (await anon.from('players').select('*').eq('eh_member_id', 'm-keeper').single())
+      .data!;
+    expect(keeper).toMatchObject({
+      position: 'GK',
+      active: false,
+      needs_review: true,
+      side_id: w2,
+    });
+
+    const perfs = (
+      await anon
+        .from('performances')
+        .select('player_id, goals, yellow_cards')
+        .eq('fixture_id', fixtureId)
+    ).data!;
+    expect(perfs.find((p) => p.player_id === linked.id)).toMatchObject({
+      goals: 2,
+      yellow_cards: 1,
+    });
+    expect(
+      (
+        await anon
+          .from('fixtures')
+          .select('stats_complete, lineup_imported_at')
+          .eq('id', fixtureId)
+          .single()
+      ).data,
+    ).toMatchObject({ stats_complete: true });
+
+    // Re-running is harmless, and an empty line-up changes nothing.
+    expect(
+      (await service.rpc('import_lineup', { p_fixture_id: fixtureId, p_players: lineup as never }))
+        .data,
+    ).toEqual({ created: 0, players: 2 });
+    await service.rpc('import_lineup', { p_fixture_id: fixtureId, p_players: [] as never });
+    expect(
+      (await anon.from('performances').select('id').eq('fixture_id', fixtureId)).data,
+    ).toHaveLength(2);
+
+    // A manager's edit (e.g. adding player of the match) takes the match off the sync.
+    await boss.db.rpc('save_match_stats', {
+      p_fixture_id: fixtureId,
+      p_goals_for: 3,
+      p_goals_against: 0,
+      p_stats: [{ player_id: linked.id, goals: 2, yellow_cards: 1, player_of_match: true }],
+      p_complete: true,
+    });
+    expect(
+      (await service.rpc('import_lineup', { p_fixture_id: fixtureId, p_players: lineup as never }))
+        .data,
+    ).toEqual({ skipped: true });
+    expect(
+      (await anon.from('performances').select('id').eq('fixture_id', fixtureId)).data,
+    ).toHaveLength(1);
+
+    // Handing it back is manager-only.
+    expect((await alice.db.rpc('use_eh_stats', { p_fixture_id: fixtureId })).error).not.toBeNull();
+    await boss.db.rpc('use_eh_stats', { p_fixture_id: fixtureId });
+    expect(
+      (await service.rpc('import_lineup', { p_fixture_id: fixtureId, p_players: lineup as never }))
+        .data,
+    ).toEqual({ created: 0, players: 2 });
+  });
 });
