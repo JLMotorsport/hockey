@@ -87,20 +87,35 @@ export function PlayerDetail({
     [...byWeek].map(([gameweek_id, points]) => ({ player_id: player.id, gameweek_id, points })),
     lockedGameweeks(all).map((g) => g.id),
   ).get(player.id);
-  // The player's own last 5 games, for whichever side they played.
-  const recent = matches
-    .filter((m) => m.fixture && m.fixture.goals_for !== null && m.fixture.goals_against !== null)
-    .slice(-5)
-    .map((m) => {
-      const f = m.fixture!;
-      const result: 'W' | 'D' | 'L' =
-        f.goals_for! > f.goals_against! ? 'W' : f.goals_for! < f.goals_against! ? 'L' : 'D';
-      return {
-        result,
-        side: sideShort(f.side_id),
-        name: result === 'W' ? 'won' : result === 'L' ? 'lost' : 'drew',
-      };
-    });
+  // The last 5 gameweeks with results: the player's own result (for
+  // whichever side they played), or a gap when they didn't play.
+  const resultWeeks = lockedGameweeks(all)
+    .filter((g) =>
+      (fixtures.data ?? []).some(
+        (f) => f.gameweek_id === g.id && f.goals_for !== null && f.goals_against !== null,
+      ),
+    )
+    .slice(-5);
+  const recent = resultWeeks.map((g) => {
+    const m = [...matches]
+      .reverse()
+      .find(
+        (x) =>
+          x.fixture?.gameweek_id === g.id &&
+          x.fixture.goals_for !== null &&
+          x.fixture.goals_against !== null,
+      );
+    const label = gameweekLabel(g, all).split(' ')[0];
+    if (!m) return { result: null, side: '', name: `${label} didn't play` };
+    const f = m.fixture!;
+    const result: 'W' | 'D' | 'L' =
+      f.goals_for! > f.goals_against! ? 'W' : f.goals_for! < f.goals_against! ? 'L' : 'D';
+    return {
+      result,
+      side: sideShort(f.side_id),
+      name: `${label} ${sideShort(f.side_id)} ${result === 'W' ? 'won' : result === 'L' ? 'lost' : 'drew'}`,
+    };
+  });
   const next = nextOpenGameweek(all);
   const nextLabel = next ? fixtureLabel(fixtures.data ?? [], player.side_id, next.id) : null;
   const nextFixture = next
@@ -157,26 +172,29 @@ export function PlayerDetail({
 
       <div className="flex items-start gap-2 px-1 text-sm">
         <span className="pt-0.5 font-display text-xs font-bold uppercase tracking-wider text-ink-soft">
-          Last {Math.min(5, recent.length) || ''} games
+          Last {recent.length || ''} weeks
         </span>
         {recent.length ? (
-          <ul
-            className="flex gap-1"
-            aria-label={recent.map((r) => `${r.side} ${r.name}`).join(', ')}
-          >
+          <ul className="flex gap-1" aria-label={recent.map((r) => r.name).join(', ')}>
             {recent.map((r, i) => (
               <li key={i} aria-hidden="true" className="flex flex-col items-center">
-                <FormBoxes results={[r.result]} />
+                {r.result ? (
+                  <FormBoxes results={[r.result]} />
+                ) : (
+                  <span className="flex h-5 w-5 items-center justify-center rounded border border-line bg-surface font-display text-xs font-bold text-ink-soft">
+                    -
+                  </span>
+                )}
                 <span
                   className={`font-display text-[0.65rem] font-bold ${r.side === sideShort(player.side_id) ? 'text-ink-soft' : 'text-brand'}`}
                 >
-                  {r.side}
+                  {r.side || '\u00a0'}
                 </span>
               </li>
             ))}
           </ul>
         ) : (
-          <span className="muted">No games yet</span>
+          <span className="muted">No results yet</span>
         )}
       </div>
 
