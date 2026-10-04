@@ -1,5 +1,6 @@
 import {
   autoArrange,
+  fitsQuota,
   formatPrice,
   isValidArrangement,
   parsePrice,
@@ -170,5 +171,16 @@ describe('autoArrange', () => {
       p.position === 'FWD' ? { ...p, position: 'MID' as const } : p,
     );
     expect(autoArrange(noForwards, ['4-4-2'])).toBeNull();
+  });
+});
+
+describe('squad make-up', () => {
+  it('needs 2 GK, 5 DEF, 5 MID and 3 FWD', () => {
+    const bench = subs();
+    bench[3] = { ...bench[3]!, position: 'MID' }; // 6 MID, 2 FWD
+    expect(summariseSquad(xi(), bench, 1, 2, settings, [], []).problems).toContain(
+      'Your 15 needs 2 GK, 5 DEF, 5 MID and 3 FWD (you have 2 GK, 5 DEF, 6 MID, 2 FWD).',
+    );
+    expect(fitsQuota({ GK: 2, DEF: 5, MID: 5, FWD: 3 })).toBe(true);
   });
 });

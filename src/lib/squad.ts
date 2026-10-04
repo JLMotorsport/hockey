@@ -117,6 +117,15 @@ export function summariseSquad(
       problems.push(`Max ${settings.max_per_side} players from ${side} (you have ${n}).`);
     }
   }
+  if (picked.length === STARTERS + BENCH) {
+    const all: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+    for (const p of picked) all[p.position] += 1;
+    if (!fitsQuota(all)) {
+      problems.push(
+        `Your 15 needs 2 GK, 5 DEF, 5 MID and 3 FWD (you have ${all.GK} GK, ${all.DEF} DEF, ${all.MID} MID, ${all.FWD} FWD).`,
+      );
+    }
+  }
   if (captainId === null || !starterIds.includes(captainId))
     problems.push('Choose a captain from your starting 11.');
   if (viceId === null || !starterIds.includes(viceId) || viceId === captainId)
@@ -143,6 +152,11 @@ export function parsePrice(text: string, max = 500): number | null {
 
 /** Squad slots per position on the transfers page, as in FPL; fits every formation in the list. */
 export const SQUAD_QUOTA: Record<Position, number> = { GK: 2, DEF: 5, MID: 5, FWD: 3 };
+
+/** Does a squad's make-up match SQUAD_QUOTA (as squad_fits_quota())? */
+export function fitsQuota(counts: Record<Position, number>): boolean {
+  return (Object.keys(SQUAD_QUOTA) as Position[]).every((p) => counts[p] === SQUAD_QUOTA[p]);
+}
 
 export interface Arrangement {
   starters: number[];

@@ -32,6 +32,7 @@ import {
   formatPrice,
   isValidArrangement,
   SQUAD_QUOTA,
+  fitsQuota,
   STARTERS,
   summariseSquad,
   type SquadPlayer,
@@ -174,13 +175,22 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   const poolById = new Map(pool.map((p) => [p.id, p]));
   const benchPlayers = bench.map((id) => (id === null ? null : (poolById.get(id) ?? null)));
   const priceById = new Map((players.data ?? []).map((p) => [p.id, p.price]));
+  const positionById = new Map((players.data ?? []).map((p) => [p.id, p.position]));
+  // Last gameweek's squad doesn't make 2/5/5/3 (saved before the rule, or a
+  // position has changed since): putting it right uses no transfers.
+  const previousCounts: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+  for (const id of previousIds) {
+    const pos = positionById.get(id);
+    if (pos) previousCounts[pos] += 1;
+  }
+  const freeFix = previousIds.length > 0 && !fitsQuota(previousCounts);
   const summary = summariseSquad(
     picked,
     benchPlayers,
     captainId,
     viceId,
-    // A wildcard lifts the transfer limit (as in save_squad).
-    wildcard ? { ...s, transfers_per_gameweek: Infinity } : s,
+    // A wildcard or a squad that needs reshaping lifts the transfer limit (as in save_squad).
+    wildcard || freeFix ? { ...s, transfers_per_gameweek: Infinity } : s,
     currentIds,
     previousIds,
     { base: bankBefore.data ?? s.budget, priceOf: (id) => priceById.get(id) ?? 0 },
@@ -229,6 +239,24 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
       return;
     }
     add(id, free);
+  }
+
+  /**
+   * Who can replace a player: like for like, unless the squad doesn't make
+   * 2/5/5/3, when any outfield position still short once they've gone.
+   */
+  function replacementPositions(p: SquadPlayer): Position[] {
+    const counts: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+    for (const id of [...selected, ...bench]) {
+      const q = id === null ? undefined : poolById.get(id);
+      if (q) counts[q.position] += 1;
+    }
+    if (fitsQuota(counts) || p.position === 'GK') return [p.position];
+    counts[p.position] -= 1;
+    const short = (['DEF', 'MID', 'FWD'] as Position[]).filter(
+      (pos) => counts[pos] < SQUAD_QUOTA[pos],
+    );
+    return short.length ? short : [p.position];
   }
 
   /** To Transfers, checking first if there are unsaved changes here. */
@@ -548,7 +576,9 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
                   ? 'Free'
                   : wildcard
                     ? 'WC'
-                    : `${summary.transfers}/${s.transfers_per_gameweek}`}
+                    : freeFix
+                      ? 'Free'
+                      : `${summary.transfers}/${s.transfers_per_gameweek}`}
               </span>
               <span className="text-[0.7rem] uppercase text-white/85">Transfers</span>
             </div>
@@ -618,6 +648,12 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
         </section>
       ) : mode === 'transfers' && view === 'pitch' ? (
         <>
+          {freeFix && (
+            <p className="mb-3 rounded-xl border border-[#9cc3ea] bg-[#eaf3fc] px-3 py-2 text-sm font-semibold text-[#123a5e] dark:border-[#2c4f73] dark:bg-[#14263a] dark:text-[#cfe3f7]">
+              Squads are now 2 GK, 5 DEF, 5 MID and 3 FWD. Changes this week to get yours there are
+              free: tap a player to swap them for a position you&apos;re short of.
+            </p>
+          )}
           <Pitch rows={transferRows} />
           <p className="muted mt-3 text-center text-sm">
             Tap a player to transfer them out, or an empty shirt to add one. Like for like: a
@@ -768,11 +804,13 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
       {picker && (
         <Sheet
           title={
-            picker.slot === undefined
-              ? `Choose a ${POSITION_NAMES[picker.positions[0]!].toLowerCase()}`
-              : picker.slot === 0
-                ? 'Choose a sub goalkeeper'
-                : `Choose sub ${picker.slot}`
+            picker.positions.length > 1
+              ? 'Choose a replacement'
+              : picker.slot === undefined
+                ? `Choose a ${POSITION_NAMES[picker.positions[0]!].toLowerCase()}`
+                : picker.slot === 0
+                  ? 'Choose a sub goalkeeper'
+                  : `Choose sub ${picker.slot}`
           }
           onClose={() => setPicker(null)}
         >
@@ -865,9 +903,9 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
                       setFocus(null);
                       setPicker(
                         focusedSlot < 0
-                          ? { positions: [focused.position] }
+                          ? { positions: replacementPositions(focused) }
                           : {
-                              positions: focusedSlot === 0 ? ['GK'] : [focused.position],
+                              positions: focusedSlot === 0 ? ['GK'] : replacementPositions(focused),
                               slot: focusedSlot,
                             },
                       );

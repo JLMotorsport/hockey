@@ -363,8 +363,11 @@ describe.skipIf(!configured)('league database', () => {
       const ids = (idx: number[]) => idx.map((i) => playerIds[i]!);
       // 0 GK, 1-4 DEF, 5-8 MID, 9-10 FWD, 11 GK, 12 FWD, 13 DEF
       const fourFourTwo = ids([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-      const threeFourThree = ids([0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 12]);
-      const fourThreeThree = ids([0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 12]);
+      // Same 15 (2 GK, 5 DEF, 5 MID, 3 FWD), lined up differently.
+      const threeFourThree = ids([0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 17]);
+      const threeFourThreeBench = ids([14, 4, 15, 16]);
+      const fourThreeThree = ids([0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 17]);
+      const fourThreeThreeBench = ids([14, 15, 8, 16]);
       expect((await save(bob, fourFourTwo, fourFourTwo[0]!)).error).toBeNull();
 
       await boss.db
@@ -373,8 +376,10 @@ describe.skipIf(!configured)('league database', () => {
         .eq('id', 1);
       // A saved 4-4-2 can still change captain after 4-4-2 is switched off.
       expect((await save(bob, fourFourTwo, fourFourTwo[1]!)).error).toBeNull();
-      expect((await save(bob, threeFourThree, threeFourThree[0]!)).error).toBeNull();
-      const res = await save(bob, fourThreeThree, fourThreeThree[0]!);
+      expect(
+        (await save(bob, threeFourThree, threeFourThree[0]!, threeFourThreeBench)).error,
+      ).toBeNull();
+      const res = await save(bob, fourThreeThree, fourThreeThree[0]!, fourThreeThreeBench);
       expect(res.error!.message).toBe("That's a 4-3-3. Pick one of: 3-4-3.");
 
       await boss.db
@@ -1361,6 +1366,50 @@ describe.skipIf(!configured)('league database', () => {
         expected += [...r.values()].filter((x) => x.counts).reduce((sum, x) => sum + x.points, 0);
       }
       expect(total).toBe(expected);
+    });
+
+    it('needs 2 GK, 5 DEF, 5 MID, 3 FWD, and fixes an out-of-shape squad for free', async () => {
+      const dave = await signUp('dave@example.com', 'Dave XI');
+      const rpc = (xi: number[], subs: number[]) =>
+        dave.db.rpc('save_squad', {
+          p_starters: xi,
+          p_bench: subs,
+          p_captain_id: xi[9]!,
+          p_vice_id: xi[8]!,
+        });
+      // A lopsided 15 (4 FWD, 4 DEF) is refused.
+      const lopsided = await rpc(starters(), [14, 12, 16, 17].map(id));
+      expect(lopsided.error!.message).toMatch(
+        /needs 2 GK, 5 DEF, 5 MID and 3 FWD \(you have 2 GK, 4 DEF, 5 MID, 4 FWD\)/,
+      );
+
+      // The same lopsided squad saved last gameweek, before the rule (or
+      // before a manager changed a position)...
+      const open = await openGameweek();
+      const before = (
+        await anon
+          .from('gameweeks')
+          .select('id, start_date')
+          .lte('deadline', new Date().toISOString())
+          .order('start_date', { ascending: false })
+          .limit(1)
+          .single()
+      ).data!.id;
+      await service.from('picks').insert(
+        [...starters(), ...[14, 12, 16, 17].map(id)].map((p, i) => ({
+          user_id: dave.id,
+          gameweek_id: before,
+          player_id: p,
+          is_captain: i === 9,
+          is_vice: i === 8,
+          bench_order: i < 11 ? null : i - 10,
+        })),
+      );
+      // ...can be put right with 3 changes this week, over the limit of 2.
+      const fixed = [11, 13, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(id);
+      const res = await rpc(fixed, [14, 15, 16, 17].map(id));
+      expect(res.error).toBeNull();
+      expect(res.data).toBe(open);
     });
   });
 });
