@@ -1,5 +1,6 @@
 import { toPng } from 'html-to-image';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Sheet } from '@/components/Sheet';
 import { useSearchParams } from 'react-router-dom';
 import { Pitch, type PitchSlot } from '@/components/Pitch';
 import { Loading, Notices, type Notice } from '@/components/ui';
@@ -17,6 +18,29 @@ import {
 import { POSITIONS, type Position } from '@/lib/scoring';
 import { teamOfTheWeek, type Scorer } from '@/lib/teamOfWeek';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
+
+/** The card as a PNG: the card alone, without the page's centring margins. */
+async function renderCard(node: HTMLElement): Promise<Blob> {
+  const url = await toPng(node, {
+    pixelRatio: 3,
+    cacheBust: true,
+    width: node.offsetWidth,
+    height: node.offsetHeight,
+    style: { margin: '0' },
+  });
+  return (await fetch(url)).blob();
+}
+
+/** Can this browser hand an image file to the phone's share sheet? */
+function canShareFiles(): boolean {
+  try {
+    return Boolean(
+      navigator.canShare?.({ files: [new File([''], 'x.png', { type: 'image/png' })] }),
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function TeamOfWeekScreen() {
   const [params, setParams] = useSearchParams();
@@ -36,6 +60,26 @@ export function TeamOfWeekScreen() {
   const wanted = Number(params.get('gw'));
   const gameweek = locked.find((g) => g.id === wanted) ?? locked.at(-1);
   const scores = useGameweekScores(gameweek?.id);
+  // The image is made ahead of the tap: iPhones only open the share sheet if
+  // it's asked for straight after the tap, not after seconds of drawing.
+  const prepKey = `${gameweek?.id ?? 0}-${scores.dataUpdatedAt}`;
+  const [prepared, setPrepared] = useState<{ key: string; blob: Blob } | null>(null);
+  // If the share sheet won't open: the picture on screen to press and hold.
+  const [fallback, setFallback] = useState<string | null>(null);
+  useEffect(() => {
+    if (!scores.data) return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      if (!card.current) return;
+      renderCard(card.current)
+        .then((blob) => !cancelled && setPrepared({ key: prepKey, blob }))
+        .catch(() => undefined);
+    }, 800);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [prepKey, scores.data]);
 
   if (
     gameweeks.isLoading ||
@@ -90,59 +134,35 @@ export function TeamOfWeekScreen() {
   const label = gameweekLabel(gameweek, all);
   const fileName = `fhc-team-of-the-week-${gameweek.start_date}.png`;
 
-  async function image(): Promise<Blob | null> {
-    if (!card.current) return null;
-    const node = card.current;
-    // Export the card alone: drop the page's centring margins so the image
-    // isn't shifted, and size it to the card.
-    const url = await toPng(node, {
-      pixelRatio: 3,
-      cacheBust: true,
-      width: node.offsetWidth,
-      height: node.offsetHeight,
-      style: { margin: '0' },
-    });
-    return (await fetch(url)).blob();
-  }
+  const shareable = canShareFiles();
 
-  async function save() {
+  async function saveOrShare() {
+    if (!card.current) return;
     setBusy(true);
     try {
-      const blob = await image();
-      if (!blob) return;
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = fileName;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      const blob = prepared?.key === prepKey ? prepared.blob : await renderCard(card.current);
+      const file = new File([blob], fileName, { type: 'image/png' });
+      if (shareable) {
+        try {
+          // The phone's share sheet: Save Image / Save to Photos, WhatsApp, Instagram...
+          await navigator.share({ files: [file], title: `FHC Team of the Week, ${label}` });
+        } catch (e) {
+          // Closing the sheet is fine; anything else, show the picture to save by hand.
+          if ((e as Error).name !== 'AbortError') setFallback(URL.createObjectURL(file));
+        }
+      } else {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(file);
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      }
     } catch {
       setNotices([{ kind: 'error', text: 'Could not make the image. Try again.' }]);
     } finally {
       setBusy(false);
     }
   }
-
-  async function share() {
-    setBusy(true);
-    try {
-      const blob = await image();
-      if (!blob) return;
-      const file = new File([blob], fileName, { type: 'image/png' });
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `FHC Team of the Week, ${label}` });
-      } else {
-        setNotices([
-          { kind: 'info', text: 'Sharing isn’t available here. Use Save image instead.' },
-        ]);
-      }
-    } catch {
-      // Closing the share sheet counts as an error; nothing to report.
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const canShare = typeof navigator !== 'undefined' && 'share' in navigator;
 
   return (
     <>
@@ -210,20 +230,39 @@ export function TeamOfWeekScreen() {
           </div>
 
           <div className="mx-auto mt-4 flex max-w-[26rem] flex-wrap justify-center gap-2">
-            <button type="button" className="btn" disabled={busy} onClick={() => void save()}>
-              {busy ? 'Making image' : 'Save image'}
+            <button
+              type="button"
+              className="btn"
+              disabled={busy}
+              onClick={() => void saveOrShare()}
+            >
+              {busy ? 'Making image' : shareable ? 'Save or share image' : 'Download image'}
             </button>
-            {canShare && (
-              <button
-                type="button"
-                className="btn btn-quiet"
-                disabled={busy}
-                onClick={() => void share()}
-              >
-                Share
-              </button>
-            )}
           </div>
+          {shareable && (
+            <p className="muted mx-auto mt-2 max-w-[26rem] text-center text-xs">
+              Then tap Save Image (iPhone) or Save to Photos (Android) to put it in your camera
+              roll, or pick WhatsApp, Instagram and so on.
+            </p>
+          )}
+          {fallback && (
+            <Sheet
+              title="Save the picture"
+              onClose={() => {
+                URL.revokeObjectURL(fallback);
+                setFallback(null);
+              }}
+            >
+              <p className="mb-3 text-sm">
+                Press and hold the picture, then tap Save to Photos (or Save image).
+              </p>
+              <img
+                src={fallback}
+                alt={`FHC Team of the Week, ${label}`}
+                className="w-full rounded-xl"
+              />
+            </Sheet>
+          )}
           {open && (
             <PlayerSheet playerId={open} gameweekId={gameweek.id} onClose={() => setOpen(null)} />
           )}
