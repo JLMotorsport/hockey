@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Position } from '@/lib/scoring';
 
@@ -53,7 +54,30 @@ export function Notices({ items }: { items: Notice[] }) {
 }
 
 export function Loading({ label = 'Loading' }: { label?: string }) {
-  return <p className="muted my-6">{label}...</p>;
+  // On a bad phone signal a page can hang; offer a way out rather than a
+  // label that never changes.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 8000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div className="my-6">
+      <p className="muted">{label}...</p>
+      {slow && (
+        <p className="mt-2 text-sm">
+          Taking a while.{' '}
+          <button
+            type="button"
+            className="min-h-tap font-semibold text-brand underline"
+            onClick={() => window.location.reload()}
+          >
+            Reload
+          </button>
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function ErrorText({ error }: { error: unknown }) {

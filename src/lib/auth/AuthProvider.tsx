@@ -21,16 +21,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!supabase) return;
-    void supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setSessionLoading(false);
-    });
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+    // Never leave the whole app on "Loading" if the session check stalls:
+    // carry on after a few seconds; the session still arrives below if late.
+    const giveUp = setTimeout(() => setSessionLoading(false), 6000);
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => setSession(data.session))
+      .finally(() => {
+        clearTimeout(giveUp);
+        setSessionLoading(false);
+      });
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
-      // Squads, admin pages etc. depend on who is logged in.
-      void queryClient.invalidateQueries();
+      // Squads, admin pages etc. depend on who is logged in. Not on the
+      // hourly token refresh (nothing changes), and outside this callback,
+      // which runs while the auth client holds its lock.
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        setTimeout(() => void queryClient.invalidateQueries(), 0);
+      }
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      clearTimeout(giveUp);
+      data.subscription.unsubscribe();
+    };
   }, [queryClient]);
 
   const userId = session?.user.id;
