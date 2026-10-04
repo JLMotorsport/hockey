@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Players</h1>
+{% include "_admin_nav.html" %}
+<section class="card">
+  <h2>Add players</h2>
+  <p class="muted">One per line: <code>Name, Position, Side, Price</code>. Position is GK, DEF, MID or FWD. Side is the short name ({% for t in teams %}{{ t.short_name }}{% if not loop.last %}, {% endif %}{% endfor %}).</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <textarea name="bulk" rows="5" placeholder="Jo Bloggs, MID, M1, 8.5&#10;Sam Smith, GK, W2, 6.0"></textarea>
+    <button class="button">Add</button>
+  </form>
+</section>
+<section class="card">
+  <h2>All players ({{ players|length }})</h2>
+  <table class="data edit-table">
+    <thead><tr><th>Name</th><th>Pos</th><th>Side</th><th>Price</th><th>Active</th><th></th></tr></thead>
+    <tbody>
+    {% for p in players %}
+      <tr id="player-{{ p.id }}">
+        <td><input form="p{{ p.id }}" name="name" value="{{ p.name }}" required></td>
+        <td><select form="p{{ p.id }}" name="position">{% for pos in positions %}<option {% if pos == p.position %}selected{% endif %}>{{ pos }}</option>{% endfor %}</select></td>
+        <td><select form="p{{ p.id }}" name="team_id">{% for t in teams %}<option value="{{ t.id }}" {% if t.id == p.team_id %}selected{% endif %}>{{ t.short_name }}</option>{% endfor %}</select></td>
+        <td><input form="p{{ p.id }}" name="price" value="{{ p.price_display }}" size="4" inputmode="decimal"></td>
+        <td><input form="p{{ p.id }}" type="checkbox" name="active" value="1" {% if p.active %}checked{% endif %}></td>
+        <td><form id="p{{ p.id }}" method="post" action="{{ url_for('admin.edit_player', player_id=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button small">Save</button></form></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

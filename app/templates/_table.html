@@ -1,0 +1,18 @@
+{% if table %}
+<table class="data">
+  <thead><tr><th>#</th><th>Team</th><th>Manager</th><th class="num">{{ latest.label if latest else 'Last GW' }}</th><th class="num">Total</th></tr></thead>
+  <tbody>
+  {% for row in table %}
+    <tr{% if current_user.is_authenticated and row.team.user_id == current_user.id %} class="me"{% endif %}>
+      <td>{{ row.rank }}</td>
+      <td><a href="{{ url_for('main.fantasy_team', team_id=row.team.id) }}">{{ row.team.name }}</a></td>
+      <td>{{ row.team.user.display_name }}</td>
+      <td class="num">{{ row.latest }}</td>
+      <td class="num"><strong>{{ row.total }}</strong></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No teams yet. Be the first.</p>
+{% endif %}

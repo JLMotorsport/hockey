@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Manager dashboard</h1>
+{% include "_admin_nav.html" %}
+<div class="stats-row">
+  <div class="stat"><span class="stat-value">{{ player_count }}</span><span class="stat-label">Active players</span></div>
+  <div class="stat"><span class="stat-value">{{ user_count }}</span><span class="stat-label">Accounts</span></div>
+  <div class="stat"><span class="stat-value">{{ gameweeks|length }}</span><span class="stat-label">Gameweeks</span></div>
+</div>
+<section class="card">
+  <h2>Stats to enter</h2>
+  <p class="muted">England Hockey publishes scores but not scorers or cards. Open a fixture to record who played and what they did.</p>
+  <table class="data">
+    <thead><tr><th>Gameweek</th><th>Fixture</th><th class="num">Score</th><th>Stats</th></tr></thead>
+    <tbody>
+    {% for gw in gameweeks %}{% for f in gw.fixtures %}{% if f.has_result and not f.stats_complete %}
+      <tr>
+        <td>{{ gw.label }}</td>
+        <td><a href="{{ url_for('admin.fixture', fixture_id=f.id) }}">{{ f.team.name }} {{ 'v' if f.is_home else '@' }} {{ f.opponent }}</a></td>
+        <td class="num">{{ f.score_display }}</td>
+        <td>{{ f.performances|length }} players entered</td>
+      </tr>
+    {% endif %}{% endfor %}{% endfor %}
+    </tbody>
+  </table>
+</section>
+<section class="card">
+  <h2>Sides</h2>
+  <table class="data">
+    <tbody>{% for t in teams %}<tr><td>{{ t.name }}</td><td class="muted">{{ t.competition or 'not synced yet' }}</td><td>{{ t.players|length }} players</td></tr>{% endfor %}</tbody>
+  </table>
+</section>
+{% endblock %}

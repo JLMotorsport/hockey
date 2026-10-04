@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Fixtures &amp; stats</h1>
+{% include "_admin_nav.html" %}
+<section class="card">
+  <h2>Add a fixture by hand</h2>
+  <p class="muted">For cups, friendlies, or anything not on England Hockey.</p>
+  <form method="post" class="row-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <select name="team_id" required>{% for t in teams %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}</select>
+    <input name="opponent" placeholder="Opponent" required>
+    <input type="datetime-local" name="kickoff" required>
+    <select name="is_home"><option value="1">Home</option><option value="0">Away</option></select>
+    <input name="competition" placeholder="Competition (optional)">
+    <button class="button">Add</button>
+  </form>
+</section>
+{% for gw in gameweeks %}
+<section class="card">
+  <h2>{{ gw.label }}</h2>
+  <table class="data">
+    <tbody>
+    {% for f in gw.fixtures %}
+      <tr>
+        <td class="muted">{{ f.kickoff.strftime('%a %H:%M') }}</td>
+        <td><a href="{{ url_for('admin.fixture', fixture_id=f.id) }}">{{ f.team.name }} {{ 'v' if f.is_home else '@' }} {{ f.opponent }}</a>{% if not f.eh_fixture_id %} <span class="tag">manual</span>{% endif %}</td>
+        <td class="num">{{ f.score_display }}</td>
+        <td>{% if f.stats_complete %}<span class="tag ok">stats done</span>{% elif f.performances %}<span class="tag">{{ f.performances|length }} entered</span>{% elif f.has_result %}<span class="tag warn">needs stats</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<p class="muted">No fixtures yet. Use "Sync from England Hockey" above.</p>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Pick your squad <small class="muted">for {{ gameweek.label }}</small></h1>
+<p class="muted">Deadline {{ gameweek.deadline.strftime('%a %d %b, %H:%M') }}. Changes after that apply to the following gameweek.</p>
+
+<form method="post" id="squad-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="squad-summary card" id="summary">
+    <div><strong id="count">0</strong>/{{ settings.squad_size }} players</div>
+    <div>GK <strong id="c-GK">0</strong>/1 · DEF <strong id="c-DEF">0</strong> · MID <strong id="c-MID">0</strong> · FWD <strong id="c-FWD">0</strong></div>
+    <div>Spent <strong id="spent">0.0</strong>m of {{ '%.1f' % (settings.budget / 10) }}m</div>
+    {% if previous %}<div>Transfers <strong id="transfers">0</strong>/{{ settings.transfers_per_gameweek }}</div>{% endif %}
+    <button class="button">Save squad</button>
+  </div>
+  <p class="muted">1 goalkeeper, at least 3 defenders, 3 midfielders and 1 forward. Max {{ settings.max_per_team }} from any one Felixstowe side. Captain scores double.</p>
+
+  <div class="filters">
+    <select id="f-team"><option value="">All sides</option>{% for t in teams %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}</select>
+    <select id="f-pos"><option value="">All positions</option>{% for p in positions %}<option>{{ p }}</option>{% endfor %}</select>
+    <label class="check"><input type="checkbox" id="f-selected"> Only my picks</label>
+  </div>
+
+  <div class="card">
+  <table class="data" id="players">
+    <thead><tr><th>Pick</th><th>Captain</th><th>Player</th><th>Pos</th><th>Side</th><th class="num">Price</th><th class="num">Pts</th></tr></thead>
+    <tbody>
+    {% for p in players %}
+      <tr data-team="{{ p.team_id }}" data-pos="{{ p.position }}" data-price="{{ p.price }}" data-id="{{ p.id }}">
+        <td><input type="checkbox" name="player_ids" value="{{ p.id }}" {% if p.id in selected %}checked{% endif %} aria-label="Pick {{ p.name }}"></td>
+        <td><input type="radio" name="captain_id" value="{{ p.id }}" {% if p.id == captain_id %}checked{% endif %} aria-label="Captain {{ p.name }}"></td>
+        <td>{{ p.name }}{% if not p.active %} <span class="muted">(unavailable)</span>{% endif %}</td>
+        <td><span class="pos pos-{{ p.position }}">{{ p.position }}</span></td>
+        <td>{{ p.team.short_name }}</td>
+        <td class="num">{{ p.price_display }}</td>
+        <td class="num">{{ season_points.get(p.id, 0) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const rows = Array.from(document.querySelectorAll('#players tbody tr'));
+  const previous = new Set({{ previous | tojson }});
+  const fTeam = document.getElementById('f-team'), fPos = document.getElementById('f-pos'), fSel = document.getElementById('f-selected');
+  function update() {
+    let count = 0, spent = 0, transfers = 0;
+    const pos = {GK: 0, DEF: 0, MID: 0, FWD: 0};
+    rows.forEach(r => {
+      const box = r.querySelector('input[type=checkbox]');
+      const radio = r.querySelector('input[type=radio]');
+      radio.disabled = !box.checked;
+      if (!box.checked) radio.checked = false;
+      r.classList.toggle('picked', box.checked);
+      if (box.checked) {
+        count++; spent += +r.dataset.price; pos[r.dataset.pos]++;
+        if (!previous.has(+r.dataset.id)) transfers++;
+      }
+      const show = (!fTeam.value || r.dataset.team === fTeam.value) && (!fPos.value || r.dataset.pos === fPos.value) && (!fSel.checked || box.checked);
+      r.hidden = !show;
+    });
+    document.getElementById('count').textContent = count;
+    document.getElementById('spent').textContent = (spent / 10).toFixed(1);
+    Object.keys(pos).forEach(k => document.getElementById('c-' + k).textContent = pos[k]);
+    const t = document.getElementById('transfers'); if (t) t.textContent = transfers;
+    document.getElementById('spent').classList.toggle('over', spent > {{ settings.budget }});
+  }
+  document.getElementById('squad-form').addEventListener('change', update);
+  [fTeam, fPos, fSel].forEach(el => el.addEventListener('change', update));
+  update();
+})();
+</script>
+{% endblock %}

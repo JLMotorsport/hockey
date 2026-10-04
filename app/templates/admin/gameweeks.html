@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Gameweek deadlines</h1>
+{% include "_admin_nav.html" %}
+<p class="muted">Gameweeks are created automatically from fixture dates (one per weekend). Deadlines default to Saturday 10:00 UK time.</p>
+<section class="card">
+  <table class="data">
+    <tbody>
+    {% for gw in gameweeks %}
+      <tr>
+        <td>{{ gw.label }}</td>
+        <td>{{ gw.fixtures|length }} fixtures</td>
+        <td>
+          <form method="post" class="row-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="gameweek_id" value="{{ gw.id }}">
+            <input type="datetime-local" name="deadline" value="{{ gw.deadline.strftime('%Y-%m-%dT%H:%M') }}" required>
+            <button class="button small">Save</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

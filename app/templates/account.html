@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card narrow">
+  <h1>Account</h1>
+  <p class="muted">{{ current_user.display_name }} · {{ current_user.email }}</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Fantasy team name <input name="team_name" value="{{ current_user.fantasy_team.name }}" maxlength="80"></label>
+    <h3>Change password</h3>
+    <label>Current password <input type="password" name="current_password"></label>
+    <label>New password <input type="password" name="new_password" minlength="8"></label>
+    <button class="button">Save</button>
+  </form>
+</div>
+{% endblock %}

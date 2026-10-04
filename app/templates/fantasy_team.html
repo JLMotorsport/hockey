@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ team.name }} <small class="muted">{{ team.user.display_name }}</small></h1>
+{% if locked %}
+  <form method="get" class="filters">
+    <select name="gw" onchange="this.form.submit()">
+      {% for gw in locked %}<option value="{{ gw.id }}" {% if gameweek and gw.id == gameweek.id %}selected{% endif %}>{{ gw.label }}</option>{% endfor %}
+    </select>
+    <noscript><button class="button small">Show</button></noscript>
+  </form>
+  <div class="card">
+    {% if rows %}
+    <table class="data">
+      <thead><tr><th>Player</th><th>Side</th><th class="num">Points</th></tr></thead>
+      <tbody>
+      {% for pick, points in rows %}
+        <tr><td><span class="pos pos-{{ pick.player.position }}">{{ pick.player.position }}</span> {{ pick.player.name }}{% if pick.is_captain %} <span class="captain">C</span>{% endif %}</td><td>{{ pick.player.team.short_name }}</td><td class="num">{{ points }}</td></tr>
+      {% endfor %}
+      </tbody>
+      <tfoot><tr><th colspan="2">Total</th><th class="num">{{ total }}</th></tr></tfoot>
+    </table>
+    {% else %}<p class="muted">No squad for this gameweek.</p>{% endif %}
+  </div>
+{% else %}
+  <p class="muted">Squads are revealed once the first deadline passes.</p>
+{% endif %}
+{% endblock %}

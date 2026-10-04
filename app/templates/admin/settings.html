@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>League settings</h1>
+{% include "_admin_nav.html" %}
+<div class="card narrow">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Budget (m) <input name="budget" value="{{ '%.1f' % (settings.budget / 10) }}" inputmode="decimal"></label>
+    <label>Max players from one side <input type="number" min="1" name="max_per_team" value="{{ settings.max_per_team }}"></label>
+    <label>Transfers per gameweek <input type="number" min="0" name="transfers_per_gameweek" value="{{ settings.transfers_per_gameweek }}"></label>
+    <button class="button">Save</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card narrow">
+  <h1>{{ error.code }}</h1>
+  <p>{% if error.code == 403 %}That page is for league managers only.{% else %}We couldn't find that page.{% endif %}</p>
+  <p><a href="{{ url_for('main.index') }}">Back to the league</a></p>
+</div>
+{% endblock %}
