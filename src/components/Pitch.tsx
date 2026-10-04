@@ -173,26 +173,31 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
         )}
       </span>
       {slot.name ? (
-        <span className="mt-0.5 flex w-full flex-1 flex-col overflow-hidden rounded-md text-center shadow">
-          {/* Full name always: it wraps (side tag last) rather than being cut off. */}
-          <span className="flex flex-1 flex-wrap content-center items-baseline justify-center gap-x-1 bg-white px-0.5 py-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] [overflow-wrap:break-word] sm:text-xs">
-            <span className="max-w-full [font-stretch:85%]">
-              {/* Keep "J." with the surname when the plate wraps. */}
-              {slot.name.replace(/^(\S+\.) /, '$1\u00a0')}
+        <span className="relative mt-1.5 flex w-full flex-1 flex-col">
+          {/* Side tag sits on the plate's top-right corner, leaving the name the full width. */}
+          {slot.tag && (
+            <span className="absolute -top-2 right-0.5 z-10 rounded bg-[#16181d] px-1 font-display text-[0.62rem] font-bold leading-[1.15rem] text-white shadow sm:text-[0.7rem]">
+              {slot.tag}
             </span>
-            {slot.tag && (
-              <span className="shrink-0 font-display text-[0.62rem] font-bold text-[#d91414] sm:text-[0.7rem]">
-                {slot.tag}
+          )}
+          <span className="flex w-full flex-1 flex-col overflow-hidden rounded-md text-center shadow">
+            {/* Full name always: it wraps rather than being cut off. */}
+            <span
+              className={`flex flex-1 items-center justify-center bg-white px-0.5 pb-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] [overflow-wrap:break-word] sm:text-xs ${slot.tag ? 'pt-2' : 'pt-0.5'}`}
+            >
+              <span className="max-w-full [font-stretch:85%]">
+                {/* Keep "J." with the surname when the plate wraps. */}
+                {slot.name.replace(/^(\S+\.) /, '$1\u00a0')}
+              </span>
+            </span>
+            {slot.sub !== undefined && (
+              <span
+                className={`block px-1 py-0.5 font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
+              >
+                {slot.sub}
               </span>
             )}
           </span>
-          {slot.sub !== undefined && (
-            <span
-              className={`block px-1 py-0.5 font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
-            >
-              {slot.sub}
-            </span>
-          )}
         </span>
       ) : (
         <span className="mt-0.5 rounded-md bg-black/30 px-1.5 py-0.5 font-display text-[0.7rem] font-bold uppercase text-white">
