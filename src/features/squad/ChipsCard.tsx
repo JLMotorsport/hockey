@@ -1,11 +1,19 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Sheet } from '@/components/Sheet';
+import { RollingSubsIcon, TeamBusIcon, TripleCaptainIcon, WildcardIcon } from '@/components/icons';
 import type { Notice } from '@/components/ui';
-import { CHIPS, chipStates, type Chip, type ChipState } from '@/lib/chips';
+import { CHIPS, chipStates, type Chip, type ChipKey, type ChipState } from '@/lib/chips';
 import { gameweekLabel } from '@/lib/format';
 import { keys, useChips, type Gameweek, type Side } from '@/lib/queries';
 import { errorLines, requireSupabase } from '@/lib/supabase';
+
+const CHIP_ICONS: Record<ChipKey, () => JSX.Element> = {
+  triple_captain: TripleCaptainIcon,
+  rolling_subs: RollingSubsIcon,
+  wildcard: WildcardIcon,
+  team_bus: TeamBusIcon,
+};
 
 /** The four chips for the gameweek being picked: play, swap or cancel. */
 export function ChipsCard({
@@ -59,6 +67,7 @@ export function ChipsCard({
       <div className="grid grid-cols-4 gap-1.5">
         {CHIPS.map((c) => {
           const state = states[c.key];
+          const Icon = CHIP_ICONS[c.key];
           return (
             <button
               key={c.key}
@@ -69,21 +78,32 @@ export function ChipsCard({
                 setSideId(state.state === 'active' && state.sideId ? String(state.sideId) : '');
                 setOpen(c);
               }}
-              className={`flex min-h-[52px] flex-col items-center justify-center rounded-xl px-1 py-1.5 text-center leading-tight ${
-                state.state === 'active'
-                  ? 'bg-brand text-white'
-                  : state.state === 'used'
-                    ? 'bg-line text-ink-soft'
-                    : 'bg-surface ring-1 ring-line'
-              }`}
+              className={`flex flex-col items-center gap-1 rounded-xl px-1 pb-1.5 pt-2 text-center shadow-card ${state.state === 'used' ? 'bg-surface opacity-55' : 'bg-surface'}`}
             >
-              <span className="font-display text-[0.8rem] font-extrabold uppercase">{c.name}</span>
               <span
-                className={`text-[0.65rem] uppercase ${state.state === 'active' ? 'text-white/90' : 'text-ink-soft'}`}
+                className={`flex h-8 w-8 items-center justify-center rounded-full ${state.state === 'active' ? 'bg-brand text-white' : 'bg-[#16181d] text-white dark:bg-white dark:text-[#16181d]'}`}
               >
-                {state.state === 'active' && c.key === 'team_bus'
-                  ? sideShort(state.sideId)
-                  : label(state)}
+                <Icon />
+              </span>
+              <span className="flex min-h-[2rem] items-center font-display text-[0.78rem] font-extrabold uppercase leading-tight">
+                {c.name}
+              </span>
+              <span
+                className={`w-full rounded-md py-1 font-display text-[0.72rem] font-bold uppercase ${
+                  state.state === 'active'
+                    ? 'bg-brand text-white'
+                    : state.state === 'used'
+                      ? 'bg-line text-ink-soft'
+                      : 'bg-[#16181d] text-white dark:bg-white dark:text-[#16181d]'
+                }`}
+              >
+                {state.state === 'active'
+                  ? c.key === 'team_bus'
+                    ? `Active: ${sideShort(state.sideId)}`
+                    : 'Active'
+                  : state.state === 'used'
+                    ? label(state)
+                    : 'Play'}
               </span>
             </button>
           );
