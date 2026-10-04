@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ErrorText, Loading, Notices, PosBadge, type Notice } from '@/components/ui';
+import { ErrorText, Loading, Notices, PosBadge, PriceTrend, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { formatDayTime, gameweekLabel, shortName } from '@/lib/format';
 import {
@@ -9,6 +9,7 @@ import {
   nextOpenGameweek,
   useGameweeks,
   usePlayers,
+  usePriceTrend,
   useSeasonPoints,
   useSettings,
   useSides,
@@ -30,6 +31,7 @@ export function SquadScreen() {
   const sides = useSides();
   const settings = useSettings();
   const points = useSeasonPoints();
+  const trend = usePriceTrend();
 
   const all = gameweeks.data ?? [];
   const gameweek = nextOpenGameweek(all);
@@ -357,7 +359,10 @@ export function SquadScreen() {
                         <PosBadge position={p.position} />
                       </td>
                       <td>{sideById.get(p.side_id)?.short_name}</td>
-                      <td className="num">{formatPrice(p.price)}</td>
+                      <td className="num">
+                        {formatPrice(p.price)}
+                        <PriceTrend change={trend.data?.get(p.id)} />
+                      </td>
                       <td className="num">{points.data?.get(p.id) ?? 0}</td>
                     </tr>
                   );
@@ -423,6 +428,7 @@ export function SquadScreen() {
                       className={`display-num block text-lg ${p.price > bank ? 'text-brand' : ''}`}
                     >
                       {formatPrice(p.price)}m
+                      <PriceTrend change={trend.data?.get(p.id)} />
                     </span>
                     <span className="muted text-xs">{points.data?.get(p.id) ?? 0} pts</span>
                   </span>

@@ -31,6 +31,8 @@ export const keys = {
   squad: (userId: string, gameweekId: number) => ['squad', userId, gameweekId] as const,
   profile: (id: string) => ['profile', id] as const,
   adminUsers: ['admin-users'] as const,
+  priceTrend: ['price-trend'] as const,
+  pricing: ['gameweek-pricing'] as const,
 };
 
 export function useSides() {
@@ -146,4 +148,23 @@ export function nextOpenGameweek(gameweeks: Gameweek[], now = new Date()): Gamew
 /** Gameweeks whose deadline has passed, oldest first. */
 export function lockedGameweeks(gameweeks: Gameweek[], now = new Date()): Gameweek[] {
   return gameweeks.filter((g) => new Date(g.deadline) <= now);
+}
+
+/** Each player's latest weekly price change in tenths (+2 = up 0.2m). */
+export function usePriceTrend() {
+  return useQuery({
+    queryKey: keys.priceTrend,
+    queryFn: async () => {
+      const rows = unwrap(await requireSupabase().from('player_price_trend').select('*'));
+      return new Map(rows.map((r) => [r.player_id ?? 0, r.change ?? 0]));
+    },
+  });
+}
+
+/** Gameweeks whose weekly price changes are done; empty until prices are set. */
+export function useGameweekPricing() {
+  return useQuery({
+    queryKey: keys.pricing,
+    queryFn: async () => unwrap(await requireSupabase().from('gameweek_pricing').select('*')),
+  });
 }

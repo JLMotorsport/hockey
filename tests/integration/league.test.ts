@@ -804,4 +804,73 @@ describe.skipIf(!configured)('league database', () => {
         ?.message,
     ).toMatch(/different people/);
   });
+
+  it('prices players from points, then moves them weekly by form', async () => {
+    expect((await alice.db.rpc('set_prices_from_points')).error?.message).toMatch(/managers only/i);
+    expect((await anon.rpc('apply_due_price_changes')).error).not.toBeNull();
+    // Nothing moves before starting prices exist.
+    expect((await service.rpc('apply_due_price_changes')).data).toMatchObject({
+      weeks: 0,
+      waiting_for_starting_prices: true,
+    });
+
+    const { data: count } = await boss.db.rpc('set_prices_from_points');
+    const all = (await anon.from('players').select('id, position, price')).data!;
+    expect(count).toBe(all.length);
+    expect(all.every((p) => p.price >= 40 && p.price <= 100 && p.price % 5 === 0)).toBe(true);
+    // Spread across the range, not bunched at the top.
+    const avg = all.reduce((sum, p) => sum + p.price, 0) / all.length;
+    expect(avg).toBeGreaterThan(55);
+    expect(avg).toBeLessThan(85);
+    // The striker who scored twice is the best forward; players who haven't
+    // played sit mid-range, not at the bottom.
+    const striker = playerIds[9]!;
+    expect(all.find((p) => p.id === striker)!.price).toBe(100);
+    const unplayed = playerIds[12]!;
+    const unplayedPrice = all.find((p) => p.id === unplayed)!.price;
+    expect(unplayedPrice).toBeGreaterThan(40);
+    expect(unplayedPrice).toBeLessThan(100);
+    const locked = (
+      await anon.from('gameweeks').select('id').lte('deadline', new Date().toISOString())
+    ).data!;
+    expect((await anon.from('gameweek_pricing').select('gameweek_id')).data).toHaveLength(
+      locked.length,
+    );
+
+    // A finished weekend after pricing started: two defenders, one great, one poor.
+    const [good, poor] = [playerIds[1]!, playerIds[2]!];
+    await service.from('players').update({ price: 60 }).in('id', [good, poor]);
+    const fixtureId = (
+      await service
+        .from('fixtures')
+        .insert({
+          side_id: sides[0]!.id,
+          kickoff: '2026-08-01T14:00:00+01:00',
+          opponent: 'Pricing Opp',
+          gameweek_id: 0,
+          goals_for: 2,
+          goals_against: 4,
+        })
+        .select('id, gameweek_id')
+        .single()
+    ).data!;
+    const inserted = await service.from('performances').insert([
+      { fixture_id: fixtureId.id, player_id: good, goals: 2, yellow_cards: 0 },
+      { fixture_id: fixtureId.id, player_id: poor, goals: 0, yellow_cards: 1 },
+    ]);
+    expect(inserted.error).toBeNull();
+    expect((await service.rpc('apply_due_price_changes')).data).toEqual({ weeks: 1, changes: 2 });
+    const after = (await anon.from('players').select('id, price').in('id', [good, poor])).data!;
+    expect(after.find((p) => p.id === good)!.price).toBe(63);
+    expect(after.find((p) => p.id === poor)!.price).toBe(58);
+    const trend = (
+      await anon
+        .from('player_price_trend')
+        .select('player_id, change')
+        .in('player_id', [good, poor])
+    ).data!;
+    expect(trend.find((t) => t.player_id === good)!.change).toBe(3);
+    // Each gameweek moves prices once.
+    expect((await service.rpc('apply_due_price_changes')).data).toEqual({ weeks: 0, changes: 0 });
+  });
 });

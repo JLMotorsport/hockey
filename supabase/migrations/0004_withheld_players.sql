@@ -85,7 +85,10 @@ begin
       insert into public.players (name, position, side_id, price, active, eh_member_id, needs_review, name_withheld)
       values (
         case when v_withheld
-          then format('Name withheld #%s (%s)', coalesce(nullif(r ->> 'shirt', ''), '?'), v_side_short)
+          -- Shirt number helps work out who it is; without one, a short id
+          -- keeps two placeholders apart.
+          then format('Name withheld #%s (%s)',
+            coalesce(nullif(r ->> 'shirt', ''), left(r ->> 'member_id', 4)), v_side_short)
           else left(r ->> 'name', 120)
         end,
         case when (r ->> 'is_gk')::boolean then 'GK' else 'MID' end,

@@ -182,5 +182,17 @@ Deno.serve(async (req: Request) => {
       results.push({ side: side.name, ok: false, message: (err as Error).message });
     }
   }
+  // Weekly price changes for any gameweek whose weekend is now over.
+  const { data: prices, error: priceError } = await admin.rpc('apply_due_price_changes');
+  const priceInfo = prices as { weeks?: number; changes?: number } | null;
+  results.push({
+    side: 'Prices',
+    ok: !priceError,
+    message: priceError
+      ? priceError.message
+      : priceInfo?.weeks
+        ? `${priceInfo.changes} price changes over ${priceInfo.weeks} gameweek(s)`
+        : 'no price changes due',
+  });
   return json({ results });
 });

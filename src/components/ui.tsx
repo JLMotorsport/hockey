@@ -69,3 +69,18 @@ export function Stat({ value, label }: { value: ReactNode; label: string }) {
     </div>
   );
 }
+
+/** Latest weekly price move: green up, red down, nothing if unchanged. */
+export function PriceTrend({ change }: { change: number | undefined }) {
+  if (!change) return null;
+  const up = change > 0;
+  return (
+    <span
+      className={`ml-1 whitespace-nowrap text-xs font-bold ${up ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}
+      title={`Price ${up ? 'rose' : 'fell'} ${(Math.abs(change) / 10).toFixed(1)}m last gameweek`}
+    >
+      {up ? '▲' : '▼'}
+      {(Math.abs(change) / 10).toFixed(1)}
+    </span>
+  );
+}

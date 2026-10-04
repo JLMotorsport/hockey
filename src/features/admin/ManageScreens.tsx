@@ -6,6 +6,7 @@ import { gameweekLabel, toUkInputValue } from '@/lib/format';
 import {
   keys,
   useAdminUsers,
+  useGameweekPricing,
   useFixtures,
   useGameweeks,
   usePlayers,
@@ -29,6 +30,85 @@ function useNotices() {
       setNotices(errorLines(error).map((text) => ({ kind: 'error', text }))),
     set: setNotices,
   };
+}
+
+function PricesCard({ onDone }: { onDone: (notices: Notice[]) => void }) {
+  const queryClient = useQueryClient();
+  const pricing = useGameweekPricing();
+  const gameweeks = useGameweeks();
+  const [busy, setBusy] = useState(false);
+  const started = (pricing.data?.length ?? 0) > 0;
+  const all = gameweeks.data ?? [];
+  const lastPriced = all.filter((g) => pricing.data?.some((p) => p.gameweek_id === g.id)).at(-1);
+
+  async function run(kind: 'start' | 'weekly') {
+    if (
+      kind === 'start' &&
+      !window.confirm(
+        started
+          ? 'Reset every price from points so far? This replaces the current prices, including any you set by hand.'
+          : "Set every player's price from their points so far?",
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    const db = requireSupabase();
+    const result =
+      kind === 'start'
+        ? await db.rpc('set_prices_from_points')
+        : await db.rpc('apply_due_price_changes');
+    setBusy(false);
+    if (result.error) {
+      onDone(errorLines(result.error).map((text) => ({ kind: 'error', text })));
+      return;
+    }
+    const data = result.data as number | { weeks?: number; changes?: number };
+    onDone([
+      {
+        kind: 'success',
+        text:
+          typeof data === 'number'
+            ? `Priced ${data} players from their points. Prices now move each week with form.`
+            : data.weeks
+              ? `${data.changes} price changes over ${data.weeks} gameweek(s).`
+              : "No price changes due yet. They run once a gameweek's weekend is over.",
+      },
+    ]);
+    await queryClient.invalidateQueries();
+  }
+
+  return (
+    <section className="card">
+      <h2>Prices</h2>
+      <p className="muted text-sm">
+        Starting prices come from each player&apos;s points per game so far, compared with others in
+        the same position, from 4.0m to 10.0m. After each gameweek, players who played move up or
+        down by up to 0.3m depending on how they scored against their position&apos;s average. That
+        runs automatically with the Sunday and Monday sync.
+      </p>
+      <p className="mt-2 text-sm font-semibold">
+        {started
+          ? `Weekly changes are on${lastPriced ? `, done up to ${gameweekLabel(lastPriced, all)}` : ''}.`
+          : 'Prices have not been set from points yet.'}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" className="btn" disabled={busy} onClick={() => void run('start')}>
+          {started ? 'Reset prices from points' : 'Set prices from points'}
+        </button>
+        {started && (
+          <button
+            type="button"
+            className="btn btn-quiet"
+            disabled={busy}
+            onClick={() => void run('weekly')}
+          >
+            Apply weekly changes now
+          </button>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export function AdminPlayersScreen() {
@@ -69,6 +149,7 @@ export function AdminPlayersScreen() {
 
   return (
     <>
+      <PricesCard onDone={n.set} />
       <section className="card">
         <h2>Add players</h2>
         <p className="muted text-sm">

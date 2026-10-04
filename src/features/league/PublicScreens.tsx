@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { ErrorText, Loading, PosBadge } from '@/components/ui';
+import { ErrorText, Loading, PosBadge, PriceTrend } from '@/components/ui';
 import { formatDayTime, formatWeekdayTime, gameweekLabel } from '@/lib/format';
 import {
+  usePriceTrend,
   useFixtures,
   useGameweeks,
   usePlayers,
@@ -65,6 +66,7 @@ export function PlayersScreen() {
   const players = usePlayers();
   const sides = useSides();
   const points = useSeasonPoints();
+  const trend = usePriceTrend();
   if (players.isLoading || sides.isLoading || points.isLoading) return <Loading />;
   if (players.error) return <ErrorText error={players.error} />;
   const sideName = new Map((sides.data ?? []).map((s) => [s.id, s.name]));
@@ -94,7 +96,10 @@ export function PlayersScreen() {
                   <PosBadge position={p.position} />
                 </td>
                 <td>{sideName.get(p.side_id)}</td>
-                <td className="num">{formatPrice(p.price)}</td>
+                <td className="num">
+                  {formatPrice(p.price)}
+                  <PriceTrend change={trend.data?.get(p.id)} />
+                </td>
                 <td className="num">{points.data?.get(p.id) ?? 0}</td>
               </tr>
             ))}

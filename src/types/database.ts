@@ -92,6 +92,29 @@ export type Database = {
           },
         ];
       };
+      gameweek_pricing: {
+        Row: {
+          applied_at: string;
+          gameweek_id: number;
+        };
+        Insert: {
+          applied_at?: string;
+          gameweek_id: number;
+        };
+        Update: {
+          applied_at?: string;
+          gameweek_id?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'gameweek_pricing_gameweek_id_fkey';
+            columns: ['gameweek_id'];
+            isOneToOne: true;
+            referencedRelation: 'gameweeks';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       gameweeks: {
         Row: {
           deadline: string;
@@ -275,6 +298,51 @@ export type Database = {
           },
         ];
       };
+      price_changes: {
+        Row: {
+          created_at: string;
+          gameweek_id: number | null;
+          id: number;
+          new_price: number;
+          old_price: number;
+          player_id: number;
+          reason: string;
+        };
+        Insert: {
+          created_at?: string;
+          gameweek_id?: number | null;
+          id?: number;
+          new_price: number;
+          old_price: number;
+          player_id: number;
+          reason: string;
+        };
+        Update: {
+          created_at?: string;
+          gameweek_id?: number | null;
+          id?: number;
+          new_price?: number;
+          old_price?: number;
+          player_id?: number;
+          reason?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'price_changes_gameweek_id_fkey';
+            columns: ['gameweek_id'];
+            isOneToOne: false;
+            referencedRelation: 'gameweeks';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'price_changes_player_id_fkey';
+            columns: ['player_id'];
+            isOneToOne: false;
+            referencedRelation: 'players';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       profiles: {
         Row: {
           created_at: string;
@@ -351,6 +419,29 @@ export type Database = {
           },
         ];
       };
+      player_price_trend: {
+        Row: {
+          change: number | null;
+          gameweek_id: number | null;
+          player_id: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'price_changes_gameweek_id_fkey';
+            columns: ['gameweek_id'];
+            isOneToOne: false;
+            referencedRelation: 'gameweeks';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'price_changes_player_id_fkey';
+            columns: ['player_id'];
+            isOneToOne: false;
+            referencedRelation: 'players';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       player_season_points: {
         Row: {
           player_id: number | null;
@@ -389,6 +480,8 @@ export type Database = {
           team_name: string;
         }[];
       };
+      apply_due_price_changes: { Args: Record<PropertyKey, never>; Returns: Json };
+      apply_price_changes: { Args: { p_gameweek: number }; Returns: number };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
       import_fixtures: {
         Args: { p_competition: string; p_rows: Json; p_side_id: number };
@@ -425,6 +518,8 @@ export type Database = {
         };
         Returns: number;
       };
+      price_ceiling: { Args: Record<PropertyKey, never>; Returns: number };
+      price_floor: { Args: Record<PropertyKey, never>; Returns: number };
       require_admin: { Args: Record<PropertyKey, never>; Returns: undefined };
       save_match_stats: {
         Args: {
@@ -439,6 +534,7 @@ export type Database = {
       save_squad: { Args: { p_captain_id: number; p_player_ids: number[] }; Returns: number };
       set_admin: { Args: { p_user: string; p_value: boolean }; Returns: undefined };
       set_deadline: { Args: { p_deadline: string; p_gameweek_id: number }; Returns: undefined };
+      set_prices_from_points: { Args: Record<PropertyKey, never>; Returns: number };
       set_stats_lock: { Args: { p_fixture_id: number; p_locked: boolean }; Returns: undefined };
       squad_for: {
         Args: { p_gameweek: number; p_user: string };
