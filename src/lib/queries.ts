@@ -202,3 +202,36 @@ export function useScoredGameweeks() {
     },
   });
 }
+
+/** Pitchero team sheets plus every England Hockey appearance, for suggestions. */
+export function usePitcheroEvidence() {
+  return useQuery({
+    queryKey: ['pitchero-evidence'],
+    queryFn: async () => {
+      const db = requireSupabase();
+      const sheets = unwrap(await db.from('pitchero_lineups').select('fixture_id, name, position'));
+      const rows = unwrap(
+        await db
+          .from('performances')
+          .select('fixture_id, player_id, player:players(name, name_withheld)'),
+      ) as unknown as {
+        fixture_id: number;
+        player_id: number;
+        player: { name: string; name_withheld: boolean } | null;
+      }[];
+      const appearances = rows.flatMap((r) =>
+        r.player
+          ? [
+              {
+                fixture_id: r.fixture_id,
+                player_id: r.player_id,
+                name: r.player.name,
+                name_withheld: r.player.name_withheld,
+              },
+            ]
+          : [],
+      );
+      return { sheets, appearances };
+    },
+  });
+}

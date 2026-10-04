@@ -950,4 +950,110 @@ describe.skipIf(!configured)('league database', () => {
     // Each gameweek moves prices once.
     expect((await service.rpc('apply_due_price_changes')).data).toEqual({ weeks: 0, changes: 0 });
   });
+
+  it('imports Pitchero team sheets and players of the match without overriding managers', async () => {
+    const w1 = sides[4]!.id;
+    const mk = async (opp: string) =>
+      (
+        await service
+          .from('fixtures')
+          .insert({
+            side_id: w1,
+            kickoff: '2026-09-26T12:00:00+01:00',
+            opponent: opp,
+            gameweek_id: 0,
+            goals_for: 1,
+            goals_against: 0,
+          })
+          .select('id')
+          .single()
+      ).data!.id;
+    const f1 = await mk('Pitchero A');
+    const f2 = await mk('Pitchero B');
+    const tom = (
+      await boss.db
+        .from('players')
+        .insert({ name: 'Tom Rattle', position: 'MID', side_id: w1, price: 50 })
+        .select('id')
+        .single()
+    ).data!.id;
+    const sue = (
+      await boss.db
+        .from('players')
+        .insert({ name: 'Sue Smith', position: 'MID', side_id: w1, price: 50 })
+        .select('id')
+        .single()
+    ).data!.id;
+    for (const f of [f1, f2]) {
+      await service.from('performances').insert([
+        { fixture_id: f, player_id: tom, goals: 0, player_of_match: false },
+        { fixture_id: f, player_id: sue, goals: 0, player_of_match: false },
+      ]);
+    }
+    const lineup = [
+      {
+        pitchero_player_id: 1,
+        name: 'Thomas Rattle',
+        shirt: '7',
+        position: 'Fullback',
+        starter: true,
+      },
+      { pitchero_player_id: 2, name: 'Sue Smith', shirt: '9', position: 'Forward', starter: true },
+    ];
+    expect(
+      (
+        await alice.db.rpc('import_pitchero', {
+          p_fixture_id: f1,
+          p_lineup: lineup as never,
+          p_potm: [] as never,
+        })
+      ).error,
+    ).not.toBeNull();
+
+    // "Thomas" on Pitchero is "Tom" here: same initial and surname within the match.
+    expect(
+      (
+        await service.rpc('import_pitchero', {
+          p_fixture_id: f1,
+          p_lineup: lineup as never,
+          p_potm: ['Thomas Rattle'] as never,
+        })
+      ).data,
+    ).toEqual({ players: 2, potm: 1 });
+    expect(
+      (await anon.from('pitchero_lineups').select('name, position').eq('fixture_id', f1)).data,
+    ).toHaveLength(2);
+    const pom = async (f: number) =>
+      (
+        await anon
+          .from('performances')
+          .select('player_id')
+          .eq('fixture_id', f)
+          .eq('player_of_match', true)
+      ).data!.map((r) => r.player_id);
+    expect(await pom(f1)).toEqual([tom]);
+
+    // A match that already has a player of the match keeps the manager's choice.
+    await service
+      .from('performances')
+      .update({ player_of_match: true })
+      .eq('fixture_id', f2)
+      .eq('player_id', sue);
+    await service.rpc('import_pitchero', {
+      p_fixture_id: f2,
+      p_lineup: lineup as never,
+      p_potm: ['Thomas Rattle'] as never,
+    });
+    expect(await pom(f2)).toEqual([sue]);
+
+    // Locked matches aren't touched either.
+    await service.from('performances').update({ player_of_match: false }).eq('fixture_id', f2);
+    await boss.db.rpc('set_stats_lock', { p_fixture_id: f2, p_locked: true });
+    await service.rpc('import_pitchero', {
+      p_fixture_id: f2,
+      p_lineup: lineup as never,
+      p_potm: ['Sue Smith'] as never,
+    });
+    expect(await pom(f2)).toEqual([]);
+  });
 });

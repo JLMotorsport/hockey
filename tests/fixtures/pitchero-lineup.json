@@ -1,0 +1,269 @@
+{
+  "props": {
+    "initialReduxState": {
+      "teams": {
+        "matchCentre": {
+          "pageData": {
+            "262265-1-20245406": {
+              "overview": {
+                "ha": "h",
+                "date": "2026-09-19",
+                "sportId": 7,
+                "isLive": false,
+                "elapsed": null,
+                "elapsedPercent": 0,
+                "isCricket": false,
+                "competition": "East Open - Men's Division 1 North",
+                "attendance": null,
+                "typeShort": "League",
+                "kickoff": "15:30",
+                "meetTime": "15:00",
+                "instructions": null,
+                "outcome": "W",
+                "hasOutcome": true,
+                "status": "FT",
+                "home": {
+                  "name": "Felixstowe 1",
+                  "score": "3",
+                  "penalties": null,
+                  "colours": {
+                    "primary": "#FF0000",
+                    "primary_contrast": "#FFFFFF",
+                    "secondary": "#FFFFFF",
+                    "secondary_contrast": "#222222"
+                  },
+                  "events": []
+                },
+                "away": {
+                  "name": "Cambridge South 1",
+                  "score": "2",
+                  "penalties": null,
+                  "colours": {
+                    "primary": "#CCCCCC",
+                    "primary_contrast": "#222222",
+                    "secondary": "#999999",
+                    "secondary_contrast": "#222222"
+                  },
+                  "events": []
+                },
+                "playersOfTheMatch": [
+                  {
+                    "id": 1,
+                    "name": "Player 10"
+                  }
+                ]
+              },
+              "lineup": {
+                "selection_visibility": "public",
+                "profile_visibility": "public",
+                "image": "http://api.pitchero.com/images/selection/1-20245406/262265?cache_buster=85a804bf1bcd3700071f43ff05c97c1e",
+                "starters": 11,
+                "players": [
+                  {
+                    "id": 34528628,
+                    "type": "player",
+                    "playerId": 3531065,
+                    "number": 1,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 1",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Goal Keeper",
+                    "events": []
+                  },
+                  {
+                    "id": 34528629,
+                    "type": "player",
+                    "playerId": 2907046,
+                    "number": 2,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 2",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Fullback",
+                    "events": []
+                  },
+                  {
+                    "id": 34528630,
+                    "type": "player",
+                    "playerId": 2907131,
+                    "number": 3,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 3",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Fullback",
+                    "events": []
+                  },
+                  {
+                    "id": 34528631,
+                    "type": "player",
+                    "playerId": 2907055,
+                    "number": 4,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 4",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Sweeper",
+                    "events": []
+                  },
+                  {
+                    "id": 34528632,
+                    "type": "player",
+                    "playerId": 2927772,
+                    "number": 5,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 5",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Midfield",
+                    "events": []
+                  },
+                  {
+                    "id": 34528633,
+                    "type": "player",
+                    "playerId": 3403248,
+                    "number": 6,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 6",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Midfield",
+                    "events": []
+                  },
+                  {
+                    "id": 34528634,
+                    "type": "player",
+                    "playerId": 2907051,
+                    "number": 7,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 7",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Midfield",
+                    "events": []
+                  },
+                  {
+                    "id": 34528635,
+                    "type": "player",
+                    "playerId": 3418855,
+                    "number": 8,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 8",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Winger",
+                    "events": []
+                  },
+                  {
+                    "id": 34528643,
+                    "type": "player",
+                    "playerId": 3310338,
+                    "number": 9,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 9",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Winger",
+                    "events": []
+                  },
+                  {
+                    "id": 34528637,
+                    "type": "player",
+                    "playerId": 2907091,
+                    "number": 10,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 10",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Forward",
+                    "events": []
+                  },
+                  {
+                    "id": 34528638,
+                    "type": "player",
+                    "playerId": 3627568,
+                    "number": 11,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 11",
+                    "avatar": null,
+                    "appearance": "starter",
+                    "position": "Forward",
+                    "events": []
+                  }
+                ],
+                "substitutes": [
+                  {
+                    "id": 34528639,
+                    "type": "player",
+                    "playerId": 3038898,
+                    "number": 12,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 12",
+                    "avatar": null,
+                    "appearance": "unused_substitute",
+                    "position": null,
+                    "events": []
+                  },
+                  {
+                    "id": 34528640,
+                    "type": "player",
+                    "playerId": 2928046,
+                    "number": 13,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 13",
+                    "avatar": null,
+                    "appearance": "unused_substitute",
+                    "position": null,
+                    "events": []
+                  },
+                  {
+                    "id": 34528641,
+                    "type": "player",
+                    "playerId": 2912795,
+                    "number": 14,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 14",
+                    "avatar": null,
+                    "appearance": "unused_substitute",
+                    "position": null,
+                    "events": []
+                  },
+                  {
+                    "id": 34528642,
+                    "type": "player",
+                    "playerId": 2907053,
+                    "number": 15,
+                    "captain": false,
+                    "wicketKeeper": false,
+                    "name": "Player 15",
+                    "avatar": null,
+                    "appearance": "unused_substitute",
+                    "position": null,
+                    "events": []
+                  }
+                ],
+                "opponents": [],
+                "accessDenied": false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -35,6 +35,7 @@ export type Database = {
           kickoff: string;
           lineup_imported_at: string | null;
           opponent: string;
+          pitchero_imported_at: string | null;
           score_overridden: boolean;
           side_id: number;
           stats_complete: boolean;
@@ -52,6 +53,7 @@ export type Database = {
           kickoff: string;
           lineup_imported_at?: string | null;
           opponent: string;
+          pitchero_imported_at?: string | null;
           score_overridden?: boolean;
           side_id: number;
           stats_complete?: boolean;
@@ -69,6 +71,7 @@ export type Database = {
           kickoff?: string;
           lineup_imported_at?: string | null;
           opponent?: string;
+          pitchero_imported_at?: string | null;
           score_overridden?: boolean;
           side_id?: number;
           stats_complete?: boolean;
@@ -257,6 +260,41 @@ export type Database = {
           },
         ];
       };
+      pitchero_lineups: {
+        Row: {
+          fixture_id: number;
+          name: string;
+          pitchero_player_id: number;
+          position: string | null;
+          shirt: string | null;
+          starter: boolean;
+        };
+        Insert: {
+          fixture_id: number;
+          name: string;
+          pitchero_player_id: number;
+          position?: string | null;
+          shirt?: string | null;
+          starter?: boolean;
+        };
+        Update: {
+          fixture_id?: number;
+          name?: string;
+          pitchero_player_id?: number;
+          position?: string | null;
+          shirt?: string | null;
+          starter?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'pitchero_lineups_fixture_id_fkey';
+            columns: ['fixture_id'];
+            isOneToOne: false;
+            referencedRelation: 'fixtures';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       players: {
         Row: {
           active: boolean;
@@ -376,6 +414,7 @@ export type Database = {
           eh_slug: string | null;
           id: number;
           name: string;
+          pitchero_team_id: number | null;
           short_name: string;
           sort_order: number;
         };
@@ -384,6 +423,7 @@ export type Database = {
           eh_slug?: string | null;
           id?: number;
           name: string;
+          pitchero_team_id?: number | null;
           short_name: string;
           sort_order?: number;
         };
@@ -392,6 +432,7 @@ export type Database = {
           eh_slug?: string | null;
           id?: number;
           name?: string;
+          pitchero_team_id?: number | null;
           short_name?: string;
           sort_order?: number;
         };
@@ -528,6 +569,10 @@ export type Database = {
         Args: { p_fixture_id: number; p_players: Json; p_withheld: number };
         Returns: Json;
       };
+      import_pitchero: {
+        Args: { p_fixture_id: number; p_lineup: Json; p_potm: Json };
+        Returns: Json;
+      };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       league_table: {
         Args: Record<PropertyKey, never>;
@@ -541,6 +586,7 @@ export type Database = {
         }[];
       };
       merge_players: { Args: { p_from: number; p_into: number }; Returns: undefined };
+      name_key: { Args: { p_name: string }; Returns: string };
       performance_points: {
         Args: {
           p_assists: number;

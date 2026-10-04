@@ -1,12 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { Loading, Notices, type Notice } from '@/components/ui';
+import { Loading, Notices, PosBadge, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { gameweekLabel, toUkInputValue } from '@/lib/format';
 import {
   keys,
   useAdminUsers,
   useGameweekPricing,
+  usePitcheroEvidence,
   useSeasonPoints,
   useFixtures,
   useGameweeks,
@@ -17,6 +18,13 @@ import {
 } from '@/lib/queries';
 import { POSITIONS, type Position } from '@/lib/scoring';
 import { parsePlayerLines } from '@/lib/players';
+import {
+  suggestPositions,
+  suggestWithheldNames,
+  type Appearance,
+  type NameSuggestion,
+  type PitcheroRow,
+} from '@/lib/pitcheroMatch';
 import { ALL_FORMATIONS } from '@/lib/formation';
 import { WithheldEvidence } from './WithheldEvidence';
 import { WithheldName } from './WithheldName';
@@ -113,8 +121,108 @@ function PricesCard({ onDone }: { onDone: (notices: Notice[]) => void }) {
   );
 }
 
+/** Positions players usually line up in on Pitchero, to apply in bulk. */
+function PositionsCard({
+  players,
+  appearances,
+  sheets,
+  onDone,
+}: {
+  players: Player[];
+  appearances: Appearance[];
+  sheets: PitcheroRow[];
+  onDone: (notices: Notice[]) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [skip, setSkip] = useState<Set<number>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const byId = new Map(players.map((p) => [p.id, p]));
+  const changes = suggestPositions(appearances, sheets)
+    .filter((s) => byId.get(s.player_id) && byId.get(s.player_id)!.position !== s.position)
+    .sort((a, b) => byId.get(a.player_id)!.name.localeCompare(byId.get(b.player_id)!.name));
+  if (!changes.length) return null;
+  const chosen = changes.filter((c) => !skip.has(c.player_id));
+
+  async function apply() {
+    setBusy(true);
+    const db = requireSupabase();
+    const results = await Promise.all(
+      chosen.map((c) => db.from('players').update({ position: c.position }).eq('id', c.player_id)),
+    );
+    setBusy(false);
+    const failed = results.find((r) => r.error);
+    onDone(
+      failed?.error
+        ? errorLines(failed.error).map((text) => ({ kind: 'error', text }))
+        : [{ kind: 'success', text: `Updated ${chosen.length} position(s) from Pitchero.` }],
+    );
+    await queryClient.invalidateQueries({ queryKey: keys.players });
+  }
+
+  return (
+    <section className="card">
+      <h2>Positions from Pitchero ({changes.length})</h2>
+      <p className="muted text-sm">
+        Where each player most often lines up on Pitchero team sheets (wingers count as midfield).
+        Untick any you want to keep as they are.
+      </p>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Use</th>
+            <th>Player</th>
+            <th>Now</th>
+            <th>Pitchero</th>
+            <th>Seen as</th>
+          </tr>
+        </thead>
+        <tbody>
+          {changes.map((c) => {
+            const p = byId.get(c.player_id)!;
+            return (
+              <tr key={c.player_id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 accent-[#d91414]"
+                    aria-label={`Use Pitchero position for ${p.name}`}
+                    checked={!skip.has(c.player_id)}
+                    onChange={(e) => {
+                      const next = new Set(skip);
+                      if (e.target.checked) next.delete(c.player_id);
+                      else next.add(c.player_id);
+                      setSkip(next);
+                    }}
+                  />
+                </td>
+                <td>{p.name}</td>
+                <td>
+                  <PosBadge position={p.position} />
+                </td>
+                <td>
+                  <PosBadge position={c.position} />
+                </td>
+                <td className="muted text-xs">{c.evidence}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <button
+        type="button"
+        className="btn mt-3"
+        disabled={busy || !chosen.length}
+        onClick={() => void apply()}
+      >
+        {busy ? 'Updating' : `Apply ${chosen.length} position(s)`}
+      </button>
+    </section>
+  );
+}
+
 export function AdminPlayersScreen() {
   const players = usePlayers();
+  const evidence = usePitcheroEvidence();
   const sides = useSides();
   const queryClient = useQueryClient();
   const [bulk, setBulk] = useState('');
@@ -132,6 +240,13 @@ export function AdminPlayersScreen() {
   const fresh = sorted.filter((p) => p.needs_review);
   const list = sorted.filter((p) => !p.needs_review);
   const unnamed = sorted.filter((p) => p.name_withheld);
+  const nameSuggestions = evidence.data
+    ? suggestWithheldNames(
+        evidence.data.appearances,
+        evidence.data.sheets,
+        sorted.filter((p) => !p.name_withheld).map((p) => p.name),
+      )
+    : new Map<number, NameSuggestion[]>();
 
   async function addBulk(e: FormEvent) {
     e.preventDefault();
@@ -152,6 +267,14 @@ export function AdminPlayersScreen() {
   return (
     <>
       <PricesCard onDone={n.set} />
+      {evidence.data && (
+        <PositionsCard
+          players={sorted}
+          appearances={evidence.data.appearances}
+          sheets={evidence.data.sheets}
+          onDone={n.set}
+        />
+      )}
       <section className="card">
         <h2>Add players</h2>
         <p className="muted text-sm">
@@ -190,6 +313,7 @@ export function AdminPlayersScreen() {
                 <WithheldName
                   player={p}
                   players={players.data ?? []}
+                  suggestions={nameSuggestions.get(p.id) ?? []}
                   onError={(l) => n.set(l.map((text) => ({ kind: 'error', text })))}
                 />
               </li>

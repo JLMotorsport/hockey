@@ -1,6 +1,7 @@
 // Supabase Edge Function: pull Felixstowe fixtures, scores, line-ups, goal
-// scorers and cards from England Hockey. Assists and player of the match are
-// not published; managers add those in the app.
+// scorers and cards from England Hockey, then Pitchero line-ups (full names,
+// positions) and players of the match from the club site. Assists aren't
+// published anywhere; managers add those in the app.
 //
 // Two ways in:
 //   - the scheduler, holding the shared EH_SYNC_SECRET
@@ -28,6 +29,12 @@ import {
   parseTeamFeed,
   type FeedLocation,
 } from '../_shared/ehFixtures.ts';
+import {
+  PITCHERO_SITE,
+  nextData,
+  parseFixtures as parsePitcheroFixtures,
+  parseLineup as parsePitcheroLineup,
+} from '../_shared/pitchero.ts';
 
 // Line-ups are re-read for this long after a match, in case the team admin
 // fills them in or corrects them late.
@@ -143,6 +150,49 @@ async function importLineups(
   return message;
 }
 
+// Pitchero line-ups (full names, shirts, positions) and players of the match
+// for this side's played fixtures that are new or recent.
+async function importPitchero(admin: Admin, sideId: number, teamId: number): Promise<string> {
+  const since = new Date(Date.now() - LINEUP_REFRESH_DAYS * 86_400_000).toISOString();
+  const { data: due, error } = await admin
+    .from('fixtures')
+    .select('id, kickoff')
+    .eq('side_id', sideId)
+    .not('goals_for', 'is', null)
+    .lte('kickoff', new Date().toISOString())
+    .or(`pitchero_imported_at.is.null,kickoff.gte.${since}`);
+  if (error) throw new Error(error.message);
+  if (!due?.length) return 'Pitchero up to date';
+
+  const page = await fetch(`${PITCHERO_SITE}/teams/${teamId}/fixtures-results`);
+  if (!page.ok) throw new Error(`Pitchero returned ${page.status}`);
+  const fixtures = parsePitcheroFixtures(nextData(await page.text()), teamId).filter(
+    (f) => f.played,
+  );
+  const ukDate = (iso: string) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date(iso));
+
+  let lineups = 0;
+  let potm = 0;
+  for (const fx of due) {
+    const match = fixtures.find((f) => f.date === ukDate(fx.kickoff));
+    if (!match) continue;
+    const res = await fetch(`${PITCHERO_SITE}/teams/${teamId}/match-centre/${match.id}/lineup`);
+    if (!res.ok) continue;
+    const lineup = parsePitcheroLineup(nextData(await res.text()), teamId, match.id);
+    if (!lineup.players.length && !lineup.potm.length) continue;
+    const { data, error: rpcError } = await admin.rpc('import_pitchero', {
+      p_fixture_id: fx.id,
+      p_lineup: lineup.players,
+      p_potm: lineup.potm,
+    });
+    if (rpcError) throw new Error(rpcError.message);
+    lineups += 1;
+    potm += (data as { potm?: number }).potm ?? 0;
+  }
+  return `Pitchero: ${lineups} line-ups, ${potm} players of the match`;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (!(await callerIsAllowed(req.headers.get('Authorization') ?? ''))) {
@@ -154,7 +204,7 @@ Deno.serve(async (req: Request) => {
   });
   const { data: sides, error } = await admin
     .from('sides')
-    .select('id, name, eh_slug')
+    .select('id, name, eh_slug, pitchero_team_id')
     .not('eh_slug', 'is', null)
     .order('sort_order');
   if (error) return json({ error: error.message }, 500);
@@ -172,10 +222,19 @@ Deno.serve(async (req: Request) => {
       if (rpcError) throw new Error(rpcError.message);
       const counts = data as { created: number; updated: number };
       const lineups = await importLineups(admin, side.id, feed, rows);
+      let pitchero = '';
+      if (side.pitchero_team_id) {
+        try {
+          pitchero = `; ${await importPitchero(admin, side.id, side.pitchero_team_id)}`;
+        } catch (err) {
+          // Pitchero is a bonus; England Hockey data still counts if it fails.
+          pitchero = `; Pitchero failed (${(err as Error).message})`;
+        }
+      }
       results.push({
         side: side.name,
         ok: true,
-        message: `${counts.created} new, ${counts.updated} updated fixtures; ${lineups}`,
+        message: `${counts.created} new, ${counts.updated} updated fixtures; ${lineups}${pitchero}`,
       });
     } catch (err) {
       // One side failing (a renamed page, a timeout) shouldn't stop the rest.

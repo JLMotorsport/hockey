@@ -1,0 +1,70 @@
+{
+  "props": {
+    "initialReduxState": {
+      "teams": {
+        "fixtures": {
+          "fixtures": {
+            "262265": {
+              "0-6524270": {
+                "id": "0-6524270",
+                "dateTime": "2026-08-22T11:00:00+01:00",
+                "hasOutcome": false,
+                "opponent": "Culford 7s",
+                "ha": "a"
+              },
+              "0-6558177": {
+                "id": "0-6558177",
+                "dateTime": "2026-08-29T12:00:00+01:00",
+                "hasOutcome": true,
+                "opponent": "Ipswich 2s",
+                "ha": "a"
+              },
+              "0-6558178": {
+                "id": "0-6558178",
+                "dateTime": "2026-09-03T19:00:00+01:00",
+                "hasOutcome": false,
+                "opponent": "Sudbury",
+                "ha": "a"
+              },
+              "0-6559749": {
+                "id": "0-6559749",
+                "dateTime": "2026-09-05T14:30:00+01:00",
+                "hasOutcome": false,
+                "opponent": "Havering HC",
+                "ha": "h"
+              },
+              "1-20245073": {
+                "id": "1-20245073",
+                "dateTime": "2026-09-12T13:30:00+01:00",
+                "hasOutcome": true,
+                "opponent": "City Of Peterborough 2",
+                "ha": "h"
+              },
+              "1-20245406": {
+                "id": "1-20245406",
+                "dateTime": "2026-09-19T15:30:00+01:00",
+                "hasOutcome": true,
+                "opponent": "Cambridge South 1",
+                "ha": "h"
+              },
+              "1-20245090": {
+                "id": "1-20245090",
+                "dateTime": "2026-09-26T13:00:00+01:00",
+                "hasOutcome": true,
+                "opponent": "Cambridge 1",
+                "ha": "h"
+              },
+              "1-20245129": {
+                "id": "1-20245129",
+                "dateTime": "2026-10-03T14:00:00+01:00",
+                "hasOutcome": true,
+                "opponent": "Spalding 1",
+                "ha": "a"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

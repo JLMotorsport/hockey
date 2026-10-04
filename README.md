@@ -20,6 +20,8 @@ New players are created automatically the first time they appear in a line-up. T
 
 Not published, so entered by hand on the fixture page: **player of the match**, assists, and outfield positions. Players who haven't made their GMS profile public show as "Name Withheld", but England Hockey still gives them a member id and tags their goals and cards, so they're imported as "Name withheld #5 (M3)". Correct the name once (on the match page or Manage > Players) and every later sync keeps it; if you'd already added them by hand, "or this is…" merges the two. The sync only updates goals and cards for the named players it lists, so manual additions, player of the match and assists are kept. If England Hockey has something wrong, tick "Lock this match" on the fixture to stop the sync changing it.
 
+**Pitchero.** The sync also reads the club's Pitchero team sheets (full names, shirt numbers, positions) and players of the match. Players of the match are filled in automatically when Pitchero has one and the match doesn't. Pitchero names are also used to suggest real names for withheld players (by working out who on the team sheet England Hockey doesn't account for, across all their games) and positions, which managers confirm in Manage > Players.
+
 If England Hockey change their site the sync may stop working. Everything else keeps working and stats can be entered by hand.
 
 ## Going live
