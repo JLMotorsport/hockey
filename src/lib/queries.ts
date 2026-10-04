@@ -14,6 +14,11 @@ export type Performance = Tables['performances']['Row'];
 export type LeagueRow = Database['public']['Functions']['league_table']['Returns'][number];
 export type SquadRow = Database['public']['Functions']['squad_for']['Returns'][number];
 
+/** A squad's score: the starting 11 after auto-subs (captain already doubled). */
+export function squadTotal(rows: SquadRow[] | null | undefined): number {
+  return (rows ?? []).reduce((sum, r) => sum + (r.counts ? r.points : 0), 0);
+}
+
 // Supabase returns errors rather than throwing; TanStack Query wants a throw.
 function unwrap<T>(result: { data: T; error: { message: string } | null }): NonNullable<T> {
   if (result.error) throw new Error(result.error.message);

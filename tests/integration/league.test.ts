@@ -278,6 +278,11 @@ describe.skipIf(!configured)('league database', () => {
         'GK',
         'FWD',
         'DEF',
+        // The bench: sub keeper, then outfield subs.
+        'GK',
+        'DEF',
+        'MID',
+        'FWD',
       ];
       const rows = shape.map((position, i) => ({
         name: `Player ${i}`,
@@ -291,42 +296,65 @@ describe.skipIf(!configured)('league database', () => {
     });
 
     const xi = () => playerIds.slice(0, 11);
+    const subs = () => playerIds.slice(14, 18);
+    const save = (
+      who: { db: Db },
+      starters: number[],
+      captain: number,
+      bench = subs(),
+      vice = starters.find((id) => id !== captain) ?? 0,
+    ) =>
+      who.db.rpc('save_squad', {
+        p_starters: starters,
+        p_bench: bench,
+        p_captain_id: captain,
+        p_vice_id: vice,
+      });
 
     it('saves a valid squad for the next open gameweek', async () => {
-      const { data, error } = await alice.db.rpc('save_squad', {
-        p_player_ids: xi(),
-        p_captain_id: xi()[9]!,
-      });
+      const { data, error } = await save(alice, xi(), xi()[9]!);
       expect(error).toBeNull();
       expect(data).toBe(openGw);
       const { data: squad } = await alice.db.rpc('squad_for', {
         p_user: alice.id,
         p_gameweek: laterGw,
       });
-      expect(squad).toHaveLength(11); // carries forward
+      expect(squad).toHaveLength(15); // carries forward
+      expect(squad!.filter((r) => r.bench_order !== null).map((r) => r.player_id)).toEqual(subs());
     });
 
     it('rejects broken squads with one message per problem', async () => {
-      const tooFew = await bob.db.rpc('save_squad', {
-        p_player_ids: xi().slice(0, 10),
-        p_captain_id: 0,
-      });
+      const tooFew = await save(bob, xi().slice(0, 10), 0);
       const lines = tooFew.error!.message.split('\n');
-      expect(lines).toContain('Pick exactly 11 players (you have 10).');
-      expect(lines).toContain('Choose a captain from your squad.');
+      expect(lines).toContain('Pick 11 starters (you have 10).');
+      expect(lines).toContain('Choose a captain from your starting 11.');
+      expect((await save(bob, xi(), xi()[0]!, subs(), xi()[0]!)).error!.message).toBe(
+        'Choose a vice-captain from your starting 11 (not the captain).',
+      );
+
+      const badBench = await save(bob, xi(), xi()[0]!, [
+        subs()[1]!,
+        subs()[0]!,
+        ...subs().slice(2),
+      ]);
+      const benchLines = badBench.error!.message.split('\n');
+      expect(benchLines).toContain('The first sub must be a goalkeeper.');
+      expect(benchLines).toContain('Subs 1 to 3 must be outfield players.');
+      expect((await save(bob, xi(), xi()[0]!, subs().slice(0, 3))).error!.message).toMatch(
+        /Pick 4 subs \(you have 3\)/,
+      );
+      expect((await save(bob, xi(), subs()[2]!)).error!.message).toMatch(/captain/);
+      expect(
+        (await save(bob, xi(), xi()[0]!, [...subs().slice(0, 3), xi()[5]!])).error!.message,
+      ).toMatch(/only be picked once/);
 
       const twoKeepers = [...xi().slice(0, 10), playerIds[11]!];
-      const res = await bob.db.rpc('save_squad', {
-        p_player_ids: twoKeepers,
-        p_captain_id: twoKeepers[0]!,
-      });
+      // (playerIds[11] is a second keeper)
+      const res = await save(bob, twoKeepers, twoKeepers[0]!);
       expect(res.error!.message).toMatch(/exactly 1 goalkeeper/);
 
       await boss.db.from('league_settings').update({ max_per_side: 1 }).eq('id', 1);
-      const perSide = await bob.db.rpc('save_squad', {
-        p_player_ids: xi(),
-        p_captain_id: xi()[0]!,
-      });
+      const perSide = await save(bob, xi(), xi()[0]!);
       expect(perSide.error!.message).toMatch(/Max 1 players from/);
       await boss.db.from('league_settings').update({ max_per_side: 4 }).eq('id', 1);
     });
@@ -337,40 +365,16 @@ describe.skipIf(!configured)('league database', () => {
       const fourFourTwo = ids([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
       const threeFourThree = ids([0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 12]);
       const fourThreeThree = ids([0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 12]);
-      expect(
-        (
-          await bob.db.rpc('save_squad', {
-            p_player_ids: fourFourTwo,
-            p_captain_id: fourFourTwo[0]!,
-          })
-        ).error,
-      ).toBeNull();
+      expect((await save(bob, fourFourTwo, fourFourTwo[0]!)).error).toBeNull();
 
       await boss.db
         .from('league_settings')
         .update({ formations: ['3-4-3'] })
         .eq('id', 1);
       // A saved 4-4-2 can still change captain after 4-4-2 is switched off.
-      expect(
-        (
-          await bob.db.rpc('save_squad', {
-            p_player_ids: fourFourTwo,
-            p_captain_id: fourFourTwo[1]!,
-          })
-        ).error,
-      ).toBeNull();
-      expect(
-        (
-          await bob.db.rpc('save_squad', {
-            p_player_ids: threeFourThree,
-            p_captain_id: threeFourThree[0]!,
-          })
-        ).error,
-      ).toBeNull();
-      const res = await bob.db.rpc('save_squad', {
-        p_player_ids: fourThreeThree,
-        p_captain_id: fourThreeThree[0]!,
-      });
+      expect((await save(bob, fourFourTwo, fourFourTwo[1]!)).error).toBeNull();
+      expect((await save(bob, threeFourThree, threeFourThree[0]!)).error).toBeNull();
+      const res = await save(bob, fourThreeThree, fourThreeThree[0]!);
       expect(res.error!.message).toBe("That's a 4-3-3. Pick one of: 3-4-3.");
 
       await boss.db
@@ -397,20 +401,15 @@ describe.skipIf(!configured)('league database', () => {
         .eq('id', lockedGw);
 
       const three = [playerIds[11]!, ...xi().slice(1, 9), playerIds[12]!, playerIds[13]!];
-      const res = await alice.db.rpc('save_squad', {
-        p_player_ids: three,
-        p_captain_id: three[1]!,
-      });
+      const res = await save(alice, three, three[1]!);
       expect(res.error!.message).toMatch(/3 transfers; only 2 allowed/);
 
       const two = [playerIds[11]!, ...xi().slice(1, 10), playerIds[12]!];
-      const ok = await alice.db.rpc('save_squad', { p_player_ids: two, p_captain_id: two[1]! });
+      const ok = await save(alice, two, two[1]!);
       expect(ok.error).toBeNull();
       expect(ok.data).toBe(laterGw);
       // Saving again before the same deadline doesn't use more transfers.
-      expect(
-        (await alice.db.rpc('save_squad', { p_player_ids: two, p_captain_id: two[2]! })).error,
-      ).toBeNull();
+      expect((await save(alice, two, two[2]!)).error).toBeNull();
     });
 
     it("keeps a bank: selling at today's price funds buys", async () => {
@@ -423,7 +422,7 @@ describe.skipIf(!configured)('league database', () => {
           .eq('gameweek_id', lockedGw)
           .single()
       ).data;
-      expect(first?.bank).toBe(1000 - 11 * 60);
+      expect(first?.bank).toBe(1000 - 15 * 60);
       expect(
         (
           await bob.db
@@ -438,7 +437,7 @@ describe.skipIf(!configured)('league database', () => {
       const riser = xi()[3]!;
       await service.from('players').update({ price: 300 }).eq('id', riser);
       await boss.db.from('league_settings').update({ transfers_per_gameweek: 5 }).eq('id', 1);
-      expect((await alice.db.rpc('bank_before_next')).data).toBe(340);
+      expect((await alice.db.rpc('bank_before_next')).data).toBe(100);
 
       // Sell him (plus the two already swapped this week) and buy three 6.0m players.
       const squad = [
@@ -448,9 +447,7 @@ describe.skipIf(!configured)('league database', () => {
         ...xi().slice(4, 10),
         playerIds[12]!,
       ];
-      expect(
-        (await alice.db.rpc('save_squad', { p_player_ids: squad, p_captain_id: squad[1]! })).error,
-      ).toBeNull();
+      expect((await save(alice, squad, squad[1]!)).error).toBeNull();
       const bank = (
         await alice.db
           .from('squad_banks')
@@ -459,17 +456,14 @@ describe.skipIf(!configured)('league database', () => {
           .eq('gameweek_id', laterGw)
           .single()
       ).data!.bank;
-      expect(bank).toBe(340 + 60 + 60 + 300 - 60 - 60 - 60);
+      expect(bank).toBe(100 + 60 + 60 + 300 - 60 - 60 - 60);
 
       // A buy beyond the bank plus sales is refused: player 13 now costs 50.0m.
       await service.from('players').update({ price: 500 }).eq('id', playerIds[13]!);
       // Re-saving the same squad is fine: the bank is worked out from the
       // squad Alice started the week with, so nothing is bought twice...
       await service.from('players').update({ price: 60 }).eq('id', riser);
-      const res = await alice.db.rpc('save_squad', {
-        p_player_ids: squad,
-        p_captain_id: squad[2]!,
-      });
+      const res = await save(alice, squad, squad[2]!);
       // ...but with the riser back at 6.0m, selling him no longer covers a 50.0m buy.
       expect(res.error!.message).toMatch(/more than you can spend/);
       await service.from('players').update({ price: 60 }).eq('id', playerIds[13]!);
@@ -478,9 +472,7 @@ describe.skipIf(!configured)('league database', () => {
       await boss.db.from('league_settings').update({ transfers_per_gameweek: 2 }).eq('id', 1);
       // Put Alice back on the squad the next tests expect.
       const two = [playerIds[11]!, ...xi().slice(1, 10), playerIds[12]!];
-      expect(
-        (await alice.db.rpc('save_squad', { p_player_ids: two, p_captain_id: two[1]! })).error,
-      ).toBeNull();
+      expect((await save(alice, two, two[1]!)).error).toBeNull();
     });
 
     it('reveals locked squads and scores them, captain doubled', async () => {
@@ -539,12 +531,118 @@ describe.skipIf(!configured)('league database', () => {
       expect(perfs!.map((p) => p.player_id)).toEqual([striker]);
     });
 
+    it('brings subs on for starters who did not play, once the weekend is over', async () => {
+      // A gameweek two weeks ago, picked directly for Bob.
+      const past = (
+        await service
+          .from('fixtures')
+          .insert({
+            side_id: sides[3]!.id,
+            kickoff: days(-14),
+            opponent: 'Old Opp',
+            gameweek_id: 0,
+          })
+          .select('id, gameweek_id')
+          .single()
+      ).data!;
+      const [gk, def1] = [xi()[0]!, xi()[1]!];
+      const captain = xi()[9]!; // a forward
+      const vice = xi()[10]!;
+      const [subGk, subDef, subMid, subFwd] = subs() as [number, number, number, number];
+      await service.from('picks').insert([
+        ...xi().map((id) => ({
+          user_id: bob.id,
+          gameweek_id: past.gameweek_id,
+          player_id: id,
+          is_captain: id === captain,
+          is_vice: id === vice,
+          bench_order: null,
+        })),
+        ...subs().map((id, i) => ({
+          user_id: bob.id,
+          gameweek_id: past.gameweek_id,
+          player_id: id,
+          is_captain: false,
+          is_vice: false,
+          bench_order: i + 1,
+        })),
+      ]);
+      // Everyone played except the keeper, a defender, the captain and sub 1.
+      const played = [...xi(), ...subs()].filter((id) => ![gk, def1, captain, subDef].includes(id));
+      expect(
+        (
+          await boss.db.rpc('save_match_stats', {
+            p_fixture_id: past.id,
+            p_goals_for: 1,
+            p_goals_against: 0,
+            p_stats: played.map((id) => ({ player_id: id, goals: id === subFwd ? 1 : 0 })),
+            p_complete: true,
+          })
+        ).error,
+      ).toBeNull();
+
+      const lineup = async () => {
+        const { data, error } = await bob.db.rpc('squad_for', {
+          p_user: bob.id,
+          p_gameweek: past.gameweek_id,
+        });
+        expect(error).toBeNull();
+        return new Map(data!.map((r) => [r.player_id, r]));
+      };
+      let rows = await lineup();
+      // Keeper for keeper; the defender by sub 2 (sub 1 didn't play), as a
+      // 3-5-2 is allowed; the captain by sub 3.
+      expect(rows.get(gk)).toMatchObject({ counts: false, sub: 'off' });
+      expect(rows.get(subGk)).toMatchObject({ counts: true, sub: 'on' });
+      expect(rows.get(def1)).toMatchObject({ counts: false, sub: 'off' });
+      expect(rows.get(subDef)).toMatchObject({ counts: false, sub: null });
+      expect(rows.get(subMid)).toMatchObject({ counts: true, sub: 'on' });
+      expect(rows.get(captain)).toMatchObject({ counts: false, sub: 'off', points: 0 });
+      expect(rows.get(subFwd)).toMatchObject({ counts: true, sub: 'on' });
+      expect([...rows.values()].filter((r) => r.counts)).toHaveLength(11);
+      // Points as scored, plus the vice's again (below).
+      const pts = (
+        await anon
+          .from('player_gameweek_points')
+          .select('player_id, points')
+          .eq('gameweek_id', past.gameweek_id)
+      ).data!;
+      const expected = pts
+        .filter((p) => [...rows.values()].some((r) => r.player_id === p.player_id && r.counts))
+        .reduce((sum, p) => sum + p.points!, 0);
+      const counted = [...rows.values()].filter((r) => r.counts).reduce((s, r) => s + r.points, 0);
+      // The captain didn't play, so the vice's points are doubled instead.
+      const vicePoints = pts.find((p) => p.player_id === vice)!.points!;
+      expect(rows.get(vice)).toMatchObject({ doubled: true, points: vicePoints * 2 });
+      expect(counted).toBe(expected + vicePoints);
+
+      // Only 4-4-2 allowed: no sub can replace the defender and keep a 4-4-2,
+      // so he stays in (on 0); the forward still comes on for the captain.
+      await boss.db
+        .from('league_settings')
+        .update({ formations: ['4-4-2'] })
+        .eq('id', 1);
+      rows = await lineup();
+      expect(rows.get(def1)).toMatchObject({ counts: true, sub: null, points: 0 });
+      expect(rows.get(subMid)).toMatchObject({ counts: false, sub: null });
+      expect(rows.get(subFwd)).toMatchObject({ counts: true, sub: 'on' });
+      await boss.db
+        .from('league_settings')
+        .update({ formations: ['4-4-2', '4-3-3', '3-4-3', '3-5-2', '5-3-2', '4-5-1', '5-4-1'] })
+        .eq('id', 1);
+
+      // Tidy up so later tests see the league as before.
+      await service.from('picks').delete().eq('user_id', bob.id);
+      await service.from('fixtures').delete().eq('id', past.id);
+      await service.from('gameweeks').delete().eq('id', past.gameweek_id);
+    });
+
     it('refuses to save when every gameweek has locked', async () => {
       await service
         .from('gameweeks')
         .update({ deadline: days(-1) })
         .gt('deadline', new Date().toISOString());
-      const res = await bob.db.rpc('save_squad', { p_player_ids: xi(), p_captain_id: xi()[0]! });
+      const res = await save(bob, xi(), xi()[0]!);
       expect(res.error!.message).toMatch(/no upcoming gameweek/);
     });
   });

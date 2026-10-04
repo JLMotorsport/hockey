@@ -12,6 +12,7 @@ import {
   usePlayers,
   useSides,
   useSeasonPoints,
+  squadTotal,
   useSquad,
 } from '@/lib/queries';
 import { requireSupabase } from '@/lib/supabase';
@@ -51,7 +52,7 @@ export function DashboardScreen() {
   if (gameweeks.error) return <ErrorText error={gameweeks.error} />;
 
   const me = table.data?.find((r) => r.user_id === userId);
-  const lastTotal = (lastSquad.data ?? []).reduce((sum, r) => sum + r.points, 0);
+  const lastTotal = squadTotal(lastSquad.data);
   const showLast = Boolean(lastSquad.data?.length);
   const pitchRowsData = showLast ? lastSquad.data! : (upcoming.data ?? []);
 
@@ -146,9 +147,7 @@ export function DashboardScreen() {
                 <span className="font-display text-xs font-bold uppercase text-ink-soft">
                   GW{i + 1}
                 </span>
-                <span className="display-num text-2xl">
-                  {(history[i]?.data ?? []).reduce((sum, r) => sum + r.points, 0)}
-                </span>
+                <span className="display-num text-2xl">{squadTotal(history[i]?.data)}</span>
               </Link>
             ))}
           </div>

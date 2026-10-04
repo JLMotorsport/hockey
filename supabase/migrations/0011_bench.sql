@@ -1,5 +1,3 @@
--- WORK IN PROGRESS: do not run yet. Needs the matching app update.
-
 -- Subs bench, as in FPL.
 --
 -- A squad is 11 starters in an allowed formation plus a bench of 4: a sub
@@ -8,7 +6,8 @@
 -- replaced automatically: the keeper by the sub keeper, outfield players by
 -- the first outfield sub (in bench order) who did play, so long as the team
 -- still lines up in an allowed formation. A captain who didn't play scores
--- nothing to double.
+-- nothing to double, so the vice-captain's points are doubled instead (if
+-- they played and are in the 11 that count).
 --
 -- Squads saved before this (11 players, no bench) keep scoring as they are;
 -- their next save can add the 4 bench players without it counting as
@@ -19,6 +18,7 @@
 
 -- Null = in the starting 11. 1 = sub keeper, 2..4 = outfield subs in order.
 alter table public.picks add column if not exists bench_order smallint check (bench_order between 1 and 4);
+alter table public.picks add column if not exists is_vice boolean not null default false;
 
 alter table public.league_settings drop constraint if exists league_settings_squad_size_check;
 update public.league_settings set squad_size = 15;
@@ -30,9 +30,10 @@ alter table public.league_settings alter column squad_size set default 15;
 -- ---------------------------------------------------------------------------
 
 drop function if exists public.save_squad(int[], int);
+drop function if exists public.save_squad(int[], int[], int);
 
 -- p_starters: the 11. p_bench: [sub keeper, sub 1, sub 2, sub 3].
-create or replace function public.save_squad(p_starters int[], p_bench int[], p_captain_id int)
+create or replace function public.save_squad(p_starters int[], p_bench int[], p_captain_id int, p_vice_id int)
 returns int
 language plpgsql
 security definer
@@ -136,6 +137,9 @@ begin
   if p_captain_id is null or not (p_captain_id = any (v_starters)) then
     v_errors := array_append(v_errors, 'Choose a captain from your starting 11.');
   end if;
+  if p_vice_id is null or not (p_vice_id = any (v_starters)) or p_vice_id = p_captain_id then
+    v_errors := array_append(v_errors, 'Choose a vice-captain from your starting 11 (not the captain).');
+  end if;
 
   -- Transfers count against the squad going into this gameweek. A squad
   -- from before the bench existed may add players up to 15 for free.
@@ -181,8 +185,8 @@ begin
   insert into public.squad_banks (user_id, gameweek_id, bank) values (v_user, v_gw.id, v_bank)
   on conflict (user_id, gameweek_id) do update set bank = excluded.bank;
   delete from public.picks where user_id = v_user and gameweek_id = v_gw.id;
-  insert into public.picks (user_id, gameweek_id, player_id, is_captain, bench_order)
-  select v_user, v_gw.id, s, s = p_captain_id, null from unnest(v_starters) s;
+  insert into public.picks (user_id, gameweek_id, player_id, is_captain, is_vice, bench_order)
+  select v_user, v_gw.id, s, s = p_captain_id, s = p_vice_id, null from unnest(v_starters) s;
   for i in 1 .. cardinality(v_bench) loop
     insert into public.picks (user_id, gameweek_id, player_id, is_captain, bench_order)
     values (v_user, v_gw.id, v_bench[i], false, i);
@@ -199,7 +203,7 @@ $$;
 -- count (starting 11 after auto-subs) and how they got there. Internal: it
 -- reads picks past RLS. Auto-subs only once the weekend is over.
 create or replace function public.squad_lineup(p_user uuid, p_gameweek int)
-returns table (player_id int, is_captain boolean, bench_order smallint, points int, played boolean, counts boolean, sub text)
+returns table (player_id int, is_captain boolean, is_vice boolean, bench_order smallint, points int, played boolean, counts boolean, sub text, doubled boolean)
 language plpgsql
 volatile
 security definer
@@ -214,19 +218,20 @@ declare
   v_counts int[];
   v_used int[] := '{}';
   v_shape text;
+  v_doubled int;
 begin
   select * into v_gw from public.gameweeks where id = p_gameweek;
   select formations into v_formations from public.league_settings where id = 1;
   v_settled := v_gw.deadline <= now() and v_gw.start_date + 2 <= (now() at time zone 'Europe/London')::date;
 
   create temp table if not exists _lineup (
-    player_id int, is_captain boolean, bench_order smallint, position text, points int,
+    player_id int, is_captain boolean, is_vice boolean, bench_order smallint, position text, points int,
     played boolean, counts boolean, sub text
   ) on commit drop;
-  delete from _lineup;
+  delete from _lineup where true; -- (safeupdate needs a where)
   insert into _lineup
   select
-    p.player_id, p.is_captain, p.bench_order, pl.position,
+    p.player_id, p.is_captain, p.is_vice, p.bench_order, pl.position,
     coalesce(pgp.points, 0),
     pgp.player_id is not null,
     p.bench_order is null,
@@ -269,10 +274,17 @@ begin
     end loop;
   end if;
 
+  -- Double the captain; if the captain didn't play (known once the weekend
+  -- is over), the vice-captain instead.
+  select l.player_id into v_doubled from _lineup l where l.is_captain and l.counts and l.played;
+  if v_doubled is null and v_settled then
+    select l.player_id into v_doubled from _lineup l where l.is_vice and l.counts and l.played;
+  end if;
+
   return query
-  select l.player_id, l.is_captain, l.bench_order,
-    (l.points * case when l.is_captain and l.counts then 2 else 1 end)::int,
-    l.played, l.counts, l.sub
+  select l.player_id, l.is_captain, l.is_vice, l.bench_order,
+    (l.points * case when l.player_id = v_doubled then 2 else 1 end)::int,
+    l.played, l.counts, l.sub, l.player_id is not distinct from v_doubled
   from _lineup l
   order by l.bench_order nulls first, l.player_id;
 end;
@@ -283,7 +295,7 @@ drop function if exists public.squad_for(uuid, int);
 -- Someone's squad for a gameweek (see squad_lineup). Your own squad is always
 -- visible; anyone else's only after the deadline.
 create or replace function public.squad_for(p_user uuid, p_gameweek int)
-returns table (player_id int, is_captain boolean, bench_order smallint, points int, played boolean, counts boolean, sub text)
+returns table (player_id int, is_captain boolean, is_vice boolean, bench_order smallint, points int, played boolean, counts boolean, sub text, doubled boolean)
 language plpgsql
 volatile
 security definer

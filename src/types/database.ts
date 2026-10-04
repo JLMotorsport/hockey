@@ -219,20 +219,26 @@ export type Database = {
       };
       picks: {
         Row: {
+          bench_order: number | null;
           gameweek_id: number;
           is_captain: boolean;
+          is_vice: boolean;
           player_id: number;
           user_id: string;
         };
         Insert: {
+          bench_order?: number | null;
           gameweek_id: number;
           is_captain?: boolean;
+          is_vice?: boolean;
           player_id: number;
           user_id: string;
         };
         Update: {
+          bench_order?: number | null;
           gameweek_id?: number;
           is_captain?: boolean;
+          is_vice?: boolean;
           player_id?: number;
           user_id?: string;
         };
@@ -617,7 +623,10 @@ export type Database = {
         };
         Returns: undefined;
       };
-      save_squad: { Args: { p_captain_id: number; p_player_ids: number[] }; Returns: number };
+      save_squad: {
+        Args: { p_bench: number[]; p_captain_id: number; p_starters: number[]; p_vice_id: number };
+        Returns: number;
+      };
       set_admin: { Args: { p_user: string; p_value: boolean }; Returns: undefined };
       set_deadline: { Args: { p_deadline: string; p_gameweek_id: number }; Returns: undefined };
       set_prices_from_points: { Args: Record<PropertyKey, never>; Returns: number };
@@ -625,9 +634,29 @@ export type Database = {
       squad_for: {
         Args: { p_gameweek: number; p_user: string };
         Returns: {
+          bench_order: number;
+          counts: boolean;
+          doubled: boolean;
           is_captain: boolean;
+          is_vice: boolean;
+          played: boolean;
           player_id: number;
           points: number;
+          sub: string;
+        }[];
+      };
+      squad_lineup: {
+        Args: { p_gameweek: number; p_user: string };
+        Returns: {
+          bench_order: number;
+          counts: boolean;
+          doubled: boolean;
+          is_captain: boolean;
+          is_vice: boolean;
+          played: boolean;
+          player_id: number;
+          points: number;
+          sub: string;
         }[];
       };
       squad_source_gameweek: { Args: { p_gameweek: number; p_user: string }; Returns: number };

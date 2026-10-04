@@ -27,12 +27,38 @@ export function SquadPitch({
   const [open, setOpen] = useState<{ id: number; captain: boolean } | null>(null);
   const byId = new Map(players.map((p) => [p.id, p]));
   const sideShort = new Map(sides.map((s) => [s.id, s.short_name]));
-  const picked = rows
+  const withPlayer = rows
     .map((r) => {
       const p = byId.get(r.player_id);
       return p ? { ...r, player: p, position: p.position } : null;
     })
     .filter((x): x is SquadRow & { player: Player; position: Position } => x !== null);
+  // The 11 who count (after any auto-subs) on the pitch, everyone else on the bench.
+  const picked = withPlayer.filter((r) => r.counts);
+  const benched = withPlayer
+    .filter((r) => !r.counts)
+    .sort(
+      (a, b) =>
+        Number(b.position === 'GK') - Number(a.position === 'GK') ||
+        (a.bench_order ?? 9) - (b.bench_order ?? 9),
+    );
+  const pts = (r: SquadRow) =>
+    showPoints ? `${r.points} pts` : `${seasonPoints?.get(r.player_id) ?? 0} pts`;
+  const slotFor = (r: (typeof withPlayer)[number]): PitchSlot => ({
+    key: `p${r.player_id}`,
+    position: r.position,
+    name: shortName(r.player.name),
+    tag: sideShort.get(r.player.side_id),
+    sub: r.sub === 'on' ? `On · ${pts(r)}` : r.sub === 'off' ? `Off · ${pts(r)}` : pts(r),
+    captain: r.is_captain,
+    badge: r.is_vice
+      ? 'V'
+      : !r.counts && r.bench_order && r.bench_order > 1
+        ? String(r.bench_order - 1)
+        : undefined,
+    faded: r.sub === 'off',
+    onClick: () => setOpen({ id: r.player_id, captain: r.doubled }),
+  });
   const counts = { GK: 0, DEF: 0, MID: 0, FWD: 0 } as Record<Position, number>;
   for (const r of picked) counts[r.position] += 1;
   const laid = pitchRows(picked, formationOf(counts));
@@ -40,23 +66,13 @@ export function SquadPitch({
     POSITIONS.map((pos) => [
       pos,
       laid[pos].map((r, i): PitchSlot =>
-        r
-          ? {
-              key: `p${r.player_id}`,
-              position: pos,
-              name: shortName(r.player.name),
-              tag: sideShort.get(r.player.side_id),
-              sub: showPoints ? `${r.points} pts` : `${seasonPoints?.get(r.player_id) ?? 0} pts`,
-              captain: r.is_captain,
-              onClick: () => setOpen({ id: r.player_id, captain: r.is_captain }),
-            }
-          : { key: `${pos}${i}`, position: pos, name: null },
+        r ? slotFor(r) : { key: `${pos}${i}`, position: pos, name: null },
       ),
     ]),
   ) as Record<Position, PitchSlot[]>;
   return (
     <>
-      <Pitch rows={slots} />
+      <Pitch rows={slots} bench={benched.length ? benched.map(slotFor) : undefined} />
       {open && (
         <PlayerSheet
           playerId={open.id}

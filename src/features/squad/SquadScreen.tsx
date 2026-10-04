@@ -20,7 +20,7 @@ import { DEFAULT_FORMATIONS, formationOf, overflow, pitchRows } from '@/lib/form
 import { Pitch, Shirt, type PitchSlot } from '@/components/Pitch';
 import { Sheet } from '@/components/Sheet';
 import { PlayerDetail, PlayerSheet } from '@/features/player/PlayerDetail';
-import { formatPrice, summariseSquad, type SquadPlayer } from '@/lib/squad';
+import { BENCH, formatPrice, STARTERS, summariseSquad, type SquadPlayer } from '@/lib/squad';
 import { errorLines, requireSupabase } from '@/lib/supabase';
 
 export function SquadScreen() {
@@ -57,6 +57,7 @@ export function SquadScreen() {
 
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [captainId, setCaptainId] = useState<number | null>(null);
+  const [viceId, setViceId] = useState<number | null>(null);
   const [loadedFrom, setLoadedFrom] = useState<number | null>(null);
   const [sideFilter, setSideFilter] = useState('');
   const [posFilter, setPosFilter] = useState('');
@@ -64,7 +65,12 @@ export function SquadScreen() {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<'pitch' | 'list'>('pitch');
-  const [picker, setPicker] = useState<Position | null>(null);
+  // Choosing a player: for a pitch position, or for a bench slot (0 = sub keeper).
+  const [picker, setPicker] = useState<{ positions: Position[]; slot?: number } | null>(null);
+  // Subs bench: [sub keeper, sub 1, sub 2, sub 3].
+  const [bench, setBench] = useState<(number | null)[]>([null, null, null, null]);
+  // A player tapped for "swap with": the next player tapped trades places.
+  const [swapFrom, setSwapFrom] = useState<number | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const [statsFor, setStatsFor] = useState<number | null>(null);
   const [chosenFormation, setChosenFormation] = useState<string | null>(null);
@@ -72,13 +78,23 @@ export function SquadScreen() {
   // Start from the saved squad once it arrives.
   useEffect(() => {
     if (!gameweek || !current.data || loadedFrom === gameweek.id) return;
-    setSelected(new Set(current.data.map((r) => r.player_id)));
+    setSelected(
+      new Set(current.data.filter((r) => r.bench_order === null).map((r) => r.player_id)),
+    );
+    const subs: (number | null)[] = [null, null, null, null];
+    for (const r of current.data) if (r.bench_order) subs[r.bench_order - 1] = r.player_id;
+    setBench(subs);
     setCaptainId(current.data.find((r) => r.is_captain)?.player_id ?? null);
+    setViceId(current.data.find((r) => r.is_vice)?.player_id ?? null);
     setLoadedFrom(gameweek.id);
   }, [gameweek, current.data, loadedFrom]);
 
   const sideById = useMemo(() => new Map((sides.data ?? []).map((s) => [s.id, s])), [sides.data]);
   const currentIds = useMemo(() => (current.data ?? []).map((r) => r.player_id), [current.data]);
+  const currentStarters = useMemo(
+    () => (current.data ?? []).filter((r) => r.bench_order === null).map((r) => r.player_id),
+    [current.data],
+  );
   const previousIds = useMemo(() => (previous.data ?? []).map((r) => r.player_id), [previous.data]);
 
   const pool: SquadPlayer[] = useMemo(
@@ -120,26 +136,130 @@ export function SquadScreen() {
   }
   const s = settings.data!;
   const picked = pool.filter((p) => selected.has(p.id));
+  const poolById = new Map(pool.map((p) => [p.id, p]));
+  const benchPlayers = bench.map((id) => (id === null ? null : (poolById.get(id) ?? null)));
   const priceById = new Map((players.data ?? []).map((p) => [p.id, p.price]));
-  const summary = summariseSquad(picked, captainId, s, currentIds, previousIds, {
-    base: bankBefore.data ?? s.budget,
-    priceOf: (id) => priceById.get(id) ?? 0,
-  });
+  const summary = summariseSquad(
+    picked,
+    benchPlayers,
+    captainId,
+    viceId,
+    s,
+    currentIds,
+    previousIds,
+    { base: bankBefore.data ?? s.budget, priceOf: (id) => priceById.get(id) ?? 0 },
+    currentStarters,
+  );
+  const inSquad = (id: number) => selected.has(id) || bench.includes(id);
+  const isKeeper = (id: number) => poolById.get(id)?.position === 'GK';
+  const benchSlot = (id: number) => bench.indexOf(id);
+
+  /** Add to the starting 11 if there's room, else the first fitting bench slot. */
+  function add(id: number, slot?: number) {
+    if (slot !== undefined) {
+      const next = [...bench];
+      next[slot] = id;
+      setBench(next);
+      return;
+    }
+    if (selected.size < STARTERS) {
+      setSelected(new Set([...selected, id]));
+      return;
+    }
+    const free = isKeeper(id)
+      ? bench[0] === null
+        ? 0
+        : -1
+      : bench.findIndex((b, i) => i > 0 && b === null);
+    if (free < 0) {
+      setNotices([{ kind: 'error', text: 'Your squad is full. Remove someone first.' }]);
+      return;
+    }
+    add(id, free);
+  }
+
+  function remove(id: number) {
+    if (selected.has(id)) {
+      const next = new Set(selected);
+      next.delete(id);
+      setSelected(next);
+      if (captainId === id) setCaptainId(null);
+      if (viceId === id) setViceId(null);
+    } else if (bench.includes(id)) {
+      setBench(bench.map((b) => (b === id ? null : b)));
+    }
+  }
+
+  /** Captain and vice swap roles if one is given the other's armband. */
+  function makeCaptain(id: number) {
+    if (viceId === id) setViceId(captainId);
+    setCaptainId(id);
+  }
+  function makeVice(id: number) {
+    if (captainId === id) setCaptainId(viceId);
+    setViceId(id);
+  }
 
   function toggle(id: number) {
-    const next = new Set(selected);
-    if (next.has(id)) {
+    if (inSquad(id)) remove(id);
+    else add(id);
+  }
+
+  /** Can a and b trade places? Keepers only swap with keepers. */
+  function canSwap(a: number, b: number) {
+    if (a === b || isKeeper(a) !== isKeeper(b)) return false;
+    return !(selected.has(a) && selected.has(b));
+  }
+
+  function swap(a: number, b: number) {
+    setSwapFrom(null);
+    if (!canSwap(a, b)) return;
+    if (selected.has(a) || selected.has(b)) {
+      const [starter, sub] = selected.has(a) ? [a, b] : [b, a];
+      const next = new Set(selected);
+      next.delete(starter);
+      next.add(sub);
+      setSelected(next);
+      setBench(bench.map((x) => (x === sub ? starter : x)));
+      if (captainId === starter) setCaptainId(sub);
+      if (viceId === starter) setViceId(sub);
+    } else {
+      // Two subs: change the bench order.
+      setBench(bench.map((x) => (x === a ? b : x === b ? a : x)));
+    }
+    setChosenFormation(null);
+  }
+
+  /** Move a sub into an empty pitch slot, or a starter into an empty bench slot. */
+  function moveTo(id: number, slot: { position?: Position; bench?: number }) {
+    setSwapFrom(null);
+    if (slot.position && bench.includes(id) && poolById.get(id)?.position === slot.position) {
+      setBench(bench.map((x) => (x === id ? null : x)));
+      setSelected(new Set([...selected, id]));
+      return true;
+    }
+    if (slot.bench !== undefined && selected.has(id) && (slot.bench === 0) === isKeeper(id)) {
+      const next = new Set(selected);
       next.delete(id);
+      setSelected(next);
+      const subs = [...bench];
+      subs[slot.bench] = id;
+      setBench(subs);
       if (captainId === id) setCaptainId(null);
-    } else next.add(id);
-    setSelected(next);
+      if (viceId === id) setViceId(null);
+      setChosenFormation(null);
+      return true;
+    }
+    return false;
   }
 
   async function save() {
     setSaving(true);
     const { error } = await requireSupabase().rpc('save_squad', {
-      p_player_ids: [...selected],
+      p_starters: [...selected],
+      p_bench: bench.filter((b): b is number => b !== null),
       p_captain_id: captainId ?? 0,
+      p_vice_id: viceId ?? 0,
     });
     setSaving(false);
     if (error) {
@@ -157,7 +277,7 @@ export function SquadScreen() {
     (p) =>
       (!sideFilter || String(p.side_id) === sideFilter) &&
       (!posFilter || p.position === posFilter) &&
-      (!onlyPicked || selected.has(p.id)),
+      (!onlyPicked || inSquad(p.id)),
   );
 
   const allowed = s.formations.length ? s.formations : DEFAULT_FORMATIONS;
@@ -179,16 +299,60 @@ export function SquadScreen() {
               tag: sideById.get(p.side_id)?.short_name,
               sub: `${points.data?.get(p.id) ?? 0} pts`,
               captain: captainId === p.id,
-              onClick: () => setFocus(p.id),
+              badge: viceId === p.id ? 'V' : undefined,
+              highlight: swapFrom !== null && canSwap(swapFrom, p.id),
+              onClick: () => (swapFrom !== null ? swap(swapFrom, p.id) : setFocus(p.id)),
             }
-          : { key: `${pos}${i}`, position: pos, name: null, onClick: () => setPicker(pos) },
+          : {
+              key: `${pos}${i}`,
+              position: pos,
+              name: null,
+              highlight:
+                swapFrom !== null &&
+                bench.includes(swapFrom) &&
+                poolById.get(swapFrom)?.position === pos,
+              onClick: () => {
+                if (swapFrom === null || !moveTo(swapFrom, { position: pos }))
+                  setPicker({ positions: [pos] });
+              },
+            },
       ),
     ]),
   ) as Record<Position, PitchSlot[]>;
+  const outfield: Position[] = ['DEF', 'MID', 'FWD'];
+  const benchSlots = bench.map((id, i): PitchSlot => {
+    const p = id === null ? null : poolById.get(id);
+    const label = i === 0 ? 'Sub GK' : `Sub ${i}`;
+    return p
+      ? {
+          key: `b${p.id}`,
+          position: p.position,
+          name: shortName(p.name),
+          tag: sideById.get(p.side_id)?.short_name,
+          sub: `${points.data?.get(p.id) ?? 0} pts`,
+          badge: i === 0 ? undefined : String(i),
+          highlight: swapFrom !== null && canSwap(swapFrom, p.id),
+          onClick: () => (swapFrom !== null ? swap(swapFrom, p.id) : setFocus(p.id)),
+        }
+      : {
+          key: `b-empty${i}`,
+          position: i === 0 ? 'GK' : 'MID',
+          name: null,
+          label,
+          highlight:
+            swapFrom !== null && selected.has(swapFrom) && (i === 0) === isKeeper(swapFrom),
+          onClick: () => {
+            if (swapFrom === null || !moveTo(swapFrom, { bench: i }))
+              setPicker({ positions: i === 0 ? ['GK'] : outfield, slot: i });
+          },
+        };
+  });
   const focused = pool.find((p) => p.id === focus);
+  const focusedSlot = focused ? benchSlot(focused.id) : -1;
+  const swapping = swapFrom !== null ? poolById.get(swapFrom) : undefined;
   const choices = picker
     ? pool
-        .filter((p) => p.position === picker && !selected.has(p.id) && p.active)
+        .filter((p) => picker.positions.includes(p.position) && !inSquad(p.id) && p.active)
         .filter((p) => !sideFilter || String(p.side_id) === sideFilter)
         .sort(
           (a, b) =>
@@ -207,7 +371,7 @@ export function SquadScreen() {
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           <div className="rounded-xl bg-white/15 px-2 py-2">
             <span className="display-num block text-2xl">
-              {summary.count}/{s.squad_size}
+              {summary.count}/{STARTERS + BENCH}
             </span>
             <span className="text-xs uppercase tracking-wide text-white/80">Players</span>
           </div>
@@ -292,9 +456,24 @@ export function SquadScreen() {
               . Tap a player to remove or swap them.
             </p>
           )}
-          <Pitch rows={slots} />
+          {swapping && (
+            <div className="fixed inset-x-4 bottom-[8.5rem] z-30 flex items-center sm:static sm:mb-3 justify-between gap-2 rounded-xl bg-[#16181d] px-3 py-2 text-sm font-semibold text-white shadow-card">
+              <span>Tap who {swapping.name} swaps with</span>
+              <button
+                type="button"
+                className="min-h-tap rounded-full px-3 font-display font-bold uppercase text-[#ffd400]"
+                onClick={() => setSwapFrom(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          <Pitch rows={slots} bench={benchSlots} />
           <p className="muted mt-3 text-center text-sm">
-            Tap an empty shirt to add a player, or a player to make them captain or swap them.
+            Tap an empty shirt to add a player, or a player to make them captain (C) or vice (V), or
+            swap them. If your captain doesn&apos;t play, your vice scores double instead. If a
+            starter doesn&apos;t play, the first sub who did comes on, as long as the team still
+            lines up in an allowed formation.
           </p>
         </>
       ) : (
@@ -338,7 +517,8 @@ export function SquadScreen() {
               <thead>
                 <tr>
                   <th>Pick</th>
-                  <th>Captain</th>
+                  <th>C</th>
+                  <th>VC</th>
                   <th>Player</th>
                   <th>Pos</th>
                   <th>Side</th>
@@ -348,7 +528,8 @@ export function SquadScreen() {
               </thead>
               <tbody>
                 {visible.map((p) => {
-                  const isPicked = selected.has(p.id);
+                  const isPicked = inSquad(p.id);
+                  const slot = benchSlot(p.id);
                   return (
                     <tr key={p.id} className={isPicked ? 'bg-brand/5' : ''}>
                       <td>
@@ -366,13 +547,27 @@ export function SquadScreen() {
                           name="captain"
                           className="h-5 w-5 accent-[#d91414]"
                           aria-label={`Captain ${p.name}`}
-                          disabled={!isPicked}
+                          disabled={!selected.has(p.id)}
                           checked={captainId === p.id}
-                          onChange={() => setCaptainId(p.id)}
+                          onChange={() => makeCaptain(p.id)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="radio"
+                          name="vice"
+                          className="h-5 w-5 accent-[#16181d]"
+                          aria-label={`Vice-captain ${p.name}`}
+                          disabled={!selected.has(p.id)}
+                          checked={viceId === p.id}
+                          onChange={() => makeVice(p.id)}
                         />
                       </td>
                       <td>
                         {p.name}
+                        {slot >= 0 && (
+                          <span className="muted"> ({slot === 0 ? 'sub GK' : `sub ${slot}`})</span>
+                        )}
                         {!p.active && <span className="muted"> (unavailable)</span>}
                       </td>
                       <td>
@@ -408,7 +603,13 @@ export function SquadScreen() {
 
       {picker && (
         <Sheet
-          title={`Choose a ${POSITION_NAMES[picker].toLowerCase()}`}
+          title={
+            picker.slot === undefined
+              ? `Choose a ${POSITION_NAMES[picker.positions[0]!].toLowerCase()}`
+              : picker.slot === 0
+                ? 'Choose a sub goalkeeper'
+                : `Choose sub ${picker.slot}`
+          }
           onClose={() => setPicker(null)}
         >
           <div className="mb-2 flex items-center justify-between gap-2 text-sm">
@@ -434,14 +635,17 @@ export function SquadScreen() {
                   type="button"
                   className="flex min-h-[56px] min-w-0 flex-1 items-center gap-3 text-left"
                   onClick={() => {
-                    toggle(p.id);
+                    add(p.id, picker.slot);
                     setPicker(null);
                   }}
                 >
                   <Shirt keeper={p.position === 'GK'} className="h-9 w-9 shrink-0" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{p.name}</span>
-                    <span className="muted text-xs">{sideById.get(p.side_id)?.name}</span>
+                    <span className="muted text-xs">
+                      {picker.positions.length > 1 && `${p.position} · `}
+                      {sideById.get(p.side_id)?.name}
+                    </span>
                   </span>
                   <span className="text-right">
                     <span
@@ -475,6 +679,8 @@ export function SquadScreen() {
             <div>
               <p className="font-semibold">
                 {POSITION_NAMES[focused.position]} · {sideById.get(focused.side_id)?.name}
+                {focusedSlot >= 0 &&
+                  ` · ${focusedSlot === 0 ? 'Sub keeper' : `Sub ${focusedSlot}`}`}
               </p>
               <p className="muted text-sm">
                 {formatPrice(focused.price)}m · {points.data?.get(focused.id) ?? 0} pts this season
@@ -482,33 +688,63 @@ export function SquadScreen() {
             </div>
           </div>
           <div className="grid gap-2">
+            {focusedSlot < 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={captainId === focused.id}
+                  onClick={() => {
+                    makeCaptain(focused.id);
+                    setFocus(null);
+                  }}
+                >
+                  {captainId === focused.id ? 'Captain' : 'Make captain'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-quiet"
+                  disabled={viceId === focused.id}
+                  onClick={() => {
+                    makeVice(focused.id);
+                    setFocus(null);
+                  }}
+                >
+                  {viceId === focused.id ? 'Vice-captain' : 'Make vice'}
+                </button>
+              </div>
+            )}
             <button
               type="button"
-              className="btn"
-              disabled={captainId === focused.id}
+              className={focusedSlot < 0 ? 'btn btn-quiet' : 'btn'}
               onClick={() => {
-                setCaptainId(focused.id);
+                setSwapFrom(focused.id);
                 setFocus(null);
+                setView('pitch');
               }}
             >
-              {captainId === focused.id ? 'Captain' : 'Make captain'}
+              {focusedSlot < 0 ? 'Swap with a sub' : 'Bring on, or change sub order'}
             </button>
             <button
               type="button"
               className="btn btn-quiet"
               onClick={() => {
-                toggle(focused.id);
+                remove(focused.id);
                 setFocus(null);
-                setPicker(focused.position);
+                setPicker(
+                  focusedSlot < 0
+                    ? { positions: [focused.position] }
+                    : { positions: focusedSlot === 0 ? ['GK'] : outfield, slot: focusedSlot },
+                );
               }}
             >
-              Swap for another {focused.position}
+              Transfer out
             </button>
             <button
               type="button"
               className="btn btn-quiet"
               onClick={() => {
-                toggle(focused.id);
+                remove(focused.id);
                 setFocus(null);
               }}
             >

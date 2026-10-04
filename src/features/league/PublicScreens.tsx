@@ -188,10 +188,17 @@ export function RulesScreen() {
           <h2>Your squad</h2>
           {s ? (
             <ul className="list-disc space-y-1 pl-5">
-              <li>{s.squad_size} players from any Felixstowe adult side.</li>
               <li>
-                1 goalkeeper and a formation: {s.formations.join(', ')}{' '}
+                {s.squad_size} players from any Felixstowe adult side: a starting 11 and 4 subs.
+              </li>
+              <li>
+                Start 1 goalkeeper in a formation: {s.formations.join(', ')}{' '}
                 (defenders-midfielders-forwards).
+              </li>
+              <li>
+                Subs: a sub goalkeeper, then 3 outfield subs in order. Once the weekend is over, a
+                starter who didn&apos;t play is replaced by the first sub who did, as long as the
+                team still lines up in an allowed formation. Only the 11 who count score.
               </li>
               <li>Budget of {formatPrice(s.budget)}m.</li>
               <li>Max {s.max_per_side} players from any one side.</li>

@@ -7,6 +7,7 @@ import {
   usePlayers,
   useProfile,
   useSides,
+  squadTotal,
   useSquad,
 } from '@/lib/queries';
 import { SquadPitch } from './SquadPitch';
@@ -36,7 +37,7 @@ export function TeamScreen() {
         <h1 className="mb-0 mt-0 text-4xl">{profile.data?.team_name}</h1>
         {squad.data?.length ? (
           <p className="mt-2 font-display text-xl font-bold uppercase">
-            {squad.data.reduce((sum, r) => sum + r.points, 0)} points
+            {squadTotal(squad.data)} points
           </p>
         ) : null}
       </section>

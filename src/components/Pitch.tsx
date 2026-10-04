@@ -142,6 +142,12 @@ export interface PitchSlot {
   captain?: boolean;
   /** Small badge on the shirt; defaults to "C" for the captain. */
   badge?: string;
+  /** Text for an empty slot instead of the position, e.g. "Sub 1". */
+  label?: string;
+  /** Ringed while choosing who to swap with. */
+  highlight?: boolean;
+  /** Greyed out, e.g. a starter who was subbed off. */
+  faded?: boolean;
   onClick?: () => void;
 }
 
@@ -149,7 +155,7 @@ export interface PitchSlot {
 function PlayerSpot({ slot }: { slot: PitchSlot }) {
   const label = slot.name
     ? `${slot.name}${slot.captain ? ' (captain)' : ''}`
-    : `Add ${slot.position}`;
+    : `Add ${slot.label ?? slot.position}`;
   const inner = (
     <>
       <span className="relative">
@@ -182,22 +188,18 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
         </span>
       ) : (
         <span className="mt-0.5 rounded-md bg-black/30 px-1.5 py-0.5 font-display text-[0.7rem] font-bold uppercase text-white">
-          {slot.position}
+          {slot.label ?? slot.position}
         </span>
       )}
     </>
   );
+  const cls = `flex w-[4.6rem] flex-col items-center rounded-lg sm:w-24 ${slot.highlight ? 'ring-2 ring-[#ffd400] ring-offset-2 ring-offset-transparent' : ''} ${slot.faded ? 'opacity-50' : ''}`;
   return slot.onClick ? (
-    <button
-      type="button"
-      onClick={slot.onClick}
-      aria-label={label}
-      className="flex w-[4.6rem] flex-col items-center sm:w-24"
-    >
+    <button type="button" onClick={slot.onClick} aria-label={label} className={cls}>
       {inner}
     </button>
   ) : (
-    <div aria-label={label} className="flex w-[4.6rem] flex-col items-center sm:w-24">
+    <div aria-label={label} className={cls}>
       {inner}
     </div>
   );
@@ -208,11 +210,30 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
  * Sponsor boards (components/SponsorBoards.tsx) are parked for now; to bring
  * them back, render them above and below PitchField.
  */
-export function Pitch({ rows }: { rows: Record<Position, PitchSlot[]>; stillBoards?: boolean }) {
+export function Pitch({
+  rows,
+  bench,
+}: {
+  rows: Record<Position, PitchSlot[]>;
+  /** Subs in order (sub keeper first), shown in a strip under the pitch. */
+  bench?: PitchSlot[];
+}) {
   const order: Position[] = ['FWD', 'MID', 'DEF', 'GK'];
   return (
     <div className="mx-auto w-full max-w-[26rem] overflow-hidden rounded-2xl bg-[#1b6e41] shadow-card">
       <PitchField rows={rows} order={order} />
+      {bench && (
+        <div className="bg-[#cfe6d6] px-1 pb-3 pt-2">
+          <p className="mb-1 text-center font-display text-xs font-bold uppercase tracking-widest text-[#1b6e41]">
+            Subs
+          </p>
+          <div className="flex justify-center gap-0.5 sm:gap-2">
+            {bench.map((slot) => (
+              <PlayerSpot key={slot.key} slot={slot} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

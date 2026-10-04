@@ -192,7 +192,7 @@ export function TeamOfWeekScreen() {
                 <p className="text-xs font-bold text-white/80">pts · {best.formation}</p>
               </div>
             </div>
-            <Pitch rows={slots} stillBoards />
+            <Pitch rows={slots} />
             {star && (
               <div className="flex items-center justify-between gap-2 bg-[#16181d] px-4 py-3 font-display uppercase">
                 <span className="text-xs font-bold tracking-widest text-white/70">
