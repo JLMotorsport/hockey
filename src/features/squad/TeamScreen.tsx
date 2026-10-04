@@ -63,6 +63,7 @@ export function TeamScreen() {
               <Loading />
             ) : squad.data?.length ? (
               <SquadPitch
+                gameweekId={gameweek.id}
                 rows={squad.data}
                 players={players.data ?? []}
                 sides={sides.data ?? []}

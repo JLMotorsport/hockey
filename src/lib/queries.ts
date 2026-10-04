@@ -235,3 +235,43 @@ export function usePitcheroEvidence() {
     },
   });
 }
+
+export interface PlayerMatch {
+  fixture_id: number;
+  goals: number;
+  assists: number;
+  green_cards: number;
+  yellow_cards: number;
+  red_cards: number;
+  player_of_match: boolean;
+  fixture: {
+    kickoff: string;
+    gameweek_id: number;
+    side_id: number;
+    opponent: string;
+    is_home: boolean;
+    goals_for: number | null;
+    goals_against: number | null;
+  } | null;
+}
+
+/** Every match a player has a stat line for, oldest first. */
+export function usePlayerHistory(playerId: number | undefined) {
+  return useQuery({
+    queryKey: ['player-history', playerId ?? 0],
+    enabled: Boolean(playerId),
+    queryFn: async () => {
+      const rows = unwrap(
+        await requireSupabase()
+          .from('performances')
+          .select(
+            'fixture_id, goals, assists, green_cards, yellow_cards, red_cards, player_of_match, fixture:fixtures(kickoff, gameweek_id, side_id, opponent, is_home, goals_for, goals_against)',
+          )
+          .eq('player_id', playerId as number),
+      ) as unknown as PlayerMatch[];
+      return rows.sort((a, b) =>
+        (a.fixture?.kickoff ?? '').localeCompare(b.fixture?.kickoff ?? ''),
+      );
+    },
+  });
+}

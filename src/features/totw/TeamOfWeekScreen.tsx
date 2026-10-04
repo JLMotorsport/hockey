@@ -16,6 +16,7 @@ import {
 } from '@/lib/queries';
 import { POSITIONS, type Position } from '@/lib/scoring';
 import { teamOfTheWeek, type Scorer } from '@/lib/teamOfWeek';
+import { PlayerSheet } from '@/features/player/PlayerDetail';
 
 export function TeamOfWeekScreen() {
   const [params, setParams] = useSearchParams();
@@ -26,6 +27,7 @@ export function TeamOfWeekScreen() {
   const card = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [open, setOpen] = useState<number | null>(null);
 
   const scored = useScoredGameweeks();
   const all = gameweeks.data ?? [];
@@ -79,6 +81,7 @@ export function TeamOfWeekScreen() {
               tag: sideShort.get(byId.get(p.player_id)?.side_id ?? 0),
               sub: `${p.points} pts`,
               badge: p.player_id === star?.player_id ? '★' : undefined,
+              onClick: () => setOpen(p.player_id),
             }
           : { key: `${pos}${i}`, position: pos, name: null },
       ),
@@ -221,6 +224,9 @@ export function TeamOfWeekScreen() {
               </button>
             )}
           </div>
+          {open && (
+            <PlayerSheet playerId={open} gameweekId={gameweek.id} onClose={() => setOpen(null)} />
+          )}
           <p className="muted mx-auto mt-3 max-w-[26rem] text-center text-sm">
             The best possible 11 from every Felixstowe side this gameweek, in whichever allowed
             formation scores most.

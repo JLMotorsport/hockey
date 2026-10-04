@@ -84,7 +84,9 @@
   .table tbody tr:last-child td {
     @apply border-b-0;
   }
-  .num {
+  .num,
+  .table th.num,
+  .table td.num {
     @apply text-right tabular-nums;
   }
   .muted {

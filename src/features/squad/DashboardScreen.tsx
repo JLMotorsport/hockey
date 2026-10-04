@@ -108,6 +108,7 @@ export function DashboardScreen() {
             players={players.data ?? []}
             sides={sides.data ?? []}
             showPoints={showLast}
+            gameweekId={last?.id}
             seasonPoints={seasonPoints.data}
           />
         </section>

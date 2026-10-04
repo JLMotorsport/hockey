@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ErrorText, Loading, PosBadge, PriceTrend } from '@/components/ui';
 import { formatDayTime, formatWeekdayTime, gameweekLabel } from '@/lib/format';
@@ -13,6 +14,7 @@ import {
 import { RULES_TABLE } from '@/lib/scoring';
 import { formatPrice } from '@/lib/squad';
 import { LeagueTable } from './LeagueTable';
+import { PlayerSheet } from '@/features/player/PlayerDetail';
 
 export function HomeScreen() {
   return (
@@ -63,6 +65,7 @@ export function TableScreen() {
 }
 
 export function PlayersScreen() {
+  const [open, setOpen] = useState<number | null>(null);
   const players = usePlayers();
   const sides = useSides();
   const points = useSeasonPoints();
@@ -91,7 +94,15 @@ export function PlayersScreen() {
           <tbody>
             {list.map((p) => (
               <tr key={p.id}>
-                <td>{p.name}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="text-left font-semibold text-brand underline-offset-2 hover:underline"
+                    onClick={() => setOpen(p.id)}
+                  >
+                    {p.name}
+                  </button>
+                </td>
                 <td>
                   <PosBadge position={p.position} />
                 </td>
@@ -113,6 +124,7 @@ export function PlayersScreen() {
           </tbody>
         </table>
       </div>
+      {open && <PlayerSheet playerId={open} onClose={() => setOpen(null)} />}
     </>
   );
 }

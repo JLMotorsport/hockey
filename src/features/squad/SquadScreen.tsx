@@ -19,6 +19,7 @@ import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
 import { DEFAULT_FORMATIONS, formationOf, overflow, pitchRows } from '@/lib/formation';
 import { Pitch, Shirt, type PitchSlot } from '@/components/Pitch';
 import { Sheet } from '@/components/Sheet';
+import { PlayerDetail, PlayerSheet } from '@/features/player/PlayerDetail';
 import { formatPrice, summariseSquad, type SquadPlayer } from '@/lib/squad';
 import { errorLines, requireSupabase } from '@/lib/supabase';
 
@@ -45,6 +46,8 @@ export function SquadScreen() {
 
   const all = gameweeks.data ?? [];
   const gameweek = nextOpenGameweek(all);
+  // The last gameweek with points, for "how did they do" in player details.
+  const lastPlayed = [...all].reverse().find((g) => new Date(g.deadline) <= new Date());
   const previousGw = gameweek
     ? [...all].reverse().find((g) => g.start_date < gameweek.start_date)
     : undefined;
@@ -63,6 +66,7 @@ export function SquadScreen() {
   const [view, setView] = useState<'pitch' | 'list'>('pitch');
   const [picker, setPicker] = useState<Position | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
+  const [statsFor, setStatsFor] = useState<number | null>(null);
   const [chosenFormation, setChosenFormation] = useState<string | null>(null);
 
   // Start from the saved squad once it arrives.
@@ -425,10 +429,10 @@ export function SquadScreen() {
           </div>
           <ul className="divide-y divide-line">
             {choices.map((p) => (
-              <li key={p.id}>
+              <li key={p.id} className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="flex min-h-[56px] w-full items-center gap-3 text-left"
+                  className="flex min-h-[56px] min-w-0 flex-1 items-center gap-3 text-left"
                   onClick={() => {
                     toggle(p.id);
                     setPicker(null);
@@ -448,6 +452,14 @@ export function SquadScreen() {
                     </span>
                     <span className="muted text-xs">{points.data?.get(p.id) ?? 0} pts</span>
                   </span>
+                </button>
+                <button
+                  type="button"
+                  className="min-h-tap shrink-0 rounded-full px-3 font-display text-xs font-bold uppercase text-brand ring-1 ring-line"
+                  aria-label={`Stats for ${p.name}`}
+                  onClick={() => setStatsFor(p.id)}
+                >
+                  Stats
                 </button>
               </li>
             ))}
@@ -503,7 +515,18 @@ export function SquadScreen() {
               Remove
             </button>
           </div>
+          <div className="mt-5 border-t border-line pt-4">
+            <PlayerDetail playerId={focused.id} gameweekId={lastPlayed?.id} />
+          </div>
         </Sheet>
+      )}
+
+      {statsFor && (
+        <PlayerSheet
+          playerId={statsFor}
+          gameweekId={lastPlayed?.id}
+          onClose={() => setStatsFor(null)}
+        />
       )}
     </>
   );

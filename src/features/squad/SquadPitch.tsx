@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Pitch, type PitchSlot } from '@/components/Pitch';
 import { formationOf, pitchRows } from '@/lib/formation';
 import type { Player, Side, SquadRow } from '@/lib/queries';
 import { POSITIONS, type Position } from '@/lib/scoring';
 import { shortName } from '@/lib/format';
+import { PlayerSheet } from '@/features/player/PlayerDetail';
 
 /** A saved squad on the pitch, with points (or side) under each player. */
 export function SquadPitch({
@@ -11,6 +13,7 @@ export function SquadPitch({
   sides,
   showPoints,
   seasonPoints,
+  gameweekId,
 }: {
   rows: SquadRow[];
   players: Player[];
@@ -18,7 +21,10 @@ export function SquadPitch({
   /** True: points in this gameweek. False: points so far this season. */
   showPoints: boolean;
   seasonPoints?: Map<number, number>;
+  /** Tapping a player shows how they scored in this gameweek. */
+  gameweekId?: number;
 }) {
+  const [open, setOpen] = useState<{ id: number; captain: boolean } | null>(null);
   const byId = new Map(players.map((p) => [p.id, p]));
   const sideShort = new Map(sides.map((s) => [s.id, s.short_name]));
   const picked = rows
@@ -42,10 +48,23 @@ export function SquadPitch({
               tag: sideShort.get(r.player.side_id),
               sub: showPoints ? `${r.points} pts` : `${seasonPoints?.get(r.player_id) ?? 0} pts`,
               captain: r.is_captain,
+              onClick: () => setOpen({ id: r.player_id, captain: r.is_captain }),
             }
           : { key: `${pos}${i}`, position: pos, name: null },
       ),
     ]),
   ) as Record<Position, PitchSlot[]>;
-  return <Pitch rows={slots} />;
+  return (
+    <>
+      <Pitch rows={slots} />
+      {open && (
+        <PlayerSheet
+          playerId={open.id}
+          gameweekId={showPoints ? gameweekId : undefined}
+          captain={open.captain}
+          onClose={() => setOpen(null)}
+        />
+      )}
+    </>
+  );
 }
