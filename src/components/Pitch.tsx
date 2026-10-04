@@ -88,6 +88,45 @@ export function Shirt({
           <path d="M22 3 Q32 9 42 3 L38 12 L32 17 L26 12 Z" fill="#d91414" />
         </>
       )}
+      {/* Shirt sponsors, as on the real kit: Diamond Mills, then Hutton. */}
+      <rect
+        x="21"
+        y="22"
+        width="22"
+        height="7"
+        rx="0.8"
+        fill="#ffe100"
+        stroke="#16181d"
+        strokeWidth="0.7"
+      />
+      <text
+        x="32"
+        y="27.2"
+        textAnchor="middle"
+        fontFamily="Georgia, 'Times New Roman', serif"
+        fontWeight="700"
+        fontSize="3.6"
+        fill="#16181d"
+        textLength="19"
+        lengthAdjust="spacingAndGlyphs"
+      >
+        DIAMOND MILLS
+      </text>
+      <rect x="22" y="31.5" width="20" height="8.5" fill={keeper ? '#ffffff' : 'none'} />
+      <text
+        x="32"
+        y="37.6"
+        textAnchor="middle"
+        fontFamily="Barlow, Arial, sans-serif"
+        fontWeight="700"
+        fontSize="6.4"
+        fill="#16181d"
+        textLength="16"
+        lengthAdjust="spacingAndGlyphs"
+      >
+        Hutton
+      </text>
+      <rect x="23.5" y="38.6" width="17" height="1.8" fill="#d91414" />
     </svg>
   );
 }
