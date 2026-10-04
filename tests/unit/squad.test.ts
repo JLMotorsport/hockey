@@ -34,7 +34,7 @@ describe('summariseSquad', () => {
     players.push({ ...players[0]!, id: 99, side_id: 2, side_name: 'Side 2', price: 200 });
     const s = summariseSquad(players, 42, { ...settings, max_per_side: 3 }, [], []);
     expect(s.problems.join(' ')).toMatch(/1 goalkeeper/);
-    expect(s.problems.join(' ')).toMatch(/budget/);
+    expect(s.problems.join(' ')).toMatch(/more than you can spend/);
     expect(s.problems.join(' ')).toMatch(/Max 3 players from Side/);
     expect(s.problems.join(' ')).toMatch(/captain/);
   });
@@ -54,10 +54,30 @@ describe('summariseSquad', () => {
     expect(s.problems.join(' ')).toMatch(/3 transfers/);
   });
 
-  it('lets an unchanged squad stay over budget after price rises', () => {
-    const players = squad(100);
+  it('keeps an unchanged squad valid however its prices moved', () => {
+    const players = squad(100); // now worth 110.0m
     const ids = players.map((p) => p.id);
-    expect(summariseSquad(players, 1, settings, ids, ids).problems).toEqual([]);
+    const s = summariseSquad(players, 1, settings, ids, ids, { base: 30, priceOf: () => 100 });
+    expect(s.problems).toEqual([]);
+    expect(s.bank).toBe(30);
+  });
+
+  it("sells at today's price, so a player who rose funds a dearer buy", () => {
+    // Bank 1.0m. Sell player 1 (bought cheap, now 9.0m) and buy a 9.5m player.
+    const before = squad(80).map((p) => p.id);
+    const after = squad(80);
+    after[1] = { ...after[1]!, id: 99, price: 95 };
+    const priceOf = (id: number) => (id === 2 ? 90 : 80);
+    const s = summariseSquad(after, 1, settings, before, before, { base: 10, priceOf });
+    expect(s.bank).toBe(10 + 90 - 95);
+    expect(s.problems).toEqual([]);
+    // Had that player fallen to 7.0m instead, the same buy is out of reach.
+    const fell = summariseSquad(after, 1, settings, before, before, {
+      base: 10,
+      priceOf: () => 70,
+    });
+    expect(fell.bank).toBe(10 + 70 - 95);
+    expect(fell.problems).toContain("That's 1.5m more than you can spend.");
   });
 
   it('blocks newly picking an inactive player but keeps an existing one', () => {

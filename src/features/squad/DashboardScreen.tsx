@@ -11,6 +11,7 @@ import {
   useLeagueTable,
   usePlayers,
   useSides,
+  useSeasonPoints,
   useSquad,
 } from '@/lib/queries';
 import { requireSupabase } from '@/lib/supabase';
@@ -22,6 +23,7 @@ export function DashboardScreen() {
   const players = usePlayers();
   const sides = useSides();
   const table = useLeagueTable();
+  const seasonPoints = useSeasonPoints();
   const all = gameweeks.data ?? [];
   const next = nextOpenGameweek(all);
   const locked = lockedGameweeks(all);
@@ -106,6 +108,7 @@ export function DashboardScreen() {
             players={players.data ?? []}
             sides={sides.data ?? []}
             showPoints={showLast}
+            seasonPoints={seasonPoints.data}
           />
         </section>
       ) : (

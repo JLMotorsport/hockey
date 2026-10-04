@@ -10,11 +10,14 @@ export function SquadPitch({
   players,
   sides,
   showPoints,
+  seasonPoints,
 }: {
   rows: SquadRow[];
   players: Player[];
   sides: Side[];
+  /** True: points in this gameweek. False: points so far this season. */
   showPoints: boolean;
+  seasonPoints?: Map<number, number>;
 }) {
   const byId = new Map(players.map((p) => [p.id, p]));
   const sideShort = new Map(sides.map((s) => [s.id, s.short_name]));
@@ -36,7 +39,8 @@ export function SquadPitch({
               key: `p${r.player_id}`,
               position: pos,
               name: shortName(r.player.name),
-              sub: showPoints ? `${r.points}` : sideShort.get(r.player.side_id),
+              tag: sideShort.get(r.player.side_id),
+              sub: showPoints ? `${r.points} pts` : `${seasonPoints?.get(r.player_id) ?? 0} pts`,
               captain: r.is_captain,
             }
           : { key: `${pos}${i}`, position: pos, name: null },

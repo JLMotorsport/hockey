@@ -22,9 +22,17 @@ export interface SquadSettings {
   formations: string[];
 }
 
+/** Money going into this gameweek: the bank, and today's price of anyone sold. */
+export interface Funds {
+  base: number;
+  priceOf: (playerId: number) => number;
+}
+
 export interface SquadSummary {
   count: number;
   cost: number;
+  /** Bank after this week's sales and buys, in tenths. Negative means over. */
+  bank: number;
   byPosition: Record<Position, number>;
   /** Null when there's no earlier squad (the first squad is free). */
   transfers: number | null;
@@ -37,6 +45,7 @@ export function summariseSquad(
   settings: SquadSettings,
   current: number[],
   previous: number[],
+  funds: Funds = { base: settings.budget, priceOf: () => 0 },
 ): SquadSummary {
   const byPosition: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
   const perSide = new Map<string, number>();
@@ -64,10 +73,15 @@ export function summariseSquad(
   if (picked.length === settings.squad_size && !settings.formations.includes(shape) && !unchanged) {
     problems.push(`That's a ${shape}. Pick one of: ${settings.formations.join(', ')}.`);
   }
-  if (cost > settings.budget && !unchanged) {
-    problems.push(
-      `Squad costs ${formatPrice(cost)}m, over the ${formatPrice(settings.budget)}m budget.`,
-    );
+  // Sell at today's price, buy at today's price (as in save_squad).
+  const sold = previous.filter((id) => !ids.includes(id));
+  const bought = picked.filter((p) => !previous.includes(p.id));
+  const bank =
+    funds.base +
+    sold.reduce((sum, id) => sum + funds.priceOf(id), 0) -
+    bought.reduce((sum, p) => sum + p.price, 0);
+  if (bank < 0) {
+    problems.push(`That's ${formatPrice(-bank)}m more than you can spend.`);
   }
   for (const [side, n] of perSide) {
     if (n > settings.max_per_side) {
@@ -81,7 +95,7 @@ export function summariseSquad(
       `That's ${transfers} transfers; only ${settings.transfers_per_gameweek} allowed per gameweek.`,
     );
   }
-  return { count: picked.length, cost, byPosition, transfers, problems };
+  return { count: picked.length, cost, bank, byPosition, transfers, problems };
 }
 
 /** 85 -> "8.5" */

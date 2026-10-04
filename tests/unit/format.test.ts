@@ -1,4 +1,4 @@
-import { gameweekLabel, toUkInputValue } from '@/lib/format';
+import { gameweekLabel, shortName, toUkInputValue } from '@/lib/format';
 import { lockedGameweeks, nextOpenGameweek } from '@/lib/queries';
 import { parsePlayerLines } from '@/lib/players';
 
@@ -45,5 +45,14 @@ describe('parsePlayerLines', () => {
     ]);
     expect(problems).toHaveLength(2);
     expect(problems[0]).toMatch(/Line 2/);
+  });
+});
+
+describe('shortName', () => {
+  it('fits names under a shirt', () => {
+    expect(shortName('Jamie Smith')).toBe('J. Smith');
+    expect(shortName('Rebecca El-Mahraoui')).toBe('R. El-Mahraoui');
+    expect(shortName('Name withheld #5 (M3)')).toBe('Withheld #5');
+    expect(shortName('Name withheld #b27e (W2)')).toBe('Withheld #b27e');
   });
 });

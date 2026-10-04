@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ErrorText, Loading, Notices, PosBadge, PriceTrend, type Notice } from '@/components/ui';
@@ -32,6 +32,16 @@ export function SquadScreen() {
   const settings = useSettings();
   const points = useSeasonPoints();
   const trend = usePriceTrend();
+  // Bank going into this gameweek, before this week's sales and buys.
+  const bankBefore = useQuery({
+    queryKey: ['bank-before', session?.user.id ?? ''],
+    enabled: Boolean(session),
+    queryFn: async () => {
+      const { data, error } = await requireSupabase().rpc('bank_before_next');
+      if (error) throw new Error(error.message);
+      return data;
+    },
+  });
 
   const all = gameweeks.data ?? [];
   const gameweek = nextOpenGameweek(all);
@@ -106,7 +116,11 @@ export function SquadScreen() {
   }
   const s = settings.data!;
   const picked = pool.filter((p) => selected.has(p.id));
-  const summary = summariseSquad(picked, captainId, s, currentIds, previousIds);
+  const priceById = new Map((players.data ?? []).map((p) => [p.id, p.price]));
+  const summary = summariseSquad(picked, captainId, s, currentIds, previousIds, {
+    base: bankBefore.data ?? s.budget,
+    priceOf: (id) => priceById.get(id) ?? 0,
+  });
 
   function toggle(id: number) {
     const next = new Set(selected);
@@ -130,6 +144,7 @@ export function SquadScreen() {
       return;
     }
     await queryClient.invalidateQueries({ queryKey: ['squad'] });
+    await queryClient.invalidateQueries({ queryKey: ['bank-before'] });
     await queryClient.invalidateQueries({ queryKey: keys.table });
     navigate('/dashboard');
   }
@@ -147,7 +162,7 @@ export function SquadScreen() {
   const formation = chosenFormation ?? (allowed.includes(pickedShape) ? pickedShape : allowed[0]!);
   const rows = pitchRows(picked, formation);
   const extra = overflow(summary.byPosition, formation);
-  const bank = s.budget - summary.cost;
+  const bank = summary.bank;
   const slots = Object.fromEntries(
     POSITIONS.map((pos) => [
       pos,
@@ -157,7 +172,8 @@ export function SquadScreen() {
               key: `p${p.id}`,
               position: pos,
               name: shortName(p.name),
-              sub: sideById.get(p.side_id)?.short_name ?? '',
+              tag: sideById.get(p.side_id)?.short_name,
+              sub: `${points.data?.get(p.id) ?? 0} pts`,
               captain: captainId === p.id,
               onClick: () => setFocus(p.id),
             }

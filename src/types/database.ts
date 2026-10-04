@@ -394,6 +394,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      squad_banks: {
+        Row: {
+          bank: number;
+          gameweek_id: number;
+          user_id: string;
+        };
+        Insert: {
+          bank: number;
+          gameweek_id: number;
+          user_id: string;
+        };
+        Update: {
+          bank?: number;
+          gameweek_id?: number;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'squad_banks_gameweek_id_fkey';
+            columns: ['gameweek_id'];
+            isOneToOne: false;
+            referencedRelation: 'gameweeks';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'squad_banks_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       player_gameweek_points: {
@@ -482,6 +515,7 @@ export type Database = {
       };
       apply_due_price_changes: { Args: Record<PropertyKey, never>; Returns: Json };
       apply_price_changes: { Args: { p_gameweek: number }; Returns: number };
+      bank_before_next: { Args: Record<PropertyKey, never>; Returns: number };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
       import_fixtures: {
         Args: { p_competition: string; p_rows: Json; p_side_id: number };

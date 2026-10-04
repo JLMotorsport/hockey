@@ -88,6 +88,8 @@ Defaults, changeable in Manage > Settings: 11 players in one of the allowed form
 
 A player who turns out for a different Felixstowe side that weekend scores for both games.
 
+**Bank.** Your first squad costs what it costs; the rest of the 100.0m is your bank. Selling a player adds their current price to the bank and buying one takes theirs away, so players who rise increase what you can spend and players who fall reduce it.
+
 ## Developing
 
 Needs Node 20+ and Docker (for the local Supabase).

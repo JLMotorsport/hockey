@@ -66,6 +66,9 @@ export function gameweekLabel(gw: GameweekLike, all: GameweekLike[]): string {
 
 /** "Jamie Smith" -> "J. Smith" so names fit under a shirt. */
 export function shortName(name: string): string {
+  // "Name withheld #5 (M3)" -> "Withheld #5"
+  const withheld = /^name withheld\s*(#\S+)?/i.exec(name);
+  if (withheld) return `Withheld ${withheld[1] ?? ''}`.trim();
   const parts = name
     .replace(/\s*\(.*\)\s*$/, '')
     .trim()

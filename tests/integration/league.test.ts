@@ -413,6 +413,76 @@ describe.skipIf(!configured)('league database', () => {
       ).toBeNull();
     });
 
+    it("keeps a bank: selling at today's price funds buys", async () => {
+      // First squad: 11 players at 6.0m from a 100.0m budget.
+      const first = (
+        await alice.db
+          .from('squad_banks')
+          .select('bank')
+          .eq('user_id', alice.id)
+          .eq('gameweek_id', lockedGw)
+          .single()
+      ).data;
+      expect(first?.bank).toBe(1000 - 11 * 60);
+      expect(
+        (
+          await bob.db
+            .from('squad_banks')
+            .select('bank')
+            .eq('user_id', alice.id)
+            .eq('gameweek_id', laterGw)
+        ).data,
+      ).toEqual([]);
+
+      // One of Alice's original players shoots up to 30.0m.
+      const riser = xi()[3]!;
+      await service.from('players').update({ price: 300 }).eq('id', riser);
+      await boss.db.from('league_settings').update({ transfers_per_gameweek: 5 }).eq('id', 1);
+      expect((await alice.db.rpc('bank_before_next')).data).toBe(340);
+
+      // Sell him (plus the two already swapped this week) and buy three 6.0m players.
+      const squad = [
+        playerIds[11]!,
+        ...xi().slice(1, 3),
+        playerIds[13]!,
+        ...xi().slice(4, 10),
+        playerIds[12]!,
+      ];
+      expect(
+        (await alice.db.rpc('save_squad', { p_player_ids: squad, p_captain_id: squad[1]! })).error,
+      ).toBeNull();
+      const bank = (
+        await alice.db
+          .from('squad_banks')
+          .select('bank')
+          .eq('user_id', alice.id)
+          .eq('gameweek_id', laterGw)
+          .single()
+      ).data!.bank;
+      expect(bank).toBe(340 + 60 + 60 + 300 - 60 - 60 - 60);
+
+      // A buy beyond the bank plus sales is refused: player 13 now costs 50.0m.
+      await service.from('players').update({ price: 500 }).eq('id', playerIds[13]!);
+      // Re-saving the same squad is fine: the bank is worked out from the
+      // squad Alice started the week with, so nothing is bought twice...
+      await service.from('players').update({ price: 60 }).eq('id', riser);
+      const res = await alice.db.rpc('save_squad', {
+        p_player_ids: squad,
+        p_captain_id: squad[2]!,
+      });
+      // ...but with the riser back at 6.0m, selling him no longer covers a 50.0m buy.
+      expect(res.error!.message).toMatch(/more than you can spend/);
+      await service.from('players').update({ price: 60 }).eq('id', playerIds[13]!);
+
+      await service.from('players').update({ price: 60 }).eq('id', riser);
+      await boss.db.from('league_settings').update({ transfers_per_gameweek: 2 }).eq('id', 1);
+      // Put Alice back on the squad the next tests expect.
+      const two = [playerIds[11]!, ...xi().slice(1, 10), playerIds[12]!];
+      expect(
+        (await alice.db.rpc('save_squad', { p_player_ids: two, p_captain_id: two[1]! })).error,
+      ).toBeNull();
+    });
+
     it('reveals locked squads and scores them, captain doubled', async () => {
       const visible = await bob.db.rpc('squad_for', { p_user: alice.id, p_gameweek: lockedGw });
       expect(visible.error).toBeNull();

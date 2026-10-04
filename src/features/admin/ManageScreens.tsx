@@ -7,6 +7,7 @@ import {
   keys,
   useAdminUsers,
   useGameweekPricing,
+  useSeasonPoints,
   useFixtures,
   useGameweeks,
   usePlayers,
@@ -230,6 +231,7 @@ function NewPlayersTable({
   onError: (error: unknown) => void;
 }) {
   const queryClient = useQueryClient();
+  const points = useSeasonPoints();
   const [rows, setRows] = useState<Record<number, NewRow>>(() =>
     Object.fromEntries(
       players.map((p) => [
@@ -289,6 +291,7 @@ function NewPlayersTable({
             <th>Pos</th>
             <th>Side</th>
             <th>Price</th>
+            <th className="num">Pts</th>
           </tr>
         </thead>
         <tbody>
@@ -344,6 +347,7 @@ function NewPlayersTable({
                     onChange={(e) => update(p, { priceText: e.target.value })}
                   />
                 </td>
+                <td className="num font-semibold">{points.data?.get(p.id) ?? 0}</td>
               </tr>
             );
           })}
@@ -374,6 +378,11 @@ function PlayerTable({
   onSaved: (text: string) => void;
   onError: (error: unknown) => void;
 }) {
+  const points = useSeasonPoints();
+  const [sortByPoints, setSortByPoints] = useState(false);
+  const list = sortByPoints
+    ? [...players].sort((a, b) => (points.data?.get(b.id) ?? 0) - (points.data?.get(a.id) ?? 0))
+    : players;
   return (
     <table className="table">
       <thead>
@@ -382,14 +391,27 @@ function PlayerTable({
           <th>Pos</th>
           <th>Side</th>
           <th>Price</th>
+          <th className="num">
+            <button
+              type="button"
+              className="font-display font-bold uppercase underline-offset-2 hover:underline"
+              onClick={() => setSortByPoints(!sortByPoints)}
+              title="Sort by season points"
+            >
+              Pts{sortByPoints ? ' ▼' : ''}
+            </button>
+          </th>
           <th>Active</th>
           <th />
         </tr>
       </thead>
       <tbody>
-        {players.map((p) => (
+        {list.map((p) => (
           <PlayerRow
-            key={`${p.id}-${p.needs_review}`}
+            // Re-mount when the saved row changes (e.g. prices reset), so the
+            // inputs show the new values.
+            key={`${p.id}-${p.needs_review}-${p.price}-${p.position}-${p.side_id}-${p.active}-${p.name}`}
+            points={points.data?.get(p.id) ?? 0}
             player={p}
             sides={sides}
             onSaved={onSaved}
@@ -403,11 +425,13 @@ function PlayerTable({
 
 function PlayerRow({
   player,
+  points,
   sides,
   onSaved,
   onError,
 }: {
   player: Player;
+  points: number;
   sides: { id: number; short_name: string }[];
   onSaved: (text: string) => void;
   onError: (error: unknown) => void;
@@ -496,6 +520,7 @@ function PlayerRow({
           onChange={(e) => setRow({ ...row, priceText: e.target.value })}
         />
       </td>
+      <td className="num font-semibold">{points}</td>
       <td>
         <input
           type="checkbox"

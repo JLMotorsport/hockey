@@ -97,6 +97,8 @@ export interface PitchSlot {
   position: Position;
   /** Null for an empty slot. */
   name: string | null;
+  /** Shown on the name line, e.g. the player's side ("M3"). */
+  tag?: string;
   sub?: ReactNode;
   captain?: boolean;
   onClick?: () => void;
@@ -123,8 +125,13 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
       </span>
       {slot.name ? (
         <span className="mt-0.5 w-full overflow-hidden rounded-md text-center shadow">
-          <span className="block truncate bg-white px-1 py-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] sm:text-xs">
-            {slot.name}
+          <span className="flex items-baseline justify-center gap-1 bg-white px-1 py-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] sm:text-xs">
+            <span className="truncate">{slot.name}</span>
+            {slot.tag && (
+              <span className="shrink-0 font-display text-[0.62rem] font-bold text-[#d91414] sm:text-[0.7rem]">
+                {slot.tag}
+              </span>
+            )}
           </span>
           {slot.sub !== undefined && (
             <span className="block bg-[#d91414] px-1 py-0.5 font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs">
