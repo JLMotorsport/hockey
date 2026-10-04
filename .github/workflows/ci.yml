@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint + format check
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Start Supabase
+        run: npx supabase start -x studio,imgproxy,logflare,vector,supavisor,realtime,storage-api,edge-runtime
+
+      - name: Apply migrations
+        run: npx supabase db reset
+
+      - name: Integration tests (RLS + RPC)
+        # Blocking: the database is the real boundary, so its rules must pass.
+        run: |
+          eval "$(npx supabase status -o env | sed 's/^/export /')"
+          export SUPABASE_TEST_URL="$API_URL"
+          export SUPABASE_TEST_ANON_KEY="$ANON_KEY"
+          export SUPABASE_TEST_SERVICE_ROLE="$SERVICE_ROLE_KEY"
+          npm run test:integration
+
+      - name: Stop Supabase
+        if: always()
+        run: npx supabase stop || true
+
+      - name: Build
+        run: npm run build
+
+  # No deploy job: Cloudflare builds and deploys straight from a push to main
+  # via its own Git integration. Migrations and the edge function are applied
+  # by hand against the hosted Supabase project (see CLAUDE.md).

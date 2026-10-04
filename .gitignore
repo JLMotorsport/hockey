@@ -1,7 +1,36 @@
-.venv/
-__pycache__/
-*.pyc
-instance/
-*.db
-.pytest_cache/
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build output
+dist
+dev-dist
+*.local
+
+# Test artifacts
+coverage
+playwright-report
+test-results
+.vitest
+
+# Env / secrets (section 10: no secrets in the repo)
 .env
+.env.local
+.env.*.local
+
+# Supabase local
+supabase/.branches
+supabase/.temp
+**/.DS_Store
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
