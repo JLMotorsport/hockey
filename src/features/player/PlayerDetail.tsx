@@ -3,7 +3,7 @@ import { Sheet } from '@/components/Sheet';
 import { FormBoxes, Loading, PosBadge, PriceTrend } from '@/components/ui';
 import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
 import type { ReactNode } from 'react';
-import { fixtureLabel, formByPlayer, sideForm } from '@/lib/form';
+import { fixtureLabel, formByPlayer } from '@/lib/form';
 import {
   lockedGameweeks,
   nextOpenGameweek,
@@ -87,6 +87,20 @@ export function PlayerDetail({
     [...byWeek].map(([gameweek_id, points]) => ({ player_id: player.id, gameweek_id, points })),
     lockedGameweeks(all).map((g) => g.id),
   ).get(player.id);
+  // The player's own last 5 games, for whichever side they played.
+  const recent = matches
+    .filter((m) => m.fixture && m.fixture.goals_for !== null && m.fixture.goals_against !== null)
+    .slice(-5)
+    .map((m) => {
+      const f = m.fixture!;
+      const result: 'W' | 'D' | 'L' =
+        f.goals_for! > f.goals_against! ? 'W' : f.goals_for! < f.goals_against! ? 'L' : 'D';
+      return {
+        result,
+        side: sideShort(f.side_id),
+        name: result === 'W' ? 'won' : result === 'L' ? 'lost' : 'drew',
+      };
+    });
   const next = nextOpenGameweek(all);
   const nextLabel = next ? fixtureLabel(fixtures.data ?? [], player.side_id, next.id) : null;
   const nextFixture = next
@@ -141,12 +155,30 @@ export function PlayerDetail({
         </p>
       )}
 
-      <p className="flex items-center gap-2 px-1 text-sm">
-        <span className="font-display text-xs font-bold uppercase tracking-wider text-ink-soft">
-          {sideShort(player.side_id)} form
+      <div className="flex items-start gap-2 px-1 text-sm">
+        <span className="pt-0.5 font-display text-xs font-bold uppercase tracking-wider text-ink-soft">
+          Last {Math.min(5, recent.length) || ''} games
         </span>
-        <FormBoxes results={sideForm(fixtures.data ?? [], player.side_id)} />
-      </p>
+        {recent.length ? (
+          <ul
+            className="flex gap-1"
+            aria-label={recent.map((r) => `${r.side} ${r.name}`).join(', ')}
+          >
+            {recent.map((r, i) => (
+              <li key={i} aria-hidden="true" className="flex flex-col items-center">
+                <FormBoxes results={[r.result]} />
+                <span
+                  className={`font-display text-[0.65rem] font-bold ${r.side === sideShort(player.side_id) ? 'text-ink-soft' : 'text-brand'}`}
+                >
+                  {r.side}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className="muted">No games yet</span>
+        )}
+      </div>
 
       {actions}
 
