@@ -11,6 +11,7 @@ import {
   useSettings,
   useSides,
 } from '@/lib/queries';
+import { CHIPS } from '@/lib/chips';
 import { RULES_TABLE } from '@/lib/scoring';
 import { formatPrice } from '@/lib/squad';
 import { LeagueTable } from './LeagueTable';
@@ -232,6 +233,21 @@ export function RulesScreen() {
               ))}
             </tbody>
           </table>
+        </section>
+        <section className="card md:col-span-2">
+          <h2>Chips</h2>
+          <p className="muted mb-2 text-sm">
+            Play one before a gameweek&apos;s deadline from the Pick screen. One chip per gameweek,
+            each once a season, apart from the wildcard: one before New Year and one after.
+          </p>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            {CHIPS.map((c) => (
+              <div key={c.key}>
+                <dt className="font-display text-lg font-extrabold uppercase">{c.name}</dt>
+                <dd className="text-sm">{c.description}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
       </div>
     </>

@@ -13,8 +13,10 @@ import {
   useSeasonPoints,
   useSettings,
   useSides,
+  useChips,
   useSquad,
 } from '@/lib/queries';
+import { ChipsCard } from './ChipsCard';
 import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
 import { DEFAULT_FORMATIONS, formationOf, overflow, pitchRows } from '@/lib/formation';
 import { Pitch, Shirt, type PitchSlot } from '@/components/Pitch';
@@ -54,6 +56,10 @@ export function SquadScreen() {
   const userId = session?.user.id;
   const current = useSquad(userId, gameweek?.id);
   const previous = useSquad(userId, previousGw?.id);
+  const chips = useChips(userId);
+  const wildcard = Boolean(
+    gameweek && chips.data?.some((c) => c.chip === 'wildcard' && c.gameweek_id === gameweek.id),
+  );
 
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [captainId, setCaptainId] = useState<number | null>(null);
@@ -144,7 +150,8 @@ export function SquadScreen() {
     benchPlayers,
     captainId,
     viceId,
-    s,
+    // A wildcard lifts the transfer limit (as in save_squad).
+    wildcard ? { ...s, transfers_per_gameweek: Infinity } : s,
     currentIds,
     previousIds,
     { base: bankBefore.data ?? s.budget, priceOf: (id) => priceById.get(id) ?? 0 },
@@ -385,7 +392,9 @@ export function SquadScreen() {
             <span className="display-num block text-2xl">
               {summary.transfers === null
                 ? 'Free'
-                : `${summary.transfers}/${s.transfers_per_gameweek}`}
+                : wildcard
+                  ? 'Wildcard'
+                  : `${summary.transfers}/${s.transfers_per_gameweek}`}
             </span>
             <span className="text-xs uppercase tracking-wide text-white/80">Transfers</span>
           </div>
@@ -393,6 +402,14 @@ export function SquadScreen() {
       </section>
 
       <Notices items={notices} />
+
+      <ChipsCard
+        userId={session.user.id}
+        gameweek={gameweek}
+        gameweeks={all}
+        sides={sides.data ?? []}
+        onNotice={setNotices}
+      />
 
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="inline-flex rounded-full bg-surface p-1 shadow-card" role="tablist">

@@ -35,6 +35,7 @@ export const keys = {
   table: ['league-table'] as const,
   seasonPoints: ['season-points'] as const,
   squad: (userId: string, gameweekId: number) => ['squad', userId, gameweekId] as const,
+  chips: (userId: string) => ['chips', userId] as const,
   profile: (id: string) => ['profile', id] as const,
   adminUsers: ['admin-users'] as const,
   priceTrend: ['price-trend'] as const,
@@ -125,6 +126,21 @@ export function useSquad(userId: string | undefined, gameweekId: number | undefi
           p_user: userId as string,
           p_gameweek: gameweekId as number,
         }),
+      ),
+  });
+}
+
+/** Chips someone has played (others' only show once each deadline passes). */
+export function useChips(userId: string | undefined) {
+  return useQuery({
+    queryKey: keys.chips(userId ?? ''),
+    enabled: Boolean(userId),
+    queryFn: async () =>
+      unwrap(
+        await requireSupabase()
+          .from('chips_played')
+          .select('chip, gameweek_id, side_id')
+          .eq('user_id', userId as string),
       ),
   });
 }

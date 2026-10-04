@@ -23,6 +23,52 @@ export type Database = {
   };
   public: {
     Tables: {
+      chips_played: {
+        Row: {
+          chip: string;
+          gameweek_id: number;
+          played_at: string;
+          side_id: number | null;
+          user_id: string;
+        };
+        Insert: {
+          chip: string;
+          gameweek_id: number;
+          played_at?: string;
+          side_id?: number | null;
+          user_id: string;
+        };
+        Update: {
+          chip?: string;
+          gameweek_id?: number;
+          played_at?: string;
+          side_id?: number | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'chips_played_gameweek_id_fkey';
+            columns: ['gameweek_id'];
+            isOneToOne: false;
+            referencedRelation: 'gameweeks';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'chips_played_side_id_fkey';
+            columns: ['side_id'];
+            isOneToOne: false;
+            referencedRelation: 'sides';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'chips_played_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       fixtures: {
         Row: {
           competition: string | null;
@@ -569,6 +615,7 @@ export type Database = {
       apply_due_price_changes: { Args: Record<PropertyKey, never>; Returns: Json };
       apply_price_changes: { Args: { p_gameweek: number }; Returns: number };
       bank_before_next: { Args: Record<PropertyKey, never>; Returns: number };
+      cancel_chip: { Args: Record<PropertyKey, never>; Returns: undefined };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
       import_fixtures: {
         Args: { p_competition: string; p_rows: Json; p_side_id: number };
@@ -610,6 +657,7 @@ export type Database = {
         };
         Returns: number;
       };
+      play_chip: { Args: { p_chip: string; p_side_id?: number }; Returns: number };
       price_ceiling: { Args: Record<PropertyKey, never>; Returns: number };
       price_floor: { Args: Record<PropertyKey, never>; Returns: number };
       require_admin: { Args: Record<PropertyKey, never>; Returns: undefined };
@@ -627,6 +675,7 @@ export type Database = {
         Args: { p_bench: number[]; p_captain_id: number; p_starters: number[]; p_vice_id: number };
         Returns: number;
       };
+      season_half: { Args: { p_date: string }; Returns: number };
       set_admin: { Args: { p_user: string; p_value: boolean }; Returns: undefined };
       set_deadline: { Args: { p_deadline: string; p_gameweek_id: number }; Returns: undefined };
       set_prices_from_points: { Args: Record<PropertyKey, never>; Returns: number };
@@ -635,6 +684,7 @@ export type Database = {
         Args: { p_gameweek: number; p_user: string };
         Returns: {
           bench_order: number;
+          bus_points: number;
           counts: boolean;
           doubled: boolean;
           is_captain: boolean;
@@ -649,6 +699,7 @@ export type Database = {
         Args: { p_gameweek: number; p_user: string };
         Returns: {
           bench_order: number;
+          bus_points: number;
           counts: boolean;
           doubled: boolean;
           is_captain: boolean;

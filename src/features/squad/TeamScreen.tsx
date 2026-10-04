@@ -8,6 +8,7 @@ import {
   useProfile,
   useSides,
   squadTotal,
+  useChips,
   useSquad,
 } from '@/lib/queries';
 import { SquadPitch } from './SquadPitch';
@@ -24,6 +25,7 @@ export function TeamScreen() {
   const wanted = Number(params.get('gw'));
   const gameweek = locked.find((g) => g.id === wanted) ?? locked.at(-1);
   const squad = useSquad(userId, gameweek?.id);
+  const chips = useChips(userId);
 
   if (profile.isLoading || gameweeks.isLoading) return <Loading />;
   if (profile.error) return <ErrorText error={profile.error} />;
@@ -65,6 +67,7 @@ export function TeamScreen() {
             ) : squad.data?.length ? (
               <SquadPitch
                 gameweekId={gameweek.id}
+                chip={chips.data?.find((c) => c.gameweek_id === gameweek.id)}
                 rows={squad.data}
                 players={players.data ?? []}
                 sides={sides.data ?? []}

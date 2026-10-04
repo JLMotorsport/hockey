@@ -1,3 +1,4 @@
+import { chipName } from '@/lib/chips';
 import { useQueries } from '@tanstack/react-query';
 import { Link, Navigate } from 'react-router-dom';
 import { ErrorText, Loading } from '@/components/ui';
@@ -13,6 +14,7 @@ import {
   useSides,
   useSeasonPoints,
   squadTotal,
+  useChips,
   useSquad,
 } from '@/lib/queries';
 import { requireSupabase } from '@/lib/supabase';
@@ -32,6 +34,8 @@ export function DashboardScreen() {
   const userId = session?.user.id;
   const upcoming = useSquad(userId, next?.id);
   const lastSquad = useSquad(userId, last?.id);
+  const chips = useChips(userId);
+  const chipFor = (gw: number | undefined) => chips.data?.find((c) => c.gameweek_id === gw);
   const history = useQueries({
     queries: locked.map((gw) => ({
       queryKey: keys.squad(userId ?? '', gw.id),
@@ -111,6 +115,7 @@ export function DashboardScreen() {
             showPoints={showLast}
             gameweekId={last?.id}
             seasonPoints={seasonPoints.data}
+            chip={chipFor(showLast ? last?.id : next?.id)}
           />
         </section>
       ) : (
@@ -148,6 +153,11 @@ export function DashboardScreen() {
                   GW{i + 1}
                 </span>
                 <span className="display-num text-2xl">{squadTotal(history[i]?.data)}</span>
+                {chipFor(gw.id) && (
+                  <span className="text-[0.65rem] font-bold uppercase text-brand">
+                    {chipName(chipFor(gw.id)!.chip)}
+                  </span>
+                )}
               </Link>
             ))}
           </div>

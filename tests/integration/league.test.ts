@@ -1154,4 +1154,213 @@ describe.skipIf(!configured)('league database', () => {
     });
     expect(await pom(f2)).toEqual([]);
   });
+
+  describe('chips', () => {
+    let carol: { db: Db; id: string };
+    const id = (i: number) => playerIds[i]!;
+    // 0 GK, 1-4 DEF, 5-8 MID, 9-10 FWD, 11 GK, 12 FWD, 13 DEF, 14 GK, 15 DEF, 16 MID, 17 FWD
+    const starters = () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(id);
+    const bench = () => [14, 15, 16, 17].map(id);
+    const save = (who: { db: Db }, xi: number[], captain = xi[9]!, vice = xi[10]!) =>
+      who.db.rpc('save_squad', {
+        p_starters: xi,
+        p_bench: bench(),
+        p_captain_id: captain,
+        p_vice_id: vice,
+      });
+    const openGameweek = async () =>
+      (
+        await anon
+          .from('gameweeks')
+          .select('id')
+          .gt('deadline', new Date().toISOString())
+          .order('start_date')
+          .limit(1)
+          .single()
+      ).data!.id;
+    const lock = (gw: number) =>
+      service
+        .from('gameweeks')
+        .update({ deadline: days(-1) })
+        .eq('id', gw);
+
+    beforeAll(async () => {
+      carol = await signUp('carol@example.com', 'Carol XI');
+      await service.from('players').update({ price: 60, active: true }).in('id', playerIds);
+      for (const n of [24, 31, 38]) {
+        await service.from('fixtures').insert({
+          side_id: sides[0]!.id,
+          kickoff: days(n),
+          opponent: `Chip Opp ${n}`,
+          gameweek_id: 0,
+        });
+      }
+    });
+
+    it('plays, swaps and cancels a chip before the deadline, hidden from others', async () => {
+      const gw = await openGameweek();
+      expect((await save(carol, starters())).error).toBeNull();
+      expect((await carol.db.rpc('play_chip', { p_chip: 'team_bus' })).error!.message).toMatch(
+        /Choose a side/,
+      );
+      expect((await carol.db.rpc('play_chip', { p_chip: 'rolling_subs' })).data).toBe(gw);
+      // Changing your mind swaps it: still one chip per gameweek.
+      expect((await carol.db.rpc('play_chip', { p_chip: 'triple_captain' })).error).toBeNull();
+      const mine = (await carol.db.from('chips_played').select('chip, gameweek_id')).data;
+      expect(mine).toEqual([{ chip: 'triple_captain', gameweek_id: gw }]);
+      expect((await bob.db.from('chips_played').select('*').eq('user_id', carol.id)).data).toEqual(
+        [],
+      );
+      expect((await carol.db.rpc('cancel_chip')).error).toBeNull();
+      expect((await carol.db.from('chips_played').select('*')).data).toEqual([]);
+      // Played for real this time: it's spent once the deadline passes.
+      await carol.db.rpc('play_chip', { p_chip: 'triple_captain' });
+      await lock(gw);
+      expect(
+        (await bob.db.from('chips_played').select('chip').eq('user_id', carol.id)).data,
+      ).toEqual([{ chip: 'triple_captain' }]);
+    });
+
+    it('uses each chip once, and the wildcard lifts the transfer limit for good', async () => {
+      expect(
+        (await carol.db.rpc('play_chip', { p_chip: 'triple_captain' })).error!.message,
+      ).toMatch(/already used that chip/);
+
+      // Three transfers: over the limit of 2...
+      const changed = [11, 13, 2, 3, 4, 5, 6, 7, 8, 12, 10].map(id);
+      expect((await save(carol, changed)).error!.message).toMatch(/3 transfers; only 2 allowed/);
+      // ...until the wildcard is played, which can't then be taken back.
+      expect((await carol.db.rpc('play_chip', { p_chip: 'wildcard' })).error).toBeNull();
+      expect((await save(carol, changed)).error).toBeNull();
+      expect((await carol.db.rpc('cancel_chip')).error!.message).toMatch(/can't be taken back/);
+      expect((await carol.db.rpc('play_chip', { p_chip: 'rolling_subs' })).error!.message).toMatch(
+        /can't be taken back/,
+      );
+
+      // One wildcard per half of the season.
+      await lock(await openGameweek());
+      expect((await carol.db.rpc('play_chip', { p_chip: 'wildcard' })).error!.message).toMatch(
+        /already used your wildcard for this half/,
+      );
+      expect((await anon.rpc('season_half', { p_date: '2026-11-01' })).data).toBe(1);
+      expect((await anon.rpc('season_half', { p_date: '2027-02-01' })).data).toBe(2);
+    });
+
+    it('scores Triple Captain, Rolling Subs and Team Bus', async () => {
+      // Three finished gameweeks, each with a Felixstowe 1s and a 2s match.
+      const m1 = sides[0]!.id;
+      const m2 = sides[1]!.id;
+      const weeks: { gw: number; f1: number; f2: number }[] = [];
+      for (const n of [-21, -28, -35]) {
+        const f1 = (
+          await service
+            .from('fixtures')
+            .insert({ side_id: m1, kickoff: days(n), opponent: 'Past A', gameweek_id: 0 })
+            .select('id, gameweek_id')
+            .single()
+        ).data!;
+        const f2 = (
+          await service
+            .from('fixtures')
+            .insert({ side_id: m2, kickoff: days(n), opponent: 'Past B', gameweek_id: 0 })
+            .select('id')
+            .single()
+        ).data!;
+        weeks.push({ gw: f1.gameweek_id, f1: f1.id, f2: f2.id });
+      }
+      const xi = starters();
+      const captain = xi[9]!;
+      const subs = bench();
+      for (const w of weeks) {
+        await service.from('picks').insert(
+          [...xi, ...subs].map((p, i) => ({
+            user_id: carol.id,
+            gameweek_id: w.gw,
+            player_id: p,
+            is_captain: p === captain,
+            is_vice: p === xi[10],
+            bench_order: i < 11 ? null : i - 10,
+          })),
+        );
+        // Everyone plays: starters and subs 1-2 for the 1s, the rest for the 2s.
+        const for1 = [...xi.slice(0, 10), subs[0]!, subs[1]!];
+        const for2 = [xi[10]!, subs[2]!, subs[3]!];
+        await boss.db.rpc('save_match_stats', {
+          p_fixture_id: w.f1,
+          p_goals_for: 2,
+          p_goals_against: 1,
+          p_stats: for1.map((p) => ({ player_id: p, goals: p === captain ? 1 : 0 })),
+          p_complete: true,
+        });
+        await boss.db.rpc('save_match_stats', {
+          p_fixture_id: w.f2,
+          p_goals_for: 0,
+          p_goals_against: 3,
+          p_stats: for2.map((p) => ({ player_id: p, goals: 0 })),
+          p_complete: true,
+        });
+      }
+      const [triple, rolling, bus] = weeks as [
+        (typeof weeks)[0],
+        (typeof weeks)[0],
+        (typeof weeks)[0],
+      ];
+      await service.from('chips_played').insert([
+        { user_id: carol.id, gameweek_id: triple.gw, chip: 'triple_captain', side_id: null },
+        { user_id: carol.id, gameweek_id: rolling.gw, chip: 'rolling_subs', side_id: null },
+        { user_id: carol.id, gameweek_id: bus.gw, chip: 'team_bus', side_id: m1 },
+      ]);
+
+      const scored = async (gw: number) => {
+        const { data, error } = await carol.db.rpc('squad_for', {
+          p_user: carol.id,
+          p_gameweek: gw,
+        });
+        expect(error).toBeNull();
+        const base = new Map(
+          (
+            await anon
+              .from('player_gameweek_points')
+              .select('player_id, points')
+              .eq('gameweek_id', gw)
+          ).data!.map((r) => [r.player_id, r.points!]),
+        );
+        return { rows: new Map(data!.map((r) => [r.player_id, r])), base };
+      };
+
+      // Triple Captain: 3x the captain, everyone else as scored, subs don't count.
+      let { rows, base } = await scored(triple.gw);
+      expect(rows.get(captain)!.points).toBe(base.get(captain)! * 3);
+      expect(rows.get(xi[0]!)!.points).toBe(base.get(xi[0]!));
+      expect(subs.every((p) => !rows.get(p)!.counts)).toBe(true);
+
+      // Rolling Subs: all 15 count, captain doubled as usual.
+      ({ rows, base } = await scored(rolling.gw));
+      expect([...rows.values()].every((r) => r.counts)).toBe(true);
+      expect(rows.get(captain)!.points).toBe(base.get(captain)! * 2);
+      const all = [...rows.values()].reduce((sum, r) => sum + r.points, 0);
+      expect(all).toBe([...base.values()].reduce((a, b) => a + b, 0) + base.get(captain)!);
+
+      // Team Bus on the 1s: their points double (the captain's on top of the
+      // armband); the vice played for the 2s, so no bus bonus.
+      ({ rows, base } = await scored(bus.gw));
+      expect(rows.get(xi[0]!)).toMatchObject({ points: base.get(xi[0]!)! * 2 });
+      expect(rows.get(captain)!.points).toBe(base.get(captain)! * 4);
+      expect(rows.get(xi[10]!)).toMatchObject({ points: base.get(xi[10]!), bus_points: 0 });
+
+      // The league table adds it all up.
+      const { data: table } = await anon.rpc('league_table');
+      const total = table!.find((r) => r.user_id === carol.id)!.total;
+      let expected = 0;
+      // (Squads carry forward, so every locked gameweek counts, not just these.)
+      const locked = (
+        await anon.from('gameweeks').select('id').lte('deadline', new Date().toISOString())
+      ).data!;
+      for (const w of locked) {
+        const { rows: r } = await scored(w.id);
+        expected += [...r.values()].filter((x) => x.counts).reduce((sum, x) => sum + x.points, 0);
+      }
+      expect(total).toBe(expected);
+    });
+  });
 });

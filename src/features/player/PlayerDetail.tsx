@@ -29,6 +29,12 @@ function lines(m: PlayerMatch, position: Position) {
 
 const total = (items: [string, number][]) => items.reduce((sum, [, p]) => sum + p, 0);
 
+export interface TeamPoints {
+  points: number;
+  /** e.g. "captain x2", "Team Bus x2". */
+  reasons: string[];
+}
+
 /**
  * A player's card, as on the Premier League app: how they scored in a
  * gameweek, item by item, and their match-by-match history.
@@ -36,13 +42,13 @@ const total = (items: [string, number][]) => items.reduce((sum, [, p]) => sum + 
 export function PlayerDetail({
   playerId,
   gameweekId,
-  captain = false,
+  teamPoints,
 }: {
   playerId: number;
   /** Show this gameweek's breakdown first. */
   gameweekId?: number;
-  /** Their points that week were doubled. */
-  captain?: boolean;
+  /** What they scored for a fantasy team that week, if boosted (captain, chips). */
+  teamPoints?: TeamPoints;
 }) {
   const players = usePlayers();
   const sides = useSides();
@@ -141,10 +147,9 @@ export function PlayerDetail({
           ) : (
             <p className="muted text-sm">Didn&apos;t play this gameweek.</p>
           )}
-          {captain && thisWeek.length > 0 && (
+          {teamPoints && teamPoints.reasons.length > 0 && thisWeek.length > 0 && (
             <p className="text-sm font-semibold">
-              Captain: {thisWeek.reduce((sum, m) => sum + total(lines(m, player.position)), 0)} x 2
-              = {thisWeek.reduce((sum, m) => sum + total(lines(m, player.position)), 0) * 2} pts
+              For this team: {teamPoints.points} pts ({teamPoints.reasons.join(', ')})
             </p>
           )}
         </section>
@@ -234,19 +239,19 @@ export function PlayerDetail({
 export function PlayerSheet({
   playerId,
   gameweekId,
-  captain,
+  teamPoints,
   onClose,
 }: {
   playerId: number;
   gameweekId?: number;
-  captain?: boolean;
+  teamPoints?: TeamPoints;
   onClose: () => void;
 }) {
   const players = usePlayers();
   const name = players.data?.find((p) => p.id === playerId)?.name ?? 'Player';
   return (
     <Sheet title={name} onClose={onClose}>
-      <PlayerDetail playerId={playerId} gameweekId={gameweekId} captain={captain} />
+      <PlayerDetail playerId={playerId} gameweekId={gameweekId} teamPoints={teamPoints} />
     </Sheet>
   );
 }
