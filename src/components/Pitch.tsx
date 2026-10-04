@@ -171,9 +171,13 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
         )}
       </span>
       {slot.name ? (
-        <span className="mt-0.5 w-full overflow-hidden rounded-md text-center shadow">
-          <span className="flex items-baseline justify-center gap-1 bg-white px-1 py-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] sm:text-xs">
-            <span className="truncate">{slot.name}</span>
+        <span className="mt-0.5 flex w-full flex-1 flex-col overflow-hidden rounded-md text-center shadow">
+          {/* Full name always: it wraps (side tag last) rather than being cut off. */}
+          <span className="flex flex-1 flex-wrap content-center items-baseline justify-center gap-x-1 bg-white px-0.5 py-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] [overflow-wrap:break-word] sm:text-xs">
+            <span className="max-w-full">
+              {/* Keep "J." with the surname when the plate wraps. */}
+              {slot.name.replace(/^(\S+\.) /, '$1\u00a0')}
+            </span>
             {slot.tag && (
               <span className="shrink-0 font-display text-[0.62rem] font-bold text-[#d91414] sm:text-[0.7rem]">
                 {slot.tag}
@@ -193,7 +197,8 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
       )}
     </>
   );
-  const cls = `flex w-[4.6rem] flex-col items-center rounded-lg sm:w-24 ${slot.highlight ? 'ring-2 ring-[#ffd400] ring-offset-2 ring-offset-transparent' : ''} ${slot.faded ? 'opacity-50' : ''}`;
+  // Plates share the row's width (wider with 3 in a row, narrower with 5).
+  const cls = `flex min-w-0 max-w-[6.5rem] flex-1 basis-0 flex-col items-center rounded-lg sm:max-w-[7rem] ${slot.highlight ? 'ring-2 ring-[#ffd400] ring-offset-2 ring-offset-transparent' : ''} ${slot.faded ? 'opacity-50' : ''}`;
   return slot.onClick ? (
     <button type="button" onClick={slot.onClick} aria-label={label} className={cls}>
       {inner}
