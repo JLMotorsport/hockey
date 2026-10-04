@@ -2,44 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Felixstowe HC: white kit with red. Navy is for contrast only. */
 :root {
-  --ink: 23 32 46;
-  --ink-soft: 93 104 120;
-  --paper: 244 246 249;
+  --ink: 20 24 31;
+  --ink-soft: 96 104 117;
+  --paper: 245 246 248;
   --surface: 255 255 255;
-  --line: 221 226 234;
-  --brand: 18 53 91;
-  --accent: 224 161 0;
+  --line: 226 229 234;
+  --brand: 217 20 20; /* #d91414 club red */
+  --brand-dark: 165 14 14;
+  --brand-ink: 255 255 255; /* text on red */
+  --navy: 25 59 84; /* #193b54 */
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink: 231 236 243;
-    --ink-soft: 160 172 188;
-    --paper: 16 21 29;
-    --surface: 24 32 43;
-    --line: 43 54 69;
-    --brand: 127 178 234;
+    --ink: 236 239 244;
+    --ink-soft: 160 168 182;
+    --paper: 14 16 20;
+    --surface: 24 27 34;
+    --line: 44 49 60;
+    --brand: 232 52 52;
+    --brand-dark: 190 24 24;
     color-scheme: dark;
   }
 }
 
 @layer base {
   body {
-    @apply bg-paper text-ink antialiased;
-    font-family:
-      system-ui,
-      -apple-system,
-      'Segoe UI',
-      Roboto,
-      sans-serif;
+    @apply bg-paper font-sans text-ink antialiased;
   }
   h1 {
-    @apply mb-3 mt-5 text-2xl font-bold;
+    @apply mb-3 mt-5 font-display text-3xl font-extrabold uppercase tracking-tight;
   }
   h2 {
-    @apply mb-3 text-lg font-semibold;
+    @apply mb-3 font-display text-xl font-bold uppercase tracking-tight;
   }
   a {
     @apply text-brand underline-offset-2 hover:underline;
@@ -48,37 +46,43 @@
 
 @layer components {
   .card {
-    @apply mb-4 overflow-x-auto rounded-xl border border-line bg-surface p-4;
+    @apply mb-4 overflow-x-auto rounded-2xl border border-line bg-surface p-4 shadow-card;
   }
   .btn {
-    @apply inline-flex min-h-tap items-center justify-center rounded-lg bg-accent px-4 font-semibold text-[#17202e] no-underline hover:no-underline hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex min-h-tap items-center justify-center rounded-full bg-brand px-5 font-display text-base font-bold uppercase tracking-wide text-brand-ink no-underline hover:bg-brand-dark hover:no-underline disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-sm {
     @apply min-h-[36px] px-3 text-sm;
   }
   .btn-quiet {
-    @apply bg-transparent text-brand ring-1 ring-line;
+    @apply bg-transparent text-brand ring-1 ring-line hover:bg-brand/5;
+  }
+  .btn-light {
+    @apply bg-white text-brand hover:bg-white/90;
   }
   .btn-danger {
-    @apply bg-red-700 text-white;
+    @apply bg-red-800 text-white;
   }
   .field {
-    @apply mb-3 block text-sm font-medium;
+    @apply mb-3 block text-sm font-semibold;
   }
   .input {
-    @apply mt-1 block min-h-tap w-full rounded-lg border border-line bg-surface px-3 text-base text-ink;
+    @apply mt-1 block min-h-tap w-full rounded-xl border border-line bg-surface px-3 text-base text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
   }
   .input-inline {
-    @apply min-h-[36px] rounded-md border border-line bg-surface px-2 text-ink;
+    @apply min-h-[36px] rounded-lg border border-line bg-surface px-2 text-ink focus:border-brand focus:outline-none;
   }
   .table {
     @apply w-full border-collapse text-sm;
   }
   .table th {
-    @apply border-b border-line px-2 py-2 text-left text-xs font-semibold text-ink-soft;
+    @apply border-b border-line px-2 py-2 text-left font-display text-xs font-bold uppercase tracking-wide text-ink-soft;
   }
   .table td {
-    @apply border-b border-line px-2 py-2 align-middle;
+    @apply border-b border-line px-2 py-2.5 align-middle;
+  }
+  .table tbody tr:last-child td {
+    @apply border-b-0;
   }
   .num {
     @apply text-right tabular-nums;
@@ -87,6 +91,13 @@
     @apply text-ink-soft;
   }
   .tag {
-    @apply rounded border border-line px-1.5 py-0.5 text-xs text-ink-soft;
+    @apply rounded-full border border-line px-2 py-0.5 text-xs font-semibold text-ink-soft;
+  }
+  .display-num {
+    @apply font-display font-extrabold leading-none tabular-nums;
+  }
+  /* The red band at the top of each screen, like a match-day header. */
+  .hero {
+    @apply relative -mx-4 mb-4 overflow-hidden bg-gradient-to-br from-brand to-brand-dark px-4 pb-6 pt-5 text-brand-ink sm:mx-0 sm:mt-4 sm:rounded-2xl;
   }
 }
