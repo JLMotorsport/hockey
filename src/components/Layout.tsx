@@ -29,7 +29,7 @@ function Tab({ to, icon, children }: { to: string; icon: ReactNode; children: st
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
-        `flex min-h-tap flex-1 flex-col items-center justify-center gap-0.5 font-display text-[0.7rem] font-bold uppercase no-underline hover:no-underline ${isActive ? 'text-brand' : 'text-ink-soft'}`
+        `flex h-16 flex-1 flex-col items-center justify-center gap-0.5 font-display text-[0.7rem] font-bold uppercase no-underline hover:no-underline ${isActive ? 'text-brand' : 'text-ink-soft'}`
       }
     >
       {icon}
@@ -134,7 +134,7 @@ export function Layout() {
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
-          className="flex min-h-tap flex-1 flex-col items-center justify-center gap-0.5 font-display text-[0.7rem] font-bold uppercase text-ink-soft"
+          className="flex h-16 flex-1 flex-col items-center justify-center gap-0.5 font-display text-[0.7rem] font-bold uppercase text-ink-soft"
         >
           <MenuIcon />
           More

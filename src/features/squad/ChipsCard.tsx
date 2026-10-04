@@ -55,36 +55,40 @@ export function ChipsCard({
   }
 
   return (
-    <section className="mb-3 flex items-center gap-2 overflow-x-auto pb-1" aria-label="Chips">
-      <span className="shrink-0 font-display text-xs font-bold uppercase tracking-wider text-ink-soft">
-        Chips
-      </span>
-      {CHIPS.map((c) => {
-        const state = states[c.key];
-        return (
-          <button
-            key={c.key}
-            type="button"
-            disabled={state.state === 'used'}
-            title={label(state)}
-            aria-label={`${c.name}: ${label(state)}`}
-            onClick={() => {
-              setSideId(state.state === 'active' && state.sideId ? String(state.sideId) : '');
-              setOpen(c);
-            }}
-            className={`min-h-[36px] shrink-0 rounded-full px-3 font-display text-sm font-bold uppercase ${
-              state.state === 'active'
-                ? 'bg-brand text-white'
-                : state.state === 'used'
-                  ? 'bg-line text-ink-soft line-through'
-                  : 'bg-surface ring-1 ring-line'
-            }`}
-          >
-            {c.name}
-            {c.key === 'team_bus' && state.state === 'active' && `: ${sideShort(state.sideId)}`}
-          </button>
-        );
-      })}
+    <section className="mb-3" aria-label="Chips">
+      <div className="grid grid-cols-4 gap-1.5">
+        {CHIPS.map((c) => {
+          const state = states[c.key];
+          return (
+            <button
+              key={c.key}
+              type="button"
+              disabled={state.state === 'used'}
+              aria-label={`${c.name}: ${label(state)}`}
+              onClick={() => {
+                setSideId(state.state === 'active' && state.sideId ? String(state.sideId) : '');
+                setOpen(c);
+              }}
+              className={`flex min-h-[52px] flex-col items-center justify-center rounded-xl px-1 py-1.5 text-center leading-tight ${
+                state.state === 'active'
+                  ? 'bg-brand text-white'
+                  : state.state === 'used'
+                    ? 'bg-line text-ink-soft'
+                    : 'bg-surface ring-1 ring-line'
+              }`}
+            >
+              <span className="font-display text-[0.8rem] font-extrabold uppercase">{c.name}</span>
+              <span
+                className={`text-[0.65rem] uppercase ${state.state === 'active' ? 'text-white/90' : 'text-ink-soft'}`}
+              >
+                {state.state === 'active' && c.key === 'team_bus'
+                  ? sideShort(state.sideId)
+                  : label(state)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
       {open && (
         <Sheet title={open.name} onClose={() => setOpen(null)}>
           <p className="mb-2">{open.description}</p>

@@ -646,8 +646,9 @@ export function SquadScreen() {
         </>
       )}
 
-      {/* Save stays in reach: above the tab bar on phones, pinned at the bottom on desktop. */}
-      <div className="fixed inset-x-0 bottom-16 z-20 flex items-center gap-3 border-t border-line bg-surface px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:sticky sm:bottom-4 sm:mt-4 sm:rounded-2xl sm:border sm:shadow-card">
+      {/* Save stays in reach: sitting on the tab bar on phones (64px tabs + border +
+          safe area), pinned at the bottom on desktop. */}
+      <div className="fixed inset-x-0 bottom-[calc(4rem+1px+env(safe-area-inset-bottom))] z-20 flex items-center gap-3 border-t border-line bg-surface px-4 py-2 sm:sticky sm:bottom-4 sm:mt-4 sm:rounded-2xl sm:border sm:shadow-card">
         <div className="flex flex-col leading-tight">
           <span className="text-xs uppercase tracking-wide text-ink-soft">
             {summary.problems.length && selected.size
@@ -662,7 +663,7 @@ export function SquadScreen() {
           {saving ? 'Saving' : 'Save squad'}
         </button>
       </div>
-      <div className="h-20 sm:hidden" />
+      <div className="h-16 sm:hidden" />
 
       {picker && (
         <Sheet
