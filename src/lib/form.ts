@@ -8,17 +8,33 @@ export interface FixtureLike {
   is_home: boolean;
 }
 
-/** "City Of Peterborough 2" -> "Peterborough 2"; long names keep word one and the team number. */
+/** Clubs everyone knows by their initials: "Ipswich-East Suffolk 2" -> "IES 2". */
+const KNOWN_AS: [RegExp, string][] = [
+  [/^ipswich\s*(?:-|&|and)?\s*east suffolk\b/i, 'IES'],
+  [/^university of east anglia(?:\s+(?:mens|ladies|womens))?\b/i, 'UEA'],
+];
+
+/** The opponent as the club says it: full name, but IES and UEA. */
+export function opponentName(name: string): string {
+  const trimmed = name.replace(/\s+/g, ' ').trim();
+  for (const [pattern, short] of KNOWN_AS) {
+    if (pattern.test(trimmed)) return trimmed.replace(pattern, short);
+  }
+  return trimmed;
+}
+
+/** For pitch plates: "City Of Peterborough 2" -> "Peterborough 2", "Lowestoft Railway 1" -> "Lowestoft 1". */
 export function shortOpponent(name: string): string {
-  const trimmed = name
+  const trimmed = opponentName(name)
     .replace(/^city of /i, '')
     .replace(/\s+(hockey club|hc)\b/i, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/\s+development$/i, ' Dev');
   if (trimmed.length <= 14) return trimmed;
   const words = trimmed.split(' ');
-  const last = words.at(-1)!;
-  return /^\d+$/.test(last) ? `${words[0]} ${last}` : words[0]!;
+  // Keep the club's first word, its team number and any "Dev".
+  const number = words.find((w) => /^\d+$/.test(w));
+  const dev = words.at(-1) === 'Dev' ? ' Dev' : '';
+  return number ? `${words[0]} ${number}${dev}` : words[0]!;
 }
 
 /** "Ipswich 2 (H)", "2 games" or "No game" for a side in a gameweek. */

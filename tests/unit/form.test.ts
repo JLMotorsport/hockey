@@ -1,11 +1,22 @@
-import { fixtureLabel, formByPlayer, shortOpponent, sideForm } from '@/lib/form';
+import { fixtureLabel, formByPlayer, opponentName, shortOpponent, sideForm } from '@/lib/form';
 
 describe('fixtures for picking', () => {
   it('shortens opponent names', () => {
     expect(shortOpponent('Spalding 1')).toBe('Spalding 1');
     expect(shortOpponent('City Of Peterborough 2')).toBe('Peterborough 2');
-    expect(shortOpponent('Ipswich & East Suffolk 2')).toBe('Ipswich 2');
+    expect(shortOpponent('Ipswich & East Suffolk 2')).toBe('IES 2');
     expect(shortOpponent('Bury St Edmunds Hockey Club 3')).toBe('Bury 3');
+    expect(shortOpponent('Ipswich-East Suffolk 4 Development')).toBe('IES 4 Dev');
+    expect(shortOpponent('University of East Anglia Mens 2')).toBe('UEA 2');
+    expect(shortOpponent('Bury St Edmunds 6 Development')).toBe('Bury 6 Dev');
+  });
+
+  it('uses the names the club uses: IES and UEA, everything else in full', () => {
+    expect(opponentName('Ipswich-East Suffolk 2')).toBe('IES 2');
+    expect(opponentName('Ipswich & East Suffolk 3')).toBe('IES 3');
+    expect(opponentName('University of East Anglia Mens 3')).toBe('UEA 3');
+    expect(opponentName('Lowestoft Railway 1')).toBe('Lowestoft Railway 1');
+    expect(opponentName('Ipswich Cranes 1')).toBe('Ipswich Cranes 1');
   });
 
   it('says who a side plays, or that it has no game', () => {

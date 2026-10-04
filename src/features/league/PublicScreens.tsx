@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ErrorText, FormBoxes, Loading, PosBadge, PriceTrend } from '@/components/ui';
 import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
-import { fixtureLabel, formByPlayer, sideForm } from '@/lib/form';
+import { fixtureLabel, formByPlayer, opponentName, sideForm } from '@/lib/form';
 import {
   lockedGameweeks,
   nextOpenGameweek,
@@ -315,7 +315,7 @@ export function FixturesScreen() {
                       {sideShort.get(f.side_id)}
                     </span>
                     <span className="min-w-0 flex-1 font-semibold">
-                      {f.opponent}{' '}
+                      {opponentName(f.opponent)}{' '}
                       <span className="text-sm font-bold text-ink-soft">
                         {f.is_home ? 'H' : 'A'}
                       </span>

@@ -3,7 +3,7 @@ import { Sheet } from '@/components/Sheet';
 import { FormBoxes, Loading, PosBadge, PriceTrend } from '@/components/ui';
 import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
 import type { ReactNode } from 'react';
-import { fixtureLabel, formByPlayer } from '@/lib/form';
+import { fixtureLabel, formByPlayer, opponentName } from '@/lib/form';
 import {
   lockedGameweeks,
   nextOpenGameweek,
@@ -167,7 +167,7 @@ export function PlayerDetail({
               ? `No ${sideShort(player.side_id)} game this gameweek`
               : // Full opponent names here: there's room (plates use short ones).
                 `${sideShort(player.side_id)} v ${nextGames
-                  .map((f) => `${f.opponent} (${f.is_home ? 'H' : 'A'})`)
+                  .map((f) => `${opponentName(f.opponent)} (${f.is_home ? 'H' : 'A'})`)
                   .join(' and ')}`}
           </span>
           {nextFixture && (
@@ -219,7 +219,7 @@ export function PlayerDetail({
                   <p className="flex items-baseline justify-between gap-2 text-sm">
                     <span className="muted">
                       {sideShort(m.fixture?.side_id ?? 0)} {m.fixture?.is_home ? 'v' : 'at'}{' '}
-                      {m.fixture?.opponent}
+                      {opponentName(m.fixture?.opponent ?? '')}
                       {m.fixture?.goals_for != null && m.fixture?.goals_against != null && (
                         <>
                           ,{' '}
@@ -315,7 +315,8 @@ export function PlayerDetail({
                       {f ? formatShortDate(f.kickoff.slice(0, 10)) : ''}
                     </td>
                     <td>
-                      {sideShort(f?.side_id ?? 0)} {f?.is_home ? 'v' : '@'} {f?.opponent}{' '}
+                      {sideShort(f?.side_id ?? 0)} {f?.is_home ? 'v' : '@'}{' '}
+                      {opponentName(f?.opponent ?? '')}{' '}
                       <span className="muted whitespace-nowrap">
                         {f?.goals_for ?? ''}-{f?.goals_against ?? ''}
                       </span>
