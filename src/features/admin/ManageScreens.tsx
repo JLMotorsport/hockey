@@ -88,17 +88,170 @@ export function AdminPlayersScreen() {
         <section className="card border-accent">
           <h2>New from England Hockey ({fresh.length})</h2>
           <p className="muted text-sm">
-            These players appeared in a line-up. Their points are already being counted. Give each
-            one a position (goalkeepers are marked already) and a price, then press Save to make
-            them pickable.
+            These players appeared in a line-up and their points are already counting. Set each
+            one&apos;s position (goalkeepers are marked already) and price; changed rows tick
+            themselves. Then press Save to make the ticked players pickable.
           </p>
-          <PlayerTable players={fresh} sides={sideList} onSaved={n.ok} onError={n.fail} />
+          <NewPlayersTable players={fresh} sides={sideList} onSaved={n.ok} onError={n.fail} />
         </section>
       )}
       <section className="card">
         <h2>All players ({list.length})</h2>
         <PlayerTable players={list} sides={sideList} onSaved={n.ok} onError={n.fail} />
       </section>
+    </>
+  );
+}
+
+interface NewRow {
+  position: Position;
+  priceText: string;
+  side_id: number;
+  ready: boolean;
+}
+
+/** New players from England Hockey: edit many, save once. */
+function NewPlayersTable({
+  players,
+  sides,
+  onSaved,
+  onError,
+}: {
+  players: Player[];
+  sides: { id: number; short_name: string }[];
+  onSaved: (text: string) => void;
+  onError: (error: unknown) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [rows, setRows] = useState<Record<number, NewRow>>(() =>
+    Object.fromEntries(
+      players.map((p) => [
+        p.id,
+        { position: p.position, priceText: formatPrice(p.price), side_id: p.side_id, ready: false },
+      ]),
+    ),
+  );
+  const [saving, setSaving] = useState(false);
+  const row = (p: Player): NewRow =>
+    rows[p.id] ?? {
+      position: p.position,
+      priceText: formatPrice(p.price),
+      side_id: p.side_id,
+      ready: false,
+    };
+  const update = (p: Player, patch: Partial<NewRow>) =>
+    setRows({ ...rows, [p.id]: { ...row(p), ready: true, ...patch } });
+  const ready = players.filter((p) => row(p).ready);
+
+  async function saveReady() {
+    const bad = ready.find((p) => parsePrice(row(p).priceText) === null);
+    if (bad) {
+      onError({ message: `Check the price for ${bad.name} (a number like 6.5).` });
+      return;
+    }
+    setSaving(true);
+    const db = requireSupabase();
+    const results = await Promise.all(
+      ready.map((p) =>
+        db
+          .from('players')
+          .update({
+            position: row(p).position,
+            side_id: row(p).side_id,
+            price: parsePrice(row(p).priceText)!,
+            active: true,
+            needs_review: false,
+          })
+          .eq('id', p.id),
+      ),
+    );
+    setSaving(false);
+    const failed = results.find((r) => r.error);
+    if (failed?.error) onError(failed.error);
+    else onSaved(`Saved ${ready.length} player(s). They can now be picked.`);
+    await queryClient.invalidateQueries({ queryKey: keys.players });
+  }
+
+  return (
+    <>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Save</th>
+            <th>Name</th>
+            <th>Pos</th>
+            <th>Side</th>
+            <th>Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          {players.map((p) => {
+            const r = row(p);
+            return (
+              <tr key={p.id} className={r.ready ? 'bg-brand/5' : ''}>
+                <td>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 accent-[#d91414]"
+                    aria-label={`Save ${p.name}`}
+                    checked={r.ready}
+                    onChange={(e) => update(p, { ready: e.target.checked })}
+                  />
+                </td>
+                <td className="whitespace-nowrap">{p.name}</td>
+                <td>
+                  <div className="flex gap-1" role="group" aria-label={`Position for ${p.name}`}>
+                    {POSITIONS.map((pos) => (
+                      <button
+                        key={pos}
+                        type="button"
+                        aria-pressed={r.position === pos}
+                        onClick={() => update(p, { position: pos })}
+                        className={`min-h-[36px] min-w-[44px] rounded-lg font-display text-sm font-bold ${r.position === pos ? 'bg-brand text-white' : 'bg-paper text-ink-soft ring-1 ring-line'}`}
+                      >
+                        {pos}
+                      </button>
+                    ))}
+                  </div>
+                </td>
+                <td>
+                  <select
+                    className="input-inline"
+                    aria-label={`Side for ${p.name}`}
+                    value={r.side_id}
+                    onChange={(e) => update(p, { side_id: Number(e.target.value) })}
+                  >
+                    {sides.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.short_name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <input
+                    className="input-inline w-16"
+                    inputMode="decimal"
+                    aria-label={`Price for ${p.name}`}
+                    value={r.priceText}
+                    onChange={(e) => update(p, { priceText: e.target.value })}
+                  />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="sticky bottom-20 mt-3 flex justify-end sm:bottom-4">
+        <button
+          type="button"
+          className="btn shadow-lg"
+          disabled={!ready.length || saving}
+          onClick={() => void saveReady()}
+        >
+          {saving ? 'Saving' : `Save ${ready.length} ticked`}
+        </button>
+      </div>
     </>
   );
 }

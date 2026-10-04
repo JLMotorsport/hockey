@@ -16,18 +16,28 @@ import { LeagueTable } from './LeagueTable';
 export function HomeScreen() {
   return (
     <>
-      <section className="py-6">
-        <h1 className="text-3xl">Fantasy hockey for Felixstowe HC</h1>
-        <p className="max-w-2xl">
-          Build an 11 from every Felixstowe side, men&apos;s and women&apos;s, 1s to 4s. Score
-          points when your picks score, assist, keep clean sheets and win.
+      <section className="hero sm:py-10">
+        <img
+          src="/crest.png"
+          alt=""
+          className="pointer-events-none absolute -right-10 -top-6 h-64 w-64 opacity-15 brightness-0 invert sm:h-80 sm:w-80"
+        />
+        <p className="font-display text-sm font-bold uppercase tracking-widest text-white/80">
+          Felixstowe Hockey Club
         </p>
-        <p className="mt-4 flex flex-wrap items-center gap-3">
-          <Link className="btn" to="/register">
+        <h1 className="mb-3 mt-1 max-w-xl text-5xl leading-[0.95] sm:text-6xl">Fantasy hockey</h1>
+        <p className="max-w-lg text-white/90">
+          Build an 11 from every Felixstowe side, men&apos;s and women&apos;s, 1s to 4s. Score when
+          your picks score, keep clean sheets and win.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Link className="btn btn-light" to="/register">
             Create your team
           </Link>
-          <Link to="/login">or log in</Link>
-        </p>
+          <Link className="font-display font-bold uppercase text-white" to="/login">
+            or log in
+          </Link>
+        </div>
       </section>
       <section className="card">
         <h2>Top of the table</h2>

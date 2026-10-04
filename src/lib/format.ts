@@ -63,3 +63,13 @@ export function gameweekLabel(gw: GameweekLike, all: GameweekLike[]): string {
   const number = all.filter((g) => g.start_date <= gw.start_date).length;
   return `GW${number} (${formatShortDate(gw.start_date)})`;
 }
+
+/** "Jamie Smith" -> "J. Smith" so names fit under a shirt. */
+export function shortName(name: string): string {
+  const parts = name
+    .replace(/\s*\(.*\)\s*$/, '')
+    .trim()
+    .split(/\s+/);
+  if (parts.length < 2) return parts[0] ?? name;
+  return `${parts[0]![0]}. ${parts.slice(1).join(' ')}`;
+}

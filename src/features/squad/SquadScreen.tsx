@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ErrorText, Loading, Notices, PosBadge, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { formatDayTime, gameweekLabel } from '@/lib/format';
+import { formatDayTime, gameweekLabel, shortName } from '@/lib/format';
 import {
   keys,
   nextOpenGameweek,
@@ -14,7 +14,10 @@ import {
   useSides,
   useSquad,
 } from '@/lib/queries';
-import { POSITIONS } from '@/lib/scoring';
+import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
+import { pitchRows } from '@/lib/formation';
+import { Pitch, Shirt, type PitchSlot } from '@/components/Pitch';
+import { Sheet } from '@/components/Sheet';
 import { formatPrice, summariseSquad, type SquadPlayer } from '@/lib/squad';
 import { errorLines, requireSupabase } from '@/lib/supabase';
 
@@ -45,6 +48,9 @@ export function SquadScreen() {
   const [onlyPicked, setOnlyPicked] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [saving, setSaving] = useState(false);
+  const [view, setView] = useState<'pitch' | 'list'>('pitch');
+  const [picker, setPicker] = useState<Position | null>(null);
+  const [focus, setFocus] = useState<number | null>(null);
 
   // Start from the saved squad once it arrives.
   useEffect(() => {
@@ -132,41 +138,95 @@ export function SquadScreen() {
       (!onlyPicked || selected.has(p.id)),
   );
 
+  const rows = pitchRows(picked, s.squad_size);
+  const bank = s.budget - summary.cost;
+  const slots = Object.fromEntries(
+    POSITIONS.map((pos) => [
+      pos,
+      rows[pos].map((p, i): PitchSlot =>
+        p
+          ? {
+              key: `p${p.id}`,
+              position: pos,
+              name: shortName(p.name),
+              sub: sideById.get(p.side_id)?.short_name ?? '',
+              captain: captainId === p.id,
+              onClick: () => setFocus(p.id),
+            }
+          : { key: `${pos}${i}`, position: pos, name: null, onClick: () => setPicker(pos) },
+      ),
+    ]),
+  ) as Record<Position, PitchSlot[]>;
+  const focused = pool.find((p) => p.id === focus);
+  const choices = picker
+    ? pool
+        .filter((p) => p.position === picker && !selected.has(p.id) && p.active)
+        .filter((p) => !sideFilter || String(p.side_id) === sideFilter)
+        .sort(
+          (a, b) =>
+            (points.data?.get(b.id) ?? 0) - (points.data?.get(a.id) ?? 0) || b.price - a.price,
+        )
+    : [];
+
   return (
     <>
-      <h1>
-        Pick your squad{' '}
-        <small className="muted text-base font-normal">for {gameweekLabel(gameweek, all)}</small>
-      </h1>
-      <p className="muted">
-        Deadline {formatDayTime(gameweek.deadline)}. Changes after that apply to the following
-        gameweek.
-      </p>
+      <section className="hero">
+        <p className="font-display text-sm font-bold uppercase tracking-widest text-white/80">
+          Pick your squad
+        </p>
+        <h1 className="mb-1 mt-0 text-4xl">{gameweekLabel(gameweek, all)}</h1>
+        <p className="text-sm text-white/85">Deadline {formatDayTime(gameweek.deadline)}</p>
+        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-xl bg-white/15 px-2 py-2">
+            <span className="display-num block text-2xl">
+              {summary.count}/{s.squad_size}
+            </span>
+            <span className="text-xs uppercase tracking-wide text-white/80">Players</span>
+          </div>
+          <div className="rounded-xl bg-white/15 px-2 py-2">
+            <span className={`display-num block text-2xl ${bank < 0 ? 'text-[#ffd0d0]' : ''}`}>
+              {formatPrice(bank)}m
+            </span>
+            <span className="text-xs uppercase tracking-wide text-white/80">Bank</span>
+          </div>
+          <div className="rounded-xl bg-white/15 px-2 py-2">
+            <span className="display-num block text-2xl">
+              {summary.transfers === null
+                ? 'Free'
+                : `${summary.transfers}/${s.transfers_per_gameweek}`}
+            </span>
+            <span className="text-xs uppercase tracking-wide text-white/80">Transfers</span>
+          </div>
+        </div>
+      </section>
+
       <Notices items={notices} />
 
-      <div className="card sticky top-0 z-10 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <div>
-          <strong>{summary.count}</strong>/{s.squad_size} players
-        </div>
-        <div>
-          {POSITIONS.map((pos) => (
-            <span key={pos} className="mr-2">
-              {pos} <strong>{summary.byPosition[pos]}</strong>
-            </span>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="inline-flex rounded-full bg-surface p-1 shadow-card" role="tablist">
+          {(['pitch', 'list'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={view === v}
+              onClick={() => setView(v)}
+              className={`min-h-[36px] rounded-full px-4 font-display text-sm font-bold uppercase ${view === v ? 'bg-brand text-white' : 'text-ink-soft'}`}
+            >
+              {v === 'pitch' ? 'Pitch view' : 'List view'}
+            </button>
           ))}
         </div>
-        <div className={summary.cost > s.budget ? 'text-red-700' : ''}>
-          Spent <strong>{formatPrice(summary.cost)}</strong>m of {formatPrice(s.budget)}m
-        </div>
-        {summary.transfers !== null && (
-          <div>
-            Transfers <strong>{summary.transfers}</strong>/{s.transfers_per_gameweek}
-          </div>
-        )}
-        <button type="button" className="btn ml-auto" disabled={saving} onClick={() => void save()}>
+        <button
+          type="button"
+          className="btn hidden sm:inline-flex"
+          disabled={saving}
+          onClick={() => void save()}
+        >
           {saving ? 'Saving' : 'Save squad'}
         </button>
       </div>
+
       {summary.problems.length > 0 && selected.size > 0 && (
         <ul className="muted mb-3 list-disc pl-5 text-sm">
           {summary.problems.map((p) => (
@@ -174,100 +234,222 @@ export function SquadScreen() {
           ))}
         </ul>
       )}
-      <p className="muted text-sm">
-        1 goalkeeper, at least 3 defenders, 3 midfielders and 1 forward. Max {s.max_per_side} from
-        any one Felixstowe side. Captain scores double.
-      </p>
 
-      <div className="my-3 flex flex-wrap items-center gap-2">
-        <select
-          className="input-inline"
-          aria-label="Filter by side"
-          value={sideFilter}
-          onChange={(e) => setSideFilter(e.target.value)}
-        >
-          <option value="">All sides</option>
-          {(sides.data ?? []).map((side) => (
-            <option key={side.id} value={side.id}>
-              {side.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="input-inline"
-          aria-label="Filter by position"
-          value={posFilter}
-          onChange={(e) => setPosFilter(e.target.value)}
-        >
-          <option value="">All positions</option>
-          {POSITIONS.map((p) => (
-            <option key={p}>{p}</option>
-          ))}
-        </select>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={onlyPicked}
-            onChange={(e) => setOnlyPicked(e.target.checked)}
-          />{' '}
-          Only my picks
-        </label>
-      </div>
-
-      <div className="card">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Pick</th>
-              <th>Captain</th>
-              <th>Player</th>
-              <th>Pos</th>
-              <th>Side</th>
-              <th className="num">Price</th>
-              <th className="num">Pts</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((p) => {
-              const isPicked = selected.has(p.id);
-              return (
-                <tr key={p.id} className={isPicked ? 'bg-brand/10' : ''}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5"
-                      aria-label={`Pick ${p.name}`}
-                      checked={isPicked}
-                      onChange={() => toggle(p.id)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="radio"
-                      name="captain"
-                      className="h-5 w-5"
-                      aria-label={`Captain ${p.name}`}
-                      disabled={!isPicked}
-                      checked={captainId === p.id}
-                      onChange={() => setCaptainId(p.id)}
-                    />
-                  </td>
-                  <td>
-                    {p.name}
-                    {!p.active && <span className="muted"> (unavailable)</span>}
-                  </td>
-                  <td>
-                    <PosBadge position={p.position} />
-                  </td>
-                  <td>{sideById.get(p.side_id)?.short_name}</td>
-                  <td className="num">{formatPrice(p.price)}</td>
-                  <td className="num">{points.data?.get(p.id) ?? 0}</td>
+      {view === 'pitch' ? (
+        <>
+          <Pitch rows={slots} />
+          <p className="muted mt-3 text-center text-sm">
+            Tap an empty shirt to add a player, or a player to make them captain or swap them.
+          </p>
+        </>
+      ) : (
+        <>
+          <div className="my-3 flex flex-wrap items-center gap-2">
+            <select
+              className="input-inline"
+              aria-label="Filter by side"
+              value={sideFilter}
+              onChange={(e) => setSideFilter(e.target.value)}
+            >
+              <option value="">All sides</option>
+              {(sides.data ?? []).map((side) => (
+                <option key={side.id} value={side.id}>
+                  {side.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className="input-inline"
+              aria-label="Filter by position"
+              value={posFilter}
+              onChange={(e) => setPosFilter(e.target.value)}
+            >
+              <option value="">All positions</option>
+              {POSITIONS.map((p) => (
+                <option key={p}>{p}</option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={onlyPicked}
+                onChange={(e) => setOnlyPicked(e.target.checked)}
+              />{' '}
+              Only my picks
+            </label>
+          </div>
+          <div className="card">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Pick</th>
+                  <th>Captain</th>
+                  <th>Player</th>
+                  <th>Pos</th>
+                  <th>Side</th>
+                  <th className="num">Price</th>
+                  <th className="num">Pts</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {visible.map((p) => {
+                  const isPicked = selected.has(p.id);
+                  return (
+                    <tr key={p.id} className={isPicked ? 'bg-brand/5' : ''}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 accent-[#d91414]"
+                          aria-label={`Pick ${p.name}`}
+                          checked={isPicked}
+                          onChange={() => toggle(p.id)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="radio"
+                          name="captain"
+                          className="h-5 w-5 accent-[#d91414]"
+                          aria-label={`Captain ${p.name}`}
+                          disabled={!isPicked}
+                          checked={captainId === p.id}
+                          onChange={() => setCaptainId(p.id)}
+                        />
+                      </td>
+                      <td>
+                        {p.name}
+                        {!p.active && <span className="muted"> (unavailable)</span>}
+                      </td>
+                      <td>
+                        <PosBadge position={p.position} />
+                      </td>
+                      <td>{sideById.get(p.side_id)?.short_name}</td>
+                      <td className="num">{formatPrice(p.price)}</td>
+                      <td className="num">{points.data?.get(p.id) ?? 0}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* Save stays in reach above the tab bar on phones. */}
+      <div className="fixed inset-x-0 bottom-16 z-20 px-4 pb-[env(safe-area-inset-bottom)] sm:hidden">
+        <button
+          type="button"
+          className="btn w-full shadow-lg"
+          disabled={saving}
+          onClick={() => void save()}
+        >
+          {saving ? 'Saving' : 'Save squad'}
+        </button>
       </div>
+      <div className="h-16 sm:hidden" />
+
+      {picker && (
+        <Sheet
+          title={`Choose a ${POSITION_NAMES[picker].toLowerCase()}`}
+          onClose={() => setPicker(null)}
+        >
+          <div className="mb-2 flex items-center justify-between gap-2 text-sm">
+            <select
+              className="input-inline"
+              aria-label="Filter by side"
+              value={sideFilter}
+              onChange={(e) => setSideFilter(e.target.value)}
+            >
+              <option value="">All sides</option>
+              {(sides.data ?? []).map((side) => (
+                <option key={side.id} value={side.id}>
+                  {side.name}
+                </option>
+              ))}
+            </select>
+            <span className="muted">Bank {formatPrice(bank)}m</span>
+          </div>
+          <ul className="divide-y divide-line">
+            {choices.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  className="flex min-h-[56px] w-full items-center gap-3 text-left"
+                  onClick={() => {
+                    toggle(p.id);
+                    setPicker(null);
+                  }}
+                >
+                  <Shirt keeper={p.position === 'GK'} className="h-9 w-9 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">{p.name}</span>
+                    <span className="muted text-xs">{sideById.get(p.side_id)?.name}</span>
+                  </span>
+                  <span className="text-right">
+                    <span
+                      className={`display-num block text-lg ${p.price > bank ? 'text-brand' : ''}`}
+                    >
+                      {formatPrice(p.price)}m
+                    </span>
+                    <span className="muted text-xs">{points.data?.get(p.id) ?? 0} pts</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+            {!choices.length && <li className="muted py-4">No more players in this position.</li>}
+          </ul>
+        </Sheet>
+      )}
+
+      {focused && (
+        <Sheet title={focused.name} onClose={() => setFocus(null)}>
+          <div className="mb-4 flex items-center gap-3">
+            <Shirt keeper={focused.position === 'GK'} className="h-14 w-14" />
+            <div>
+              <p className="font-semibold">
+                {POSITION_NAMES[focused.position]} · {sideById.get(focused.side_id)?.name}
+              </p>
+              <p className="muted text-sm">
+                {formatPrice(focused.price)}m · {points.data?.get(focused.id) ?? 0} pts this season
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <button
+              type="button"
+              className="btn"
+              disabled={captainId === focused.id}
+              onClick={() => {
+                setCaptainId(focused.id);
+                setFocus(null);
+              }}
+            >
+              {captainId === focused.id ? 'Captain' : 'Make captain'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-quiet"
+              onClick={() => {
+                toggle(focused.id);
+                setFocus(null);
+                setPicker(focused.position);
+              }}
+            >
+              Swap for another {focused.position}
+            </button>
+            <button
+              type="button"
+              className="btn btn-quiet"
+              onClick={() => {
+                toggle(focused.id);
+                setFocus(null);
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        </Sheet>
+      )}
     </>
   );
 }

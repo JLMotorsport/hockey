@@ -9,7 +9,7 @@ import {
   useSides,
   useSquad,
 } from '@/lib/queries';
-import { SquadList } from './SquadList';
+import { SquadPitch } from './SquadPitch';
 
 export function TeamScreen() {
   const { userId } = useParams();
@@ -29,10 +29,17 @@ export function TeamScreen() {
 
   return (
     <>
-      <h1>
-        {profile.data?.team_name}{' '}
-        <small className="muted text-base font-normal">{profile.data?.display_name}</small>
-      </h1>
+      <section className="hero">
+        <p className="font-display text-sm font-bold uppercase tracking-widest text-white/80">
+          {profile.data?.display_name}
+        </p>
+        <h1 className="mb-0 mt-0 text-4xl">{profile.data?.team_name}</h1>
+        {squad.data?.length ? (
+          <p className="mt-2 font-display text-xl font-bold uppercase">
+            {squad.data.reduce((sum, r) => sum + r.points, 0)} points
+          </p>
+        ) : null}
+      </section>
       {!gameweek ? (
         <p className="muted">Squads are revealed once the first deadline passes.</p>
       ) : (
@@ -51,11 +58,11 @@ export function TeamScreen() {
               ))}
             </select>
           </label>
-          <div className="card">
+          <div>
             {squad.isLoading ? (
               <Loading />
             ) : squad.data?.length ? (
-              <SquadList
+              <SquadPitch
                 rows={squad.data}
                 players={players.data ?? []}
                 sides={sides.data ?? []}
