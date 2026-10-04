@@ -118,6 +118,9 @@ export function PlayerDetail({
   });
   const next = nextOpenGameweek(all);
   const nextLabel = next ? fixtureLabel(fixtures.data ?? [], player.side_id, next.id) : null;
+  const nextGames = next
+    ? (fixtures.data ?? []).filter((f) => f.side_id === player.side_id && f.gameweek_id === next.id)
+    : [];
   const nextFixture = next
     ? (fixtures.data ?? []).find((f) => f.side_id === player.side_id && f.gameweek_id === next.id)
     : undefined;
@@ -162,7 +165,10 @@ export function PlayerDetail({
           <span className="font-semibold">
             {nextLabel === 'No game'
               ? `No ${sideShort(player.side_id)} game this gameweek`
-              : `${sideShort(player.side_id)} v ${nextLabel}`}
+              : // Full opponent names here: there's room (plates use short ones).
+                `${sideShort(player.side_id)} v ${nextGames
+                  .map((f) => `${f.opponent} (${f.is_home ? 'H' : 'A'})`)
+                  .join(' and ')}`}
           </span>
           {nextFixture && (
             <span className="muted ml-auto">{formatWeekdayTime(nextFixture.kickoff)}</span>
