@@ -4,10 +4,17 @@ import type { Position } from '@/lib/scoring';
 // A hockey pitch, portrait, our goal at the bottom. Proportions follow a real
 // pitch (91.4m x 55m): shooting circles 14.63m from the goal, dashed 5m arcs
 // outside them, 23m lines, centre line and penalty spots.
-export function PitchMarkings() {
+export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
   const W = 550; // 55m
   const H = 914; // 91.4m
-  const line = { stroke: 'white', strokeWidth: 3, fill: 'none', opacity: 0.85 };
+  // Stretched to fill a box of another shape (the social image), lines keep their width.
+  const line = {
+    stroke: 'white',
+    strokeWidth: 3,
+    fill: 'none',
+    opacity: 0.85,
+    vectorEffect: stretch ? ('non-scaling-stroke' as const) : undefined,
+  };
   const goalW = 36.6; // 3.66m
   const cx = W / 2;
   const r = 146.3; // shooting circle
@@ -21,6 +28,7 @@ export function PitchMarkings() {
   return (
     <svg
       viewBox={`-20 -20 ${W + 40} ${H + 40}`}
+      preserveAspectRatio={stretch ? 'none' : undefined}
       className="absolute inset-0 h-full w-full"
       aria-hidden="true"
     >
@@ -242,15 +250,24 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
 export function Pitch({
   rows,
   bench,
+  fit = false,
 }: {
   rows: Record<Position, PitchSlot[]>;
+  /** Fill the parent's height instead of keeping a real pitch's shape (the social image). */
+  fit?: boolean;
   /** Subs in order (sub keeper first), shown in a strip under the pitch. */
   bench?: PitchSlot[];
 }) {
   const order: Position[] = ['FWD', 'MID', 'DEF', 'GK'];
   return (
-    <div className="mx-auto w-full max-w-[26rem] overflow-hidden rounded-2xl bg-[#1b6e41] shadow-card">
-      <PitchField rows={rows} order={order} />
+    <div
+      className={
+        fit
+          ? 'h-full w-full overflow-hidden bg-[#1b6e41]'
+          : 'mx-auto w-full max-w-[26rem] overflow-hidden rounded-2xl bg-[#1b6e41] shadow-card'
+      }
+    >
+      <PitchField rows={rows} order={order} fit={fit} />
       {bench && (
         <div className="bg-[#cfe6d6] px-1 pb-3 pt-2" aria-label="Subs">
           <div className="flex justify-center gap-0.5 sm:gap-2">
@@ -272,11 +289,22 @@ export function Pitch({
   );
 }
 
-function PitchField({ rows, order }: { rows: Record<Position, PitchSlot[]>; order: Position[] }) {
+function PitchField({
+  rows,
+  order,
+  fit = false,
+}: {
+  rows: Record<Position, PitchSlot[]>;
+  order: Position[];
+  fit?: boolean;
+}) {
   return (
-    <div className="relative w-full overflow-hidden" style={{ aspectRatio: '590 / 954' }}>
-      <PitchMarkings />
-      <div className="relative flex h-full flex-col justify-around px-1 py-6">
+    <div
+      className="relative w-full overflow-hidden"
+      style={fit ? { height: '100%' } : { aspectRatio: '590 / 954' }}
+    >
+      <PitchMarkings stretch={fit} />
+      <div className={`relative flex h-full flex-col justify-around px-1 ${fit ? 'py-3' : 'py-6'}`}>
         {order.map((pos) => (
           <div key={pos} className="flex justify-center gap-0.5 sm:gap-2">
             {rows[pos].map((slot) => (

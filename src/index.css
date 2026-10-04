@@ -119,3 +119,13 @@
     font-stretch: 68%;
   }
 }
+
+/* Images made from the page (Team of the week): shadows and rings come out
+   as dark ghost edges on iPhones, so none in the picture. */
+.no-shadow,
+.no-shadow * {
+  box-shadow: none !important;
+}
+.no-shadow *:not(img) {
+  filter: none !important;
+}

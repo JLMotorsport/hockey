@@ -19,14 +19,16 @@ import { POSITIONS, type Position } from '@/lib/scoring';
 import { teamOfTheWeek, type Scorer } from '@/lib/teamOfWeek';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
 
-/** The card as a PNG: the card alone, without the page's centring margins. */
+/** Facebook's best portrait size: 1080 x 1350 (4:5), drawn at 540 x 675 and doubled. */
+const SOCIAL = { width: 540, height: 675 };
+
+/** The social card as a PNG. */
 async function renderCard(node: HTMLElement): Promise<Blob> {
   const url = await toPng(node, {
-    pixelRatio: 3,
+    pixelRatio: 2,
     cacheBust: true,
-    width: node.offsetWidth,
-    height: node.offsetHeight,
-    style: { margin: '0' },
+    width: SOCIAL.width,
+    height: SOCIAL.height,
   });
   return (await fetch(url)).blob();
 }
@@ -49,6 +51,8 @@ export function TeamOfWeekScreen() {
   const sides = useSides();
   const settings = useSettings();
   const card = useRef<HTMLDivElement>(null);
+  // The picture is made from its own 4:5 card, kept off screen.
+  const social = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [open, setOpen] = useState<number | null>(null);
@@ -70,8 +74,8 @@ export function TeamOfWeekScreen() {
     if (!scores.data) return;
     let cancelled = false;
     const t = setTimeout(() => {
-      if (!card.current) return;
-      renderCard(card.current)
+      if (!social.current) return;
+      renderCard(social.current)
         .then((blob) => !cancelled && setPrepared({ key: prepKey, blob }))
         .catch(() => undefined);
     }, 800);
@@ -137,10 +141,10 @@ export function TeamOfWeekScreen() {
   const shareable = canShareFiles();
 
   async function saveOrShare() {
-    if (!card.current) return;
+    if (!social.current) return;
     setBusy(true);
     try {
-      const blob = prepared?.key === prepKey ? prepared.blob : await renderCard(card.current);
+      const blob = prepared?.key === prepKey ? prepared.blob : await renderCard(social.current);
       const file = new File([blob], fileName, { type: 'image/png' });
       if (shareable) {
         try {
@@ -227,6 +231,49 @@ export function TeamOfWeekScreen() {
                 </span>
               </div>
             )}
+          </div>
+
+          {/* The image for socials: 4:5, no shadows (they ghost on iPhones). Off screen. */}
+          <div aria-hidden="true" className="pointer-events-none fixed left-[-10000px] top-0">
+            <div
+              ref={social}
+              className="no-shadow flex flex-col overflow-hidden bg-[#d91414] text-white"
+              style={SOCIAL}
+            >
+              <div className="flex items-center gap-3 px-5 py-3">
+                <img src="/crest.png" alt="" className="h-14 w-14 brightness-0 invert" />
+                <div className="min-w-0 flex-1 font-display uppercase leading-none">
+                  <p className="text-xs font-bold tracking-widest text-white/80">
+                    Felixstowe HC Fantasy
+                  </p>
+                  <p className="text-[2.1rem] font-extrabold">Team of the week</p>
+                  <p className="mt-1 text-sm font-bold text-white/90">
+                    {label.split(' ')[0]} · w/e {formatShortDate(gameweek.start_date)}
+                  </p>
+                </div>
+                <div className="text-right font-display uppercase leading-none">
+                  <p className="display-num text-5xl">{best.total}</p>
+                  <p className="text-xs font-bold text-white/80">pts · {best.formation}</p>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1">
+                <Pitch rows={slots} fit />
+              </div>
+              {star && (
+                <div className="flex items-center justify-between gap-2 bg-[#16181d] px-5 py-3 font-display uppercase">
+                  <span className="text-xs font-bold tracking-widest text-white/70">
+                    ★ Player of the week
+                  </span>
+                  <span className="text-right text-xl font-extrabold">
+                    {star.name}{' '}
+                    <span className="text-[#ff6b6b]">
+                      {sideShort.get(byId.get(star.player_id)?.side_id ?? 0)}
+                    </span>{' '}
+                    · {star.points} pts
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="mx-auto mt-4 flex max-w-[26rem] flex-wrap justify-center gap-2">
