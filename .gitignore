@@ -34,3 +34,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+
+# Local tooling leftovers
+__pycache__/
+deno.lock
