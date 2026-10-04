@@ -36,19 +36,20 @@ You need a Supabase account and a Cloudflare account (the same ones as ParkManag
 
 ### 3. England Hockey sync
 
-```bash
-npx supabase login
-npx supabase link --project-ref <your-project-ref>
-npx supabase secrets set EH_SYNC_SECRET=<any long random string>
-npx supabase functions deploy eh-sync --no-verify-jwt --use-api
-```
+GitHub deploys the sync function, so nothing runs on your computer.
+
+1. Supabase: **Account > Access Tokens** (https://supabase.com/dashboard/account/tokens), create a token named `github-hockey`, copy it.
+2. GitHub repo: **Settings > Secrets and variables > Actions > New repository secret**, add:
+   - `SUPABASE_ACCESS_TOKEN`: the token from step 1
+   - `EH_SYNC_SECRET`: any long random string (keep a copy for the schedule below)
+3. GitHub repo: **Actions > Deploy Supabase functions > Run workflow**. It also redeploys by itself whenever the function changes on `main`.
 
 Managers can now press **Sync from England Hockey** in the app. To run it automatically on Sunday and Monday evenings, enable the `pg_cron` and `pg_net` extensions (Database > Extensions) and run this in the SQL editor:
 
 ```sql
 select cron.schedule('ff-eh-sync', '0 20 * * 0,1', $$
   select net.http_post(
-    url := 'https://<your-project-ref>.supabase.co/functions/v1/eh-sync',
+    url := 'https://sovfxpamgrpsjswcjwkt.supabase.co/functions/v1/eh-sync',
     headers := '{"Authorization":"Bearer <EH_SYNC_SECRET>"}'::jsonb
   );
 $$);
