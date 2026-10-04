@@ -1,5 +1,3 @@
-import { LEAD_SPONSORS, OTHER_SPONSORS } from '@/lib/sponsors';
-import { SponsorBoards } from './SponsorBoards';
 import type { ReactNode } from 'react';
 import type { Position } from '@/lib/scoring';
 
@@ -166,27 +164,16 @@ function PlayerSpot({ slot }: { slot: PitchSlot }) {
   );
 }
 
-/** Players on the pitch: forwards at the top, keeper at the bottom, sponsor boards at each end. */
-export function Pitch({
-  rows,
-  stillBoards = false,
-}: {
-  rows: Record<Position, PitchSlot[]>;
-  stillBoards?: boolean;
-}) {
+/**
+ * Players on the pitch: forwards at the top, keeper at the bottom.
+ * Sponsor boards (components/SponsorBoards.tsx) are parked for now; to bring
+ * them back, render them above and below PitchField.
+ */
+export function Pitch({ rows }: { rows: Record<Position, PitchSlot[]>; stillBoards?: boolean }) {
   const order: Position[] = ['FWD', 'MID', 'DEF', 'GK'];
   return (
     <div className="mx-auto w-full max-w-[26rem] overflow-hidden rounded-2xl bg-[#1b6e41] shadow-card">
-      <SponsorBoards
-        sponsors={[...LEAD_SPONSORS, ...OTHER_SPONSORS.slice(0, 6)]}
-        still={stillBoards}
-      />
       <PitchField rows={rows} order={order} />
-      <SponsorBoards
-        sponsors={[...OTHER_SPONSORS.slice(6), ...LEAD_SPONSORS]}
-        still={stillBoards}
-        reverse
-      />
     </div>
   );
 }
