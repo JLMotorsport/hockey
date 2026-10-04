@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Pitch, type PitchSlot } from '@/components/Pitch';
 import { formationOf, pitchRows } from '@/lib/formation';
-import type { Player, Side, SquadRow } from '@/lib/queries';
+import { useFixtures, type Player, type Side, type SquadRow } from '@/lib/queries';
+import { fixtureLabel } from '@/lib/form';
 import { POSITIONS, type Position } from '@/lib/scoring';
 import { shortName } from '@/lib/format';
 import { PlayerSheet, type TeamPoints } from '@/features/player/PlayerDetail';
@@ -16,6 +17,7 @@ export function SquadPitch({
   seasonPoints,
   gameweekId,
   chip,
+  fixturesFor,
 }: {
   rows: SquadRow[];
   players: Player[];
@@ -27,7 +29,10 @@ export function SquadPitch({
   gameweekId?: number;
   /** A chip played this gameweek. */
   chip?: PlayedChip;
+  /** An upcoming gameweek: show who each player's side plays in it instead of points. */
+  fixturesFor?: number;
 }) {
+  const fixtures = useFixtures();
   const [open, setOpen] = useState<{ id: number; teamPoints: TeamPoints } | null>(null);
   const byId = new Map(players.map((p) => [p.id, p]));
   const sideShort = new Map(sides.map((s) => [s.id, s.short_name]));
@@ -48,8 +53,14 @@ export function SquadPitch({
         Number(b.position === 'GK') - Number(a.position === 'GK') ||
         (a.bench_order ?? 9) - (b.bench_order ?? 9),
     );
-  const pts = (r: SquadRow) =>
-    showPoints ? `${r.points} pts` : `${seasonPoints?.get(r.player_id) ?? 0} pts`;
+  const nextLabel = (r: SquadRow & { player: Player }) =>
+    fixtureLabel(fixtures.data ?? [], r.player.side_id, fixturesFor ?? 0);
+  const pts = (r: SquadRow & { player: Player }) =>
+    fixturesFor
+      ? nextLabel(r)
+      : showPoints
+        ? `${r.points} pts`
+        : `${seasonPoints?.get(r.player_id) ?? 0} pts`;
   const slotFor = (r: (typeof withPlayer)[number]): PitchSlot => ({
     key: `p${r.player_id}`,
     position: r.position,
@@ -63,6 +74,7 @@ export function SquadPitch({
         ? String(r.bench_order - 1)
         : undefined,
     faded: r.sub === 'off',
+    subMuted: Boolean(fixturesFor) && nextLabel(r) === 'No game',
     onClick: () =>
       setOpen({
         id: r.player_id,

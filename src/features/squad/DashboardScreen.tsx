@@ -1,6 +1,7 @@
 import { chipName } from '@/lib/chips';
 import { useQueries } from '@tanstack/react-query';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { defaultGameweek } from '@/lib/gameweek';
 import { ErrorText, Loading } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { formatWeekdayTime, gameweekLabel } from '@/lib/format';
@@ -32,6 +33,13 @@ export function DashboardScreen() {
   const locked = lockedGameweeks(all);
   const last = locked.at(-1);
   const userId = session?.user.id;
+  const [params, setParams] = useSearchParams();
+  // Past gameweeks plus the one being picked for, oldest first.
+  const browsable = next ? [...locked, next] : locked;
+  const viewing =
+    browsable.find((g) => g.id === Number(params.get('gw'))) ?? defaultGameweek(browsable);
+  const viewingIndex = viewing ? browsable.findIndex((g) => g.id === viewing.id) : -1;
+  const viewingUpcoming = Boolean(viewing && next && viewing.id === next.id);
   const upcoming = useSquad(userId, next?.id);
   const lastSquad = useSquad(userId, last?.id);
   const chips = useChips(userId);
@@ -57,8 +65,14 @@ export function DashboardScreen() {
 
   const me = table.data?.find((r) => r.user_id === userId);
   const lastTotal = squadTotal(lastSquad.data);
-  const showLast = Boolean(lastSquad.data?.length);
-  const pitchRowsData = showLast ? lastSquad.data! : (upcoming.data ?? []);
+  const viewedRows = viewingUpcoming
+    ? (upcoming.data ?? [])
+    : (history[locked.findIndex((g) => g.id === viewing?.id)]?.data ?? []);
+  const viewedLabel = viewing ? gameweekLabel(viewing, all).split(' ')[0] : '';
+  const go = (i: number) => {
+    const gw = browsable[i];
+    if (gw) setParams({ gw: String(gw.id) }, { replace: true });
+  };
 
   const weekTotals = locked.map((gw, i) => ({ gw, i, pts: squadTotal(history[i]?.data) }));
   const bestWeek = Math.max(1, ...weekTotals.map((w) => w.pts));
@@ -114,27 +128,95 @@ export function DashboardScreen() {
         )}
       </section>
 
-      {pitchRowsData.length > 0 ? (
+      {viewing && (
         <section className="mb-4">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2>
-              {showLast && last ? `${gameweekLabel(last, all).split(' ')[0]} points` : 'Your squad'}
-            </h2>
-            <span className="muted text-sm">Tap a player for details</span>
+          <div className="mb-2 flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Previous gameweek"
+              disabled={viewingIndex <= 0}
+              onClick={() => go(viewingIndex - 1)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface shadow-card disabled:opacity-30"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15 6l-6 6 6 6" />
+              </svg>
+            </button>
+            <div className="min-w-0 flex-1 text-center">
+              <h2 className="m-0 leading-tight">
+                {viewingUpcoming ? `${viewedLabel} · your team` : `${viewedLabel} points`}
+              </h2>
+              <p className="muted text-sm">
+                {viewingUpcoming
+                  ? `Deadline ${formatWeekdayTime(viewing.deadline)}`
+                  : `${squadTotal(viewedRows)} pts · ${gameweekLabel(viewing, all)
+                      .replace(/^GW\d+ /, '')
+                      .replace(/[()]/g, '')}`}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Next gameweek"
+              disabled={viewingIndex >= browsable.length - 1}
+              onClick={() => go(viewingIndex + 1)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface shadow-card disabled:opacity-30"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </button>
           </div>
-          <SquadPitch
-            rows={pitchRowsData}
-            players={players.data ?? []}
-            sides={sides.data ?? []}
-            showPoints={showLast}
-            gameweekId={last?.id}
-            seasonPoints={seasonPoints.data}
-            chip={chipFor(showLast ? last?.id : next?.id)}
-          />
+          {viewedRows.length > 0 ? (
+            <SquadPitch
+              rows={viewedRows}
+              players={players.data ?? []}
+              sides={sides.data ?? []}
+              showPoints={!viewingUpcoming}
+              gameweekId={viewingUpcoming ? last?.id : viewing.id}
+              seasonPoints={seasonPoints.data}
+              chip={chipFor(viewing.id)}
+              fixturesFor={viewingUpcoming ? viewing.id : undefined}
+            />
+          ) : (
+            <div className="card text-center">
+              <p className="muted mb-3">
+                {viewingUpcoming ? 'No squad picked yet.' : 'You had no squad this gameweek.'}
+              </p>
+              {viewingUpcoming && (
+                <Link className="btn" to="/transfers">
+                  Pick your squad
+                </Link>
+              )}
+            </div>
+          )}
+          {viewingUpcoming && viewedRows.length > 0 && (
+            <p className="mt-2 text-center">
+              <Link to="/squad" className="font-semibold">
+                Change your team
+              </Link>
+            </p>
+          )}
         </section>
-      ) : (
-        !next && <p className="muted">No upcoming gameweeks yet.</p>
       )}
+      {!viewing && <p className="muted">No gameweeks yet.</p>}
 
       {weekTotals.length > 0 && (
         <section className="card">
