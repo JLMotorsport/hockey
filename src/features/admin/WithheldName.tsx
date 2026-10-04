@@ -68,83 +68,81 @@ export function WithheldName({
   return (
     <>
       {top && (
-        <div className="mt-2 rounded-lg border border-line bg-paper px-3 py-2 text-sm">
-          {certain ? (
-            <>
-              Pitchero suggests <strong>{top.name}</strong>: the only player on Pitchero&apos;s team
-              sheet that England Hockey doesn&apos;t account for, in all {top.of} of their games.{' '}
-              <button
-                type="button"
-                className="btn btn-sm ml-1"
-                disabled={busy}
-                onClick={() => void rename(top.name)}
-              >
-                Use {top.name}
-              </button>
-            </>
-          ) : (
-            <>
-              Could be:{' '}
-              {suggestions.slice(0, 4).map((s, i) => (
-                <span key={s.name}>
-                  {i > 0 && ', '}
-                  <button
-                    type="button"
-                    className="font-semibold text-brand underline"
-                    disabled={busy}
-                    onClick={() => void rename(s.name)}
-                  >
-                    {s.name}
-                  </button>{' '}
-                  <span className="muted">
-                    ({s.games} of {s.of} games)
+        <div className="mt-2 rounded-lg border border-line bg-paper px-3 py-2">
+          <p className="text-sm">
+            {certain ? (
+              <>
+                <strong>{top.name}</strong> is the only player on Pitchero&apos;s sheet that England
+                Hockey doesn&apos;t account for, in all {top.of} of their games.
+              </>
+            ) : (
+              <>Missing from England Hockey&apos;s sheet in their games. Tap who it is:</>
+            )}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {suggestions.slice(0, 6).map((s, i) => {
+              const best = certain && i === 0;
+              return (
+                <button
+                  key={s.name}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void rename(s.name)}
+                  className={`min-h-[40px] rounded-full px-3 text-sm font-semibold ${best ? 'bg-brand text-white' : 'bg-surface text-ink ring-1 ring-line hover:ring-brand'}`}
+                >
+                  {s.name}{' '}
+                  <span className={best ? 'text-white/80' : 'muted'}>
+                    {s.games}/{s.of}
                   </span>
-                </span>
-              ))}
-            </>
-          )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
-      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-        <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[0.7rem] font-bold uppercase text-brand">
-          Name withheld
-        </span>
-        <input
-          className="input-inline w-36"
-          placeholder="Real name"
-          aria-label={`Real name for ${player.name}`}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              void rename();
-            }
-          }}
-        />
-        <button
-          type="button"
-          className="btn btn-sm"
-          disabled={busy || !name.trim()}
-          onClick={() => void rename()}
-        >
-          Save name
-        </button>
-        <select
-          className="input-inline max-w-[11rem]"
-          aria-label={`Or merge ${player.name} into an existing player`}
-          value=""
-          disabled={busy}
-          onChange={(e) => void merge(Number(e.target.value))}
-        >
-          <option value="">or this is…</option>
-          {others.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <details className="mt-1 text-sm">
+        <summary className="muted cursor-pointer">Someone else? Type a name or merge</summary>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[0.7rem] font-bold uppercase text-brand">
+            Name withheld
+          </span>
+          <input
+            className="input-inline w-36"
+            placeholder="Real name"
+            aria-label={`Real name for ${player.name}`}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void rename();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={busy || !name.trim()}
+            onClick={() => void rename()}
+          >
+            Save name
+          </button>
+          <select
+            className="input-inline max-w-[11rem]"
+            aria-label={`Or merge ${player.name} into an existing player`}
+            value=""
+            disabled={busy}
+            onChange={(e) => void merge(Number(e.target.value))}
+          >
+            <option value="">or this is…</option>
+            {others.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </details>
     </>
   );
 }

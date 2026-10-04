@@ -6,6 +6,7 @@ import { formatDayTime, formatWeekdayTime, gameweekLabel } from '@/lib/format';
 import {
   keys,
   useFixtureDetail,
+  usePitcheroEvidence,
   useFixtures,
   useGameweeks,
   usePlayers,
@@ -14,6 +15,7 @@ import {
 import { POSITIONS } from '@/lib/scoring';
 import { errorLines, requireSupabase } from '@/lib/supabase';
 import { WithheldName } from './WithheldName';
+import { nameKey, suggestWithheldNames, type NameSuggestion } from '@/lib/pitcheroMatch';
 
 export function AdminFixturesScreen() {
   const gameweeks = useGameweeks();
@@ -173,6 +175,7 @@ const EMPTY: Line = {
 export function AdminFixtureScreen() {
   const id = Number(useParams().id);
   const detail = useFixtureDetail(id);
+  const evidence = usePitcheroEvidence();
   const players = usePlayers();
   const sides = useSides();
   const gameweeks = useGameweeks();
@@ -202,6 +205,29 @@ export function AdminFixtureScreen() {
   const { fixture } = detail.data;
   const sideById = new Map((sides.data ?? []).map((s) => [s.id, s]));
   const performanceShirt = new Map(detail.data.performances.map((p) => [p.player_id, p.shirt]));
+  // Names on Pitchero's sheet for this match that England Hockey doesn't
+  // account for: the short list a withheld player here must come from.
+  const allNamed = (players.data ?? []).filter((p) => !p.name_withheld).map((p) => p.name);
+  const knownKeys = new Set(allNamed.map(nameKey));
+  const namedHere = new Set(
+    (players.data ?? [])
+      .filter(
+        (p) => !p.name_withheld && detail.data.performances.some((pf) => pf.player_id === p.id),
+      )
+      .map((p) => nameKey(p.name)),
+  );
+  const missingHere = (evidence.data?.sheets ?? [])
+    .filter((r) => r.fixture_id === fixture.id)
+    .map((r) => r.name)
+    .filter((n) => !namedHere.has(nameKey(n)) && !knownKeys.has(nameKey(n)));
+  const overall = evidence.data
+    ? suggestWithheldNames(evidence.data.appearances, evidence.data.sheets, allNamed)
+    : new Map<number, NameSuggestion[]>();
+  const suggestionsFor = (playerId: number): NameSuggestion[] => {
+    const ranked = overall.get(playerId) ?? [];
+    const here = ranked.filter((r) => missingHere.includes(r.name));
+    return here.length ? here : missingHere.map((name) => ({ name, games: 1, of: 1 }));
+  };
   const gw = gameweeks.data?.find((g) => g.id === fixture.gameweek_id);
   const order = (a: { position: string; name: string }, b: { position: string; name: string }) =>
     POSITIONS.indexOf(a.position as never) - POSITIONS.indexOf(b.position as never) ||
@@ -317,6 +343,13 @@ export function AdminFixtureScreen() {
 
       <section className="card">
         <h2>Who played</h2>
+        {missingHere.length > 0 &&
+          shown.some((p) => p.name_withheld && lines.get(p.id)?.played) && (
+            <p className="mb-3 rounded-lg border border-line bg-paper px-3 py-2 text-sm">
+              <strong>On Pitchero&apos;s sheet but not England Hockey&apos;s:</strong>{' '}
+              {missingHere.join(', ')}
+            </p>
+          )}
         {shown.some((p) => p.name_withheld && lines.get(p.id)?.played) && (
           <p className="mb-3 rounded-lg border border-brand/40 bg-brand/5 px-3 py-2 text-sm">
             Players marked <strong>Name withheld</strong> keep their GMS profile private, but their
@@ -379,6 +412,7 @@ export function AdminFixtureScreen() {
                       <WithheldName
                         player={p}
                         players={players.data ?? []}
+                        suggestions={suggestionsFor(p.id)}
                         onError={(lines) =>
                           setNotices(lines.map((text) => ({ kind: 'error', text })))
                         }
