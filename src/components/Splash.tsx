@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { advance, lineProgress } from '@/lib/splash';
+import { advance, FADE_MS, HOLD_MS, lineProgress } from '@/lib/splash';
 
 // The opening screen: a pitch whose lines draw themselves in the club's
-// colours. The lines always finish drawing before it fades away; if the app
-// is ready early they speed up, if it's slow they wait fully drawn.
+// colours. The lines draw at a steady pace and always finish before it fades;
+// if the app is slow, the finished pitch waits.
 
 // The same geometry as PitchMarkings (a real 91.4m x 55m pitch).
 const W = 550;
@@ -33,12 +33,7 @@ const LINES: { d: string; from: number; to: number; dashed?: boolean }[] = [
 export function Splash({ done, onGone }: { done: boolean; onGone: () => void }) {
   const [p, setP] = useState(0);
   const [leaving, setLeaving] = useState(false);
-  const readyAt = useRef<number | null>(null);
   const progress = useRef(0);
-
-  useEffect(() => {
-    if (done && readyAt.current === null) readyAt.current = progress.current;
-  }, [done]);
 
   useEffect(() => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
@@ -49,7 +44,7 @@ export function Splash({ done, onGone }: { done: boolean; onGone: () => void }) 
     let frame = 0;
     let last = performance.now();
     const tick = (now: number) => {
-      progress.current = advance(progress.current, now - last, readyAt.current);
+      progress.current = advance(progress.current, now - last);
       last = now;
       setP(progress.current);
       if (progress.current < 1) frame = requestAnimationFrame(tick);
@@ -61,12 +56,12 @@ export function Splash({ done, onGone }: { done: boolean; onGone: () => void }) 
   // Fully drawn and the app is ready: a beat to see it, then fade out.
   useEffect(() => {
     if (!(done && p >= 1) || leaving) return;
-    const hold = setTimeout(() => setLeaving(true), 200);
+    const hold = setTimeout(() => setLeaving(true), HOLD_MS);
     return () => clearTimeout(hold);
   }, [done, p, leaving]);
   useEffect(() => {
     if (!leaving) return;
-    const gone = setTimeout(onGone, 300);
+    const gone = setTimeout(onGone, FADE_MS);
     return () => clearTimeout(gone);
   }, [leaving, onGone]);
 
