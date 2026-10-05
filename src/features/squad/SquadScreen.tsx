@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ErrorText, Loading, Notices, PosBadge, PriceTrend, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -21,6 +21,7 @@ import {
 } from '@/lib/queries';
 import { fixtureLabel, formByPlayer } from '@/lib/form';
 import { ChipsCard } from './ChipsCard';
+import { chipName } from '@/lib/chips';
 import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
 import { DEFAULT_FORMATIONS, formationOf, pitchRows } from '@/lib/formation';
 import { Pitch, Shirt, type PitchSlot } from '@/components/Pitch';
@@ -101,6 +102,8 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   const [notices, setNotices] = useState<Notice[]>([]);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<'pitch' | 'list'>('pitch');
+  const [chipsOpen, setChipsOpen] = useState(false);
+  const [problemsOpen, setProblemsOpen] = useState(false);
   // Choosing a player: for a pitch position, or for a bench slot (0 = sub keeper).
   const [picker, setPicker] = useState<{ positions: Position[]; slot?: number } | null>(null);
   // Subs bench: [sub keeper, sub 1, sub 2, sub 3].
@@ -528,129 +531,106 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     void to;
   };
   const empty = squadPlayers.length === 0;
+  // Chips for this page: team chips on Pick team, the wildcard on Transfers.
+  const pageChips = mode === 'pick' ? ['triple_captain', 'rolling_subs', 'team_bus'] : ['wildcard'];
+  const played = chips.data?.find(
+    (c) => c.gameweek_id === gameweek.id && pageChips.includes(c.chip),
+  );
+  const activeChip = played ? chipName(played.chip) : null;
+  const showProblems = problems.length > 0 && (selected.size > 0 || bench.some((b) => b !== null));
+  const surname = (id: number | null) =>
+    id
+      ? (shortName(poolById.get(id)?.name ?? '')
+          .split(' ')
+          .at(-1) ?? '-')
+      : '-';
+  // The numbers that matter while picking, always in view in the bottom bar.
+  const barStats: [string, string, boolean][] =
+    mode === 'pick'
+      ? [
+          ['Shape', selected.size === STARTERS ? pickedShape : '-', false],
+          ['Captain', surname(captainId), false],
+          ['Vice', surname(viceId), false],
+        ]
+      : [
+          ['Bank', `${formatPrice(bank)}m`, bank < 0],
+          [
+            'Transfers',
+            summary.transfers === null || freeFix
+              ? 'Free'
+              : wildcard
+                ? 'WC'
+                : `${summary.transfers}/${s.transfers_per_gameweek}`,
+            false,
+          ],
+          ['Squad', `${summary.count}/${STARTERS + BENCH}`, summary.count !== STARTERS + BENCH],
+        ];
 
   return (
     <>
-      <section className="hero !pb-3 !pt-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <h1 className="m-0 text-3xl leading-none">{gameweekLabel(gameweek, all)}</h1>
-          <span className="text-sm text-white/90">
+      {/* Red bar: the gameweek, the page switch and chips, all in one. */}
+      <section className="hero !mb-2 !pb-2 !pt-2">
+        <div className="flex items-baseline gap-2">
+          <h1 className="m-0 text-xl leading-none">{gameweekLabel(gameweek, all).split(' ')[0]}</h1>
+          <span className="text-xs text-white/90">
             Deadline {formatWeekdayTime(gameweek.deadline)}
           </span>
         </div>
-        {mode === 'pick' ? (
-          // Same height as the Transfers strip, so the bar doesn't jump between pages.
-          <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+        <div className="mt-1.5 flex gap-1.5">
+          <nav className="flex flex-1 rounded-full bg-black/20 p-1" aria-label="Squad pages">
             {(
               [
-                [selected.size === STARTERS ? pickedShape : '-', 'Shape'],
-                [
-                  captainId
-                    ? shortName(poolById.get(captainId)?.name ?? '')
-                        .split(' ')
-                        .at(-1)
-                    : '-',
-                  'Captain',
-                ],
-                [
-                  viceId
-                    ? shortName(poolById.get(viceId)?.name ?? '')
-                        .split(' ')
-                        .at(-1)
-                    : '-',
-                  'Vice',
-                ],
+                ['/squad', 'Pick team', 'pick'],
+                ['/transfers', 'Transfers', 'transfers'],
               ] as const
-            ).map(([value, label]) => (
-              <HeroTile key={label} label={label}>
-                {value}
-              </HeroTile>
+            ).map(([to, label, m]) => (
+              <Link
+                key={to}
+                to={to}
+                onClick={mode === m ? undefined : leave(to)}
+                aria-current={mode === m ? 'page' : undefined}
+                className={`flex min-h-[36px] flex-1 items-center justify-center rounded-full font-display text-sm font-bold uppercase no-underline hover:no-underline ${mode === m ? 'bg-white text-brand' : 'text-white/85 hover:text-white'}`}
+              >
+                {label}
+              </Link>
             ))}
-          </div>
-        ) : (
-          <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
-            <HeroTile label="Bank" warn={bank < 0}>
-              {formatPrice(bank)}m
-            </HeroTile>
-            <HeroTile label="Transfers">
-              {summary.transfers === null
-                ? 'Free'
-                : wildcard
-                  ? 'WC'
-                  : freeFix
-                    ? 'Free'
-                    : `${summary.transfers}/${s.transfers_per_gameweek}`}
-            </HeroTile>
-            <HeroTile label="Squad">
-              {summary.count}/{STARTERS + BENCH}
-            </HeroTile>
-          </div>
-        )}
-      </section>
-
-      <nav className="mb-3 flex rounded-full bg-surface p-1 shadow-card" aria-label="Squad pages">
-        {(
-          [
-            ['/squad', 'Pick team', 'pick'],
-            ['/transfers', 'Transfers', 'transfers'],
-          ] as const
-        ).map(([to, label, m]) => (
-          <Link
-            key={to}
-            to={to}
-            onClick={mode === m ? undefined : leave(to)}
-            aria-current={mode === m ? 'page' : undefined}
-            className={`flex min-h-[40px] flex-1 items-center justify-center rounded-full font-display text-sm font-bold uppercase no-underline hover:no-underline ${mode === m ? 'bg-brand text-white' : 'text-ink-soft'}`}
+          </nav>
+          <button
+            type="button"
+            onClick={() => setChipsOpen(true)}
+            className={`flex min-h-tap max-w-[9rem] items-center gap-1 rounded-full px-3 font-display text-sm font-bold uppercase ${activeChip ? 'bg-white text-brand' : 'bg-black/20 text-white'}`}
           >
-            {label}
-          </Link>
-        ))}
-      </nav>
+            <span className="truncate">{activeChip ? `${activeChip} ✓` : 'Chips'}</span>
+            <span className="text-[0.6rem]" aria-hidden="true">
+              ▼
+            </span>
+          </button>
+          {mode === 'transfers' && (
+            <button
+              type="button"
+              onClick={() => setView(view === 'pitch' ? 'list' : 'pitch')}
+              aria-label={view === 'pitch' ? 'Show as a list' : 'Show on the pitch'}
+              className="min-h-tap rounded-full bg-black/20 px-3 font-display text-sm font-bold uppercase text-white"
+            >
+              {view === 'pitch' ? 'List' : 'Pitch'}
+            </button>
+          )}
+        </div>
+      </section>
 
       <Notices items={notices} />
 
-      <ChipsCard
-        userId={session.user.id}
-        gameweek={gameweek}
-        gameweeks={all}
-        sides={sides.data ?? []}
-        onNotice={setNotices}
-        only={mode === 'pick' ? ['triple_captain', 'rolling_subs', 'team_bus'] : ['wildcard']}
-      />
-
-      {mode === 'transfers' && (
-        <div className="mb-3 flex justify-center">
-          <div className="inline-flex rounded-full bg-surface p-1 shadow-card" role="tablist">
-            {(['pitch', 'list'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={view === v}
-                onClick={() => setView(v)}
-                className={`min-h-[36px] rounded-full px-5 font-display text-sm font-bold uppercase ${view === v ? 'bg-[#16181d] text-white' : 'text-ink-soft'}`}
-              >
-                {v === 'pitch' ? 'Pitch' : 'List'}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {problems.length > 0 && (selected.size > 0 || bench.some((b) => b !== null)) && (
-        <details className="mb-3 rounded-xl border border-[#f2c27a] bg-[#fff4e5] px-3 py-2 text-sm font-semibold text-[#6b3d00] dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8]">
-          <summary className="cursor-pointer">
-            {problems[0]}
-            {problems.length > 1 && ` (+${problems.length - 1} more)`}
-          </summary>
-          {problems.length > 1 && (
-            <ul className="mt-1 list-disc pl-5 font-normal">
-              {problems.slice(1).map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-          )}
-        </details>
+      {chipsOpen && (
+        <Sheet title="Chips" onClose={() => setChipsOpen(false)}>
+          <ChipsCard
+            userId={session.user.id}
+            gameweek={gameweek}
+            gameweeks={all}
+            sides={sides.data ?? []}
+            onNotice={setNotices}
+            only={mode === 'pick' ? ['triple_captain', 'rolling_subs', 'team_bus'] : ['wildcard']}
+          />
+        </Sheet>
       )}
 
       {mode === 'pick' && empty ? (
@@ -669,7 +649,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
               free: tap a player to swap them for a position you&apos;re short of.
             </p>
           )}
-          <Pitch rows={transferRows} />
+          <Pitch rows={transferRows} compact />
           <p className="muted mt-3 text-center text-sm">
             Tap a player to transfer them out, or an empty shirt to add one. Like for like: a
             defender out, a defender in.
@@ -689,7 +669,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
               </button>
             </div>
           )}
-          <Pitch rows={slots} bench={benchSlots} />
+          <Pitch rows={slots} bench={benchSlots} compact />
           <details className="muted mt-3 text-center text-sm">
             <summary className="min-h-tap cursor-pointer font-semibold text-brand">
               The strip shows who their side plays. How subs and captains work
@@ -796,22 +776,49 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
 
       {/* Save stays in reach: sitting on the tab bar on phones (64px tabs + border +
           safe area), pinned at the bottom on desktop. */}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+1px+env(safe-area-inset-bottom))] z-20 flex items-center gap-3 border-t border-line bg-surface px-4 py-2 sm:sticky sm:bottom-4 sm:mt-4 sm:rounded-2xl sm:border sm:shadow-card">
-        <div className="flex flex-col leading-tight">
-          <span className="text-xs uppercase tracking-wide text-ink-soft">
-            {problems.length && squadPlayers.length ? `${problems.length} to fix` : 'Ready'}
-          </span>
-          <span className={`font-bold ${bank < 0 ? 'text-brand' : ''}`}>
-            {mode === 'transfers' ? `Bank ${formatPrice(bank)}m` : pickedShape}
-          </span>
-        </div>
+      {showProblems && problemsOpen && (
+        <ul className="fixed inset-x-3 bottom-[calc(8rem+env(safe-area-inset-bottom))] z-30 list-disc space-y-1 rounded-xl border border-[#f2c27a] bg-[#fff4e5] py-2 pl-7 pr-3 text-sm font-semibold text-[#6b3d00] shadow-card dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8] sm:static sm:mb-2">
+          {problems.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
+      )}
+      <div className="fixed inset-x-0 bottom-[calc(4rem+1px+env(safe-area-inset-bottom))] z-20 flex items-center gap-3 border-t border-line bg-surface py-1.5 pl-4 pr-2 sm:sticky sm:bottom-4 sm:mt-4 sm:rounded-2xl sm:border sm:pr-3 sm:shadow-card">
+        {showProblems ? (
+          // Rules broken: say so here instead of the numbers; tap for the full list.
+          <button
+            type="button"
+            onClick={() => setProblemsOpen(!problemsOpen)}
+            aria-expanded={problemsOpen}
+            className="flex min-h-tap min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold leading-tight text-[#8a4b00] dark:text-[#ffc773]"
+          >
+            <span aria-hidden="true">⚠</span>
+            <span className="line-clamp-2 min-w-0">
+              {problems[0]}
+              {problems.length > 1 && ` (+${problems.length - 1} more)`}
+            </span>
+          </button>
+        ) : (
+          <div className="flex min-w-0 flex-1 gap-3.5">
+            {barStats.map(([label, value, warn]) => (
+              <span key={label} className="flex min-w-0 flex-col leading-none">
+                <span className="text-[0.62rem] uppercase tracking-wider text-ink-soft">
+                  {label}
+                </span>
+                <span className={`display-num mt-0.5 truncate text-lg ${warn ? 'text-brand' : ''}`}>
+                  {value}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
         <button
           type="button"
-          className="btn flex-1"
+          className="btn shrink-0 px-5"
           disabled={saving || (mode === 'pick' && empty)}
           onClick={() => void save()}
         >
-          {saving ? 'Saving' : mode === 'transfers' ? 'Save transfers' : 'Save team'}
+          {saving ? 'Saving' : mode === 'transfers' ? 'Save' : 'Save team'}
         </button>
       </div>
       <div className="h-16 sm:hidden" />
@@ -999,29 +1006,5 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
         />
       )}
     </>
-  );
-}
-
-/** A small box in the red bar: label on top, value under it. */
-function HeroTile({
-  label,
-  warn,
-  children,
-}: {
-  label: string;
-  warn?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col items-center rounded-lg bg-white/15 px-1.5 py-1 leading-none">
-      <span className="text-[0.6rem] font-semibold uppercase tracking-wider text-white/80">
-        {label}
-      </span>
-      <span
-        className={`display-num mt-0.5 w-full min-w-0 truncate text-lg ${warn ? 'text-[#ffd0d0]' : ''}`}
-      >
-        {children}
-      </span>
-    </div>
   );
 }
