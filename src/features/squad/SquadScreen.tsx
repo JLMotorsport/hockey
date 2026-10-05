@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ErrorText, Loading, Notices, PosBadge, PriceTrend, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -562,41 +562,28 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
                 ],
               ] as const
             ).map(([value, label]) => (
-              <div
-                key={label}
-                className="flex min-w-0 items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5"
-              >
-                <span className="display-num min-w-0 truncate text-xl">{value}</span>
-                <span className="shrink-0 text-[0.7rem] uppercase text-white/85">{label}</span>
-              </div>
+              <HeroTile key={label} label={label}>
+                {value}
+              </HeroTile>
             ))}
           </div>
         ) : (
           <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
-            <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
-              <span className={`display-num text-xl ${bank < 0 ? 'text-[#ffd0d0]' : ''}`}>
-                {formatPrice(bank)}m
-              </span>
-              <span className="text-[0.7rem] uppercase text-white/85">Bank</span>
-            </div>
-            <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
-              <span className="display-num text-xl">
-                {summary.transfers === null
-                  ? 'Free'
-                  : wildcard
-                    ? 'WC'
-                    : freeFix
-                      ? 'Free'
-                      : `${summary.transfers}/${s.transfers_per_gameweek}`}
-              </span>
-              <span className="text-[0.7rem] uppercase text-white/85">Transfers</span>
-            </div>
-            <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
-              <span className="display-num text-xl">
-                {summary.count}/{STARTERS + BENCH}
-              </span>
-              <span className="text-[0.7rem] uppercase text-white/85">Squad</span>
-            </div>
+            <HeroTile label="Bank" warn={bank < 0}>
+              {formatPrice(bank)}m
+            </HeroTile>
+            <HeroTile label="Transfers">
+              {summary.transfers === null
+                ? 'Free'
+                : wildcard
+                  ? 'WC'
+                  : freeFix
+                    ? 'Free'
+                    : `${summary.transfers}/${s.transfers_per_gameweek}`}
+            </HeroTile>
+            <HeroTile label="Squad">
+              {summary.count}/{STARTERS + BENCH}
+            </HeroTile>
           </div>
         )}
       </section>
@@ -1012,5 +999,29 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
         />
       )}
     </>
+  );
+}
+
+/** A small box in the red bar: label on top, value under it. */
+function HeroTile({
+  label,
+  warn,
+  children,
+}: {
+  label: string;
+  warn?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col items-center rounded-lg bg-white/15 px-1.5 py-1 leading-none">
+      <span className="text-[0.6rem] font-semibold uppercase tracking-wider text-white/80">
+        {label}
+      </span>
+      <span
+        className={`display-num mt-0.5 w-full min-w-0 truncate text-lg ${warn ? 'text-[#ffd0d0]' : ''}`}
+      >
+        {children}
+      </span>
+    </div>
   );
 }
