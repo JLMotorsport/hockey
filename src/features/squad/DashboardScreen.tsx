@@ -41,7 +41,6 @@ export function DashboardScreen() {
   const viewingIndex = viewing ? browsable.findIndex((g) => g.id === viewing.id) : -1;
   const viewingUpcoming = Boolean(viewing && next && viewing.id === next.id);
   const upcoming = useSquad(userId, next?.id);
-  const lastSquad = useSquad(userId, last?.id);
   const chips = useChips(userId);
   const chipFor = (gw: number | undefined) => chips.data?.find((c) => c.gameweek_id === gw);
   const history = useQueries({
@@ -64,7 +63,6 @@ export function DashboardScreen() {
   if (gameweeks.error) return <ErrorText error={gameweeks.error} />;
 
   const me = table.data?.find((r) => r.user_id === userId);
-  const lastTotal = squadTotal(lastSquad.data);
   const viewedRows = viewingUpcoming
     ? (upcoming.data ?? [])
     : (history[locked.findIndex((g) => g.id === viewing?.id)]?.data ?? []);
@@ -83,107 +81,65 @@ export function DashboardScreen() {
 
   return (
     <>
-      <section className="hero">
-        <p className="font-display text-sm font-bold uppercase tracking-widest text-white/85">
-          {profile?.display_name}
-        </p>
-        <h1 className="mb-3 mt-0 text-4xl leading-none">{profile?.team_name}</h1>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-xl bg-white/15 px-2 py-2">
-            <span className="display-num block text-3xl">{lastTotal}</span>
-            <span className="text-[0.7rem] uppercase tracking-wide text-white/85">
-              {last ? gameweekLabel(last, all).split(' ')[0] : 'GW'} pts
-            </span>
+      {/* Scoreboard: the week you're looking at, big, with arrows either side. */}
+      {viewing ? (
+        <section className="hero !mb-2 !pb-2 !pt-1.5">
+          <div className="flex items-center gap-1.5">
+            <ArrowButton
+              label="Previous gameweek"
+              disabled={viewingIndex <= 0}
+              onClick={() => go(viewingIndex - 1)}
+              d="M15 6l-6 6 6 6"
+            />
+            <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
+              <div className="flex flex-col items-center leading-none">
+                <span className="font-display text-xs font-bold uppercase text-white/85">
+                  {viewingUpcoming
+                    ? 'Your team'
+                    : `${viewedLabel} · ${gameweekLabel(viewing, all)
+                        .replace(/^GW\d+ /, '')
+                        .replace(/[()]/g, '')}`}
+                </span>
+                <span className="display-num text-[2.9rem] leading-[0.95]">
+                  {viewingUpcoming ? viewedLabel : squadTotal(viewedRows)}
+                </span>
+                <span className="text-[0.7rem] text-white/85">
+                  {viewingUpcoming ? 'next up' : 'points'}
+                </span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1 border-l border-white/30 pl-3 text-xs">
+                <span>
+                  <span className="text-white/80">Total</span>{' '}
+                  <b className="display-num text-lg">{me?.total ?? 0}</b>
+                </span>
+                <span className="whitespace-nowrap">
+                  <span className="text-white/80">Position</span>{' '}
+                  <b className="display-num text-lg">{me?.rank ? ordinal(me.rank) : '-'}</b>
+                  <span className="text-white/80"> of {table.data?.length ?? 0}</span>
+                </span>
+                {chipFor(viewing.id) && (
+                  <span className="self-start rounded-full bg-black/25 px-2 py-px text-[0.7rem]">
+                    {chipName(chipFor(viewing.id)!.chip)}
+                  </span>
+                )}
+              </div>
+            </div>
+            <ArrowButton
+              label="Next gameweek"
+              disabled={viewingIndex >= browsable.length - 1}
+              onClick={() => go(viewingIndex + 1)}
+              d="M9 6l6 6-6 6"
+            />
           </div>
-          <div className="rounded-xl bg-white px-2 py-2 text-brand">
-            <span className="display-num block text-3xl">{me?.total ?? 0}</span>
-            <span className="text-[0.7rem] font-semibold uppercase tracking-wide">Total</span>
-          </div>
-          <div className="rounded-xl bg-white/15 px-2 py-2">
-            <span className="display-num block text-3xl">
-              {me?.rank ?? '-'}
-              <span className="text-lg text-white/75">/{table.data?.length ?? 0}</span>
-            </span>
-            <span className="text-[0.7rem] uppercase tracking-wide text-white/85">Position</span>
-          </div>
-        </div>
-        {next && (
-          <Link
-            to={upcoming.data?.length ? '/squad' : '/transfers'}
-            className="mt-3 flex min-h-tap items-center gap-3 rounded-xl bg-black/20 px-3 py-2 text-white no-underline hover:no-underline"
-          >
-            <span className="flex flex-1 flex-col leading-tight">
-              <span className="text-[0.7rem] uppercase tracking-wide text-white/85">
-                {gameweekLabel(next, all).split(' ')[0]} deadline
-              </span>
-              <span className="font-bold">
-                {formatWeekdayTime(next.deadline)}
-                {daysLeft > 0 && ` · ${daysLeft} day${daysLeft === 1 ? '' : 's'}`}
-              </span>
-            </span>
-            <span className="rounded-full bg-white px-3 py-1.5 font-display text-sm font-extrabold uppercase text-brand">
-              {upcoming.data?.length ? 'Make changes' : 'Pick squad'}
-            </span>
-          </Link>
-        )}
-      </section>
+        </section>
+      ) : (
+        <section className="hero">
+          <h1 className="m-0 text-3xl leading-none">{profile?.team_name}</h1>
+        </section>
+      )}
 
       {viewing && (
         <section className="mb-4">
-          <div className="mb-2 flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="Previous gameweek"
-              disabled={viewingIndex <= 0}
-              onClick={() => go(viewingIndex - 1)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface shadow-card disabled:opacity-30"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M15 6l-6 6 6 6" />
-              </svg>
-            </button>
-            <div className="min-w-0 flex-1 text-center">
-              <h2 className="m-0 leading-tight">
-                {viewingUpcoming ? `${viewedLabel} · your team` : `${viewedLabel} points`}
-              </h2>
-              <p className="muted text-sm">
-                {viewingUpcoming
-                  ? `Deadline ${formatWeekdayTime(viewing.deadline)}`
-                  : `${squadTotal(viewedRows)} pts · ${gameweekLabel(viewing, all)
-                      .replace(/^GW\d+ /, '')
-                      .replace(/[()]/g, '')}`}
-              </p>
-            </div>
-            <button
-              type="button"
-              aria-label="Next gameweek"
-              disabled={viewingIndex >= browsable.length - 1}
-              onClick={() => go(viewingIndex + 1)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface shadow-card disabled:opacity-30"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M9 6l6 6-6 6" />
-              </svg>
-            </button>
-          </div>
           {viewedRows.length > 0 ? (
             <SquadPitch
               rows={viewedRows}
@@ -194,6 +150,7 @@ export function DashboardScreen() {
               seasonPoints={seasonPoints.data}
               chip={chipFor(viewing.id)}
               fixturesFor={viewingUpcoming ? viewing.id : undefined}
+              compact
             />
           ) : (
             <div className="card text-center">
@@ -206,13 +163,6 @@ export function DashboardScreen() {
                 </Link>
               )}
             </div>
-          )}
-          {viewingUpcoming && viewedRows.length > 0 && (
-            <p className="mt-2 text-center">
-              <Link to="/squad" className="font-semibold">
-                Change your team
-              </Link>
-            </p>
           )}
         </section>
       )}
@@ -272,6 +222,80 @@ export function DashboardScreen() {
           </svg>
         </Link>
       )}
+
+      {/* What's next, always in view: sits on the tab bar on phones. */}
+      {next && (
+        <>
+          <div className="fixed inset-x-0 bottom-[calc(4rem+1px+env(safe-area-inset-bottom))] z-20 flex items-center gap-3 border-t border-line bg-surface py-1.5 pl-4 pr-2 sm:sticky sm:bottom-4 sm:mt-4 sm:rounded-2xl sm:border sm:pr-3 sm:shadow-card">
+            <span className="flex min-w-0 flex-1 flex-col leading-tight">
+              <span className="text-[0.62rem] uppercase tracking-wider text-ink-soft">
+                {gameweekLabel(next, all).split(' ')[0]} deadline
+              </span>
+              <span className="display-num truncate text-lg">
+                {formatWeekdayTime(next.deadline)}
+                {daysLeft > 0 && (
+                  <span className="text-sm text-ink-soft">
+                    {' '}
+                    · {daysLeft} day{daysLeft === 1 ? '' : 's'}
+                  </span>
+                )}
+              </span>
+            </span>
+            <Link
+              to={upcoming.data?.length ? '/squad' : '/transfers'}
+              className="btn shrink-0 px-5"
+            >
+              {upcoming.data?.length ? 'Make changes' : 'Pick squad'}
+            </Link>
+          </div>
+          <div className="h-16 sm:hidden" />
+        </>
+      )}
     </>
   );
+}
+
+function ArrowButton({
+  label,
+  disabled,
+  onClick,
+  d,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  d: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/20 text-white disabled:opacity-30"
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d={d} />
+      </svg>
+    </button>
+  );
+}
+
+/** 3 -> "3rd" */
+function ordinal(n: number): string {
+  const tens = n % 100;
+  const suffix =
+    tens >= 11 && tens <= 13
+      ? 'th'
+      : (({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th');
+  return `${n}${suffix}`;
 }

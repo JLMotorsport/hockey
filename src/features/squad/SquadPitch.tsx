@@ -24,6 +24,7 @@ export function SquadPitch({
   gameweekId,
   chip,
   fixturesFor,
+  compact = false,
 }: {
   rows: SquadRow[];
   players: Player[];
@@ -37,6 +38,8 @@ export function SquadPitch({
   chip?: PlayedChip;
   /** An upcoming gameweek: show who each player's side plays in it instead of points. */
   fixturesFor?: number;
+  /** Phones: sized to the screen so the whole team is in view. */
+  compact?: boolean;
 }) {
   const fixtures = useFixtures();
   // For a past gameweek, tag each player with the side they actually played for.
@@ -121,7 +124,11 @@ export function SquadPitch({
           {chipName(chip.chip)} played{sideName ? `: ${sideName}` : ''}
         </p>
       )}
-      <Pitch rows={slots} bench={benched.length ? benched.map(slotFor) : undefined} />
+      <Pitch
+        rows={slots}
+        bench={benched.length ? benched.map(slotFor) : undefined}
+        compact={compact}
+      />
       {open && (
         <PlayerSheet
           playerId={open.id}
