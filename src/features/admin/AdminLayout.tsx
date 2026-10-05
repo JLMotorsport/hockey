@@ -93,9 +93,9 @@ export function AdminLayout() {
                 Managers
                 <span
                   title={`Build ${BUILD_COMMIT}`}
-                  className="ml-2 font-sans text-[10px] font-semibold tracking-normal tabular-nums text-white/60 lg:text-[11px]"
+                  className="ml-2 font-display text-[0.7rem] font-bold tracking-widest text-white opacity-70"
                 >
-                  {BUILD_LABEL}
+                  Beta <span className="font-sans tracking-normal tabular-nums">{BUILD_LABEL}</span>
                 </span>
               </span>
             </span>

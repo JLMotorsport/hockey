@@ -59,9 +59,12 @@ export function Layout() {
   return (
     <div className="min-h-screen pb-20 sm:pb-0">
       <header className="sticky top-0 z-30 bg-brand text-white shadow-md">
-        {/* Still being built: BETA in the bar's top-right corner on phones. */}
-        <span className="pointer-events-none absolute right-3 top-1.5 font-display text-[0.7rem] font-bold uppercase tracking-widest text-white opacity-70 sm:hidden">
-          Beta
+        {/* Still being built: BETA and the build in the bar's top-right corner on phones. */}
+        <span
+          title={`Build ${BUILD_COMMIT}`}
+          className="pointer-events-none absolute right-3 top-[3px] font-display text-[0.65rem] font-bold uppercase leading-none tracking-widest text-white opacity-70 sm:hidden"
+        >
+          Beta <span className="font-sans tracking-normal tabular-nums">{BUILD_LABEL}</span>
         </span>
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5">
           <Link
@@ -78,20 +81,11 @@ export function Layout() {
                   className="ml-2 hidden align-top text-[0.7rem] font-bold tracking-widest opacity-70 sm:inline"
                 >
                   Beta
-                  <span className="ml-1.5 font-sans font-semibold normal-case tracking-normal tabular-nums">
-                    {BUILD_LABEL}
-                  </span>
+                  <span className="ml-1 font-sans tracking-normal tabular-nums">{BUILD_LABEL}</span>
                 </span>
               </span>
               <span className="block text-xs font-semibold uppercase tracking-widest text-white/80">
                 Felixstowe HC
-                {/* Phones: the corner under BETA holds the menu, so the build sits here. */}
-                <span
-                  title={`Build ${BUILD_COMMIT}`}
-                  className="ml-2 font-sans text-[0.65rem] normal-case tracking-normal tabular-nums opacity-80 sm:hidden"
-                >
-                  {BUILD_LABEL}
-                </span>
               </span>
             </span>
           </Link>
