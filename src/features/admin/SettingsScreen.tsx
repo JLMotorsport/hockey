@@ -98,7 +98,7 @@ export function SettingsScreen() {
           {rules.map(([label, help, key, value]) => (
             <label
               key={label}
-              className="flex min-h-[56px] items-center gap-3 border-t border-[#eef0f3]"
+              className="flex min-h-[56px] items-center gap-3 border-t border-line"
             >
               <span className="flex-1">
                 <span className="block text-[15px] font-semibold">{label}</span>
@@ -113,7 +113,7 @@ export function SettingsScreen() {
               />
             </label>
           ))}
-          <div className="flex flex-col gap-2 border-t border-[#eef0f3] pt-3">
+          <div className="flex flex-col gap-2 border-t border-line pt-3">
             <span className="text-[15px] font-semibold">Formations allowed</span>
             <span className="muted text-xs">Defenders, midfielders, forwards, with 1 keeper</span>
             <div className="flex flex-wrap gap-2">
@@ -130,7 +130,7 @@ export function SettingsScreen() {
                         formations: on ? f.formations.filter((y) => y !== x) : [...f.formations, x],
                       })
                     }
-                    className={`min-h-tap rounded-full px-3.5 font-display text-[15px] font-extrabold tabular-nums lg:min-h-[36px] ${on ? 'bg-[#16181d] text-white' : 'border border-dashed border-[#c4c9d2] bg-surface text-[#8a909b]'}`}
+                    className={`min-h-tap rounded-full px-3.5 font-display text-[15px] font-extrabold tabular-nums lg:min-h-[36px] ${on ? 'bg-[#16181d] text-white dark:bg-ink dark:text-paper' : 'border border-dashed border-[#c4c9d2] bg-surface text-[#8a909b]'}`}
                   >
                     {x}
                   </button>
@@ -156,7 +156,7 @@ export function SettingsScreen() {
             <span className="font-display text-xl font-extrabold uppercase lg:text-[22px]">
               Scoring
             </span>
-            <span className="rounded-full bg-[#eceef2] px-2.5 py-0.5 text-xs font-bold text-[#3a404b]">
+            <span className="rounded-full bg-line px-2.5 py-0.5 text-xs font-bold text-[#3a404b] dark:text-[#c8ced8]">
               Read only
             </span>
           </summary>
@@ -185,16 +185,18 @@ function ScoringTable() {
         return (
           <div
             key={label}
-            className="grid min-h-[36px] grid-cols-[1fr_repeat(4,52px)] items-center gap-2 border-t border-[#eef0f3] text-sm"
+            className="grid min-h-[36px] grid-cols-[1fr_repeat(4,52px)] items-center gap-2 border-t border-line text-sm"
           >
             <span>{label}</span>
             {same && typeof values[0] === 'string' ? (
-              <span className="col-span-4 text-right font-bold text-[#155c39]">{values[0]}</span>
+              <span className="col-span-4 text-right font-bold text-[#155c39] dark:text-[#8ee0b0]">
+                {values[0]}
+              </span>
             ) : (
               values.map((v, i) => (
                 <span
                   key={i}
-                  className={`text-right font-bold ${typeof v === 'number' ? (v > 0 ? 'text-[#155c39]' : v < 0 ? 'text-[#9b1c1c]' : 'text-[#8a909b]') : ''}`}
+                  className={`text-right font-bold ${typeof v === 'number' ? (v > 0 ? 'text-[#155c39] dark:text-[#8ee0b0]' : v < 0 ? 'text-[#9b1c1c] dark:text-[#ff9a9a]' : 'text-[#8a909b]') : ''}`}
                 >
                   {typeof v === 'number' ? signed(v) : v}
                 </span>
@@ -277,7 +279,7 @@ function SidesPanel() {
             key={s.id}
             type="button"
             onClick={() => setEditing(s.id)}
-            className="flex min-h-[56px] w-full items-center gap-3 border-t border-[#eef0f3] px-4 py-1.5 text-left hover:bg-paper lg:px-[18px]"
+            className="flex min-h-[56px] w-full items-center gap-3 border-t border-line px-4 py-1.5 text-left hover:bg-paper lg:px-[18px]"
           >
             <SideTag>{s.short_name}</SideTag>
             <span className="min-w-0 flex-1">
@@ -286,11 +288,11 @@ function SidesPanel() {
                 {s.competition && <span className="muted font-normal"> · {s.competition}</span>}
               </span>
               <span className="muted block truncate text-xs">
-                <span className={s.eh_slug ? '' : 'text-[#9b1c1c]'}>
+                <span className={s.eh_slug ? '' : 'text-[#9b1c1c] dark:text-[#ff9a9a]'}>
                   {s.eh_slug ? `England Hockey: ${s.eh_slug}` : 'Not on England Hockey'}
                 </span>
                 {' · '}
-                <span className={s.pitchero_team_id ? '' : 'text-[#9b1c1c]'}>
+                <span className={s.pitchero_team_id ? '' : 'text-[#9b1c1c] dark:text-[#ff9a9a]'}>
                   {s.pitchero_team_id ? `Pitchero team ${s.pitchero_team_id}` : 'No Pitchero'}
                 </span>
               </span>
@@ -311,7 +313,7 @@ function SidesPanel() {
         <button
           type="button"
           onClick={() => setEditing('new')}
-          className="min-h-tap w-full border-t border-[#eef0f3] px-4 text-left text-sm font-bold text-brand lg:px-[18px]"
+          className="min-h-tap w-full border-t border-line px-4 text-left text-sm font-bold text-brand lg:px-[18px]"
         >
           + Add a side
         </button>
@@ -339,7 +341,7 @@ function SideForm({
     ['pitchero', 'Pitchero team id', 'optional'],
   ];
   return (
-    <div className="grid grid-cols-2 gap-2.5 border-t border-[#eef0f3] bg-paper px-4 py-3 lg:grid-cols-[1fr_90px_1.3fr_140px_auto] lg:items-end lg:px-[18px]">
+    <div className="grid grid-cols-2 gap-2.5 border-t border-line bg-paper px-4 py-3 lg:grid-cols-[1fr_90px_1.3fr_140px_auto] lg:items-end lg:px-[18px]">
       {fields.map(([key, label, placeholder]) => (
         <label
           key={key}

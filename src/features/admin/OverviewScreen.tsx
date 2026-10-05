@@ -133,7 +133,7 @@ export function OverviewScreen() {
           {perSide.map((r) => (
             <div
               key={r.side.id}
-              className="flex min-h-[40px] items-center gap-2.5 border-t border-[#eef0f3] py-1.5 text-sm"
+              className="flex min-h-[40px] items-center gap-2.5 border-t border-line py-1.5 text-sm"
             >
               <SideTag>{r.side.short_name}</SideTag>
               <span className="muted flex-1">
@@ -143,7 +143,9 @@ export function OverviewScreen() {
                   · Pitchero {r.sheets ? `${r.sheets} sheets` : 'none'}
                 </span>
               </span>
-              <span className={`font-bold ${r.unnamed ? 'text-[#b26a00]' : 'text-[#1f7a4d]'}`}>
+              <span
+                className={`font-bold ${r.unnamed ? 'text-[#b26a00] dark:text-[#f0a640]' : 'text-[#1f7a4d] dark:text-[#5fd394]'}`}
+              >
                 {r.unnamed ? `${r.unnamed} withheld` : 'OK'}
               </span>
             </div>
@@ -164,7 +166,7 @@ export function OverviewScreen() {
             return (
               <div
                 key={s.id}
-                className="flex min-h-[40px] items-center gap-2.5 border-t border-[#eef0f3] py-1.5 text-sm"
+                className="flex min-h-[40px] items-center gap-2.5 border-t border-line py-1.5 text-sm"
               >
                 <SideTag>{s.short_name}</SideTag>
                 {games.length ? (

@@ -257,7 +257,7 @@ export function PlayersScreen() {
 
       {/* Laptop: a table. */}
       <section className={`${panel} hidden overflow-hidden lg:block`}>
-        <div className="grid grid-cols-[28px_1fr_54px_220px_70px_56px_56px_240px] items-center gap-3 border-b border-[#e3e6eb] px-[18px] py-3 text-xs font-bold uppercase tracking-wider text-ink-soft">
+        <div className="grid grid-cols-[28px_1fr_54px_220px_70px_56px_56px_240px] items-center gap-3 border-b border-line px-[18px] py-3 text-xs font-bold uppercase tracking-wider text-ink-soft">
           <input
             type="checkbox"
             aria-label="Select all"
@@ -354,7 +354,7 @@ function PositionButtons({
             disabled={busy}
             aria-pressed={current && !unset}
             onClick={() => onPosition(pos)}
-            className={`${POSITION_BUTTON} ${current ? (unset ? 'bg-[#fff1dc] text-[#7a4600] ring-1 ring-[#e8b46a]' : 'bg-[#16181d] text-white') : 'bg-surface text-ink ring-1 ring-line hover:ring-ink'}`}
+            className={`${POSITION_BUTTON} ${current ? (unset ? 'bg-[#fff1dc] dark:bg-[#4a3010] text-[#7a4600] dark:text-[#ffc773] ring-1 ring-[#e8b46a]' : 'bg-[#16181d] text-white dark:bg-ink dark:text-paper') : 'bg-surface text-ink ring-1 ring-line hover:ring-ink'}`}
           >
             {pos}
           </button>
@@ -396,7 +396,9 @@ function PlayerRow(
   const { player: p, side, suggested } = props;
   const [editing, setEditing] = useState(false);
   return (
-    <div className={`border-b border-[#eef0f3] ${props.selected ? 'bg-[#fff5f5]' : ''}`}>
+    <div
+      className={`border-b border-line ${props.selected ? 'bg-[#fff5f5] dark:bg-[#2e1a1c]' : ''}`}
+    >
       <div className="grid min-h-[52px] grid-cols-[28px_1fr_54px_220px_70px_56px_56px_240px] items-center gap-3 px-[18px] py-1.5">
         <input
           type="checkbox"
@@ -407,7 +409,7 @@ function PlayerRow(
         />
         <button type="button" className="min-w-0 text-left" onClick={() => setEditing(!editing)}>
           <span
-            className={`block truncate text-[15px] font-semibold ${p.name_withheld ? 'text-[#9b1c1c]' : ''}`}
+            className={`block truncate text-[15px] font-semibold ${p.name_withheld ? 'text-[#9b1c1c] dark:text-[#ff9a9a]' : ''}`}
           >
             {p.name}
           </span>
@@ -423,7 +425,7 @@ function PlayerRow(
             <>
               <span
                 title={props.evidence}
-                className="rounded-full bg-[#e3f0f9] px-2.5 py-0.5 text-[13px] font-bold text-[#1d5f8c]"
+                className="rounded-full bg-[#e3f0f9] dark:bg-[#15253a] px-2.5 py-0.5 text-[13px] font-bold text-[#1d5f8c] dark:text-[#9fd0f2]"
               >
                 {suggested}
               </span>
@@ -466,7 +468,7 @@ function PlayerCard(props: RowProps) {
         <SideTag>{side?.short_name}</SideTag>
         <span className="min-w-0 flex-1">
           <span
-            className={`block truncate text-base font-bold ${p.name_withheld ? 'text-[#9b1c1c]' : ''}`}
+            className={`block truncate text-base font-bold ${p.name_withheld ? 'text-[#9b1c1c] dark:text-[#ff9a9a]' : ''}`}
           >
             {p.name}
           </span>
@@ -480,8 +482,8 @@ function PlayerCard(props: RowProps) {
       </button>
       <PositionButtons player={p} busy={props.busy} onPosition={props.onPosition} />
       {suggested && (
-        <div className="flex items-center gap-2 rounded-[10px] bg-[#eef6fc] py-1.5 pl-3 pr-1.5">
-          <span className="flex-1 text-[13px] font-semibold text-[#1d5f8c]">
+        <div className="flex items-center gap-2 rounded-[10px] bg-[#eef6fc] dark:bg-[#15253a] py-1.5 pl-3 pr-1.5">
+          <span className="flex-1 text-[13px] font-semibold text-[#1d5f8c] dark:text-[#9fd0f2]">
             Pitchero says {suggested}
           </span>
           <button
@@ -551,7 +553,7 @@ function EditPlayer({
   const input =
     'mt-1 block min-h-tap w-full rounded-[10px] border border-line bg-surface px-2.5 text-base';
   return (
-    <div className="grid grid-cols-2 gap-2.5 border-t border-[#eef0f3] pt-3 lg:grid-cols-[1fr_120px_120px_auto_auto] lg:items-end lg:px-[18px] lg:pb-3 lg:pl-[58px]">
+    <div className="grid grid-cols-2 gap-2.5 border-t border-line pt-3 lg:grid-cols-[1fr_120px_120px_auto_auto] lg:items-end lg:px-[18px] lg:pb-3 lg:pl-[58px]">
       <label className="col-span-2 text-xs font-bold uppercase text-ink-soft lg:col-span-1">
         Name
         <input

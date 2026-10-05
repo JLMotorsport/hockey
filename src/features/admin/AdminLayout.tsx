@@ -76,7 +76,7 @@ export function AdminLayout() {
   const isAdmin = Boolean(profile?.is_admin);
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7]">
+    <div className="min-h-screen bg-paper">
       <header className="sticky top-0 z-30 bg-[#16181d] text-white shadow-md">
         <div className="mx-auto flex max-w-[1320px] items-center gap-3 py-2.5 pl-4 pr-2 lg:px-7">
           <Link

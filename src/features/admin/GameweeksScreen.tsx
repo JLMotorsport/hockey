@@ -15,10 +15,10 @@ import { PageHead, panel } from './adminUi';
 
 type Status = 'Finished' | 'Next' | 'Upcoming' | 'No games';
 const STATUS: Record<Status, string> = {
-  Finished: 'bg-[#eceef2] text-[#3a404b]',
-  Next: 'bg-[#e6f4ec] text-[#155c39]',
+  Finished: 'bg-line text-[#3a404b] dark:text-[#c8ced8]',
+  Next: 'bg-[#e6f4ec] dark:bg-[#123d27] text-[#155c39] dark:text-[#8ee0b0]',
   Upcoming: 'bg-surface text-ink-soft ring-1 ring-line',
-  'No games': 'bg-[#fff1dc] text-[#7a4600]',
+  'No games': 'bg-[#fff1dc] dark:bg-[#4a3010] text-[#7a4600] dark:text-[#ffc773]',
 };
 
 export function GameweeksScreen() {
@@ -68,7 +68,7 @@ export function GameweeksScreen() {
       <Notices items={notices} />
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <section className={`${panel} overflow-hidden`}>
-          <div className="hidden grid-cols-[56px_1fr_290px_80px_110px] gap-3 border-b border-[#e3e6eb] px-[18px] py-3 text-xs font-bold uppercase tracking-wider text-ink-soft lg:grid">
+          <div className="hidden grid-cols-[56px_1fr_290px_80px_110px] gap-3 border-b border-line px-[18px] py-3 text-xs font-bold uppercase tracking-wider text-ink-soft lg:grid">
             <span>GW</span>
             <span>Weekend</span>
             <span>Deadline</span>
@@ -82,7 +82,7 @@ export function GameweeksScreen() {
             return (
               <div
                 key={gw.id}
-                className={`grid grid-cols-[40px_1fr_auto] items-center gap-x-3 gap-y-2 border-b border-[#eef0f3] px-3.5 py-2.5 lg:min-h-[54px] lg:grid-cols-[56px_1fr_290px_80px_110px] lg:px-[18px] lg:py-1.5 ${status === 'Next' ? 'bg-[#f2faf5]' : ''}`}
+                className={`grid grid-cols-[40px_1fr_auto] items-center gap-x-3 gap-y-2 border-b border-line px-3.5 py-2.5 lg:min-h-[54px] lg:grid-cols-[56px_1fr_290px_80px_110px] lg:px-[18px] lg:py-1.5 ${status === 'Next' ? 'bg-[#f2faf5] dark:bg-[#15291f]' : ''}`}
               >
                 <span className="font-display text-[22px] font-extrabold">{i + 1}</span>
                 <span className="text-[15px] font-semibold">

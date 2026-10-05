@@ -80,13 +80,13 @@ export function IdentifyScreen() {
           </>
         }
       />
-      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-[#e3e6eb] lg:hidden">
+      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-line lg:hidden">
         <div className="h-full bg-brand" style={{ width: `${(position / queue.length) * 100}%` }} />
       </div>
 
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
         <section className={`${panel} hidden overflow-hidden lg:block`}>
-          <div className="border-b border-[#e3e6eb] px-4 py-3 text-xs font-bold uppercase tracking-wider text-ink-soft">
+          <div className="border-b border-line px-4 py-3 text-xs font-bold uppercase tracking-wider text-ink-soft">
             Queue
           </div>
           {queue.map((p) => {
@@ -98,12 +98,12 @@ export function IdentifyScreen() {
                 key={p.id}
                 type="button"
                 onClick={() => go(p)}
-                className={`flex min-h-[56px] w-full items-center gap-2.5 border-b border-l-4 border-b-[#eef0f3] px-4 py-1.5 text-left ${on ? 'border-l-brand bg-[#fff5f5]' : 'border-l-transparent hover:bg-paper'}`}
+                className={`flex min-h-[56px] w-full items-center gap-2.5 border-b border-l-4 border-b-line px-4 py-1.5 text-left ${on ? 'border-l-brand bg-[#fff5f5] dark:bg-[#2e1a1c]' : 'border-l-transparent hover:bg-paper'}`}
               >
                 <SideTag>{sideName(p.side_id)}</SideTag>
                 <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{p.name}</span>
                 <span
-                  className={`text-xs font-bold ${likely === 1 ? 'text-[#1f7a4d]' : 'text-ink-soft'}`}
+                  className={`text-xs font-bold ${likely === 1 ? 'text-[#1f7a4d] dark:text-[#5fd394]' : 'text-ink-soft'}`}
                 >
                   {likely === 1
                     ? '1 likely'
@@ -238,7 +238,7 @@ function Candidate({
               return (
                 <div
                   key={a.fixture_id}
-                  className="flex items-center justify-between gap-2 border-t border-[#eef0f3] py-2 text-[13px] lg:flex-col lg:items-start lg:gap-1 lg:rounded-xl lg:border lg:border-[#e3e6eb] lg:p-3"
+                  className="flex items-center justify-between gap-2 border-t border-line py-2 text-[13px] lg:flex-col lg:items-start lg:gap-1 lg:rounded-xl lg:border lg:border-[#e3e6eb] lg:p-3"
                 >
                   <span>
                     <span className="block text-xs font-bold uppercase tracking-wider text-ink-soft">
@@ -294,7 +294,7 @@ function Candidate({
                 setChoice(s.name);
                 setTyped('');
               }}
-              className={`flex min-h-[60px] items-center gap-3 rounded-xl px-3.5 py-2 text-left ${on ? 'bg-[#f2faf5] ring-2 ring-[#1f7a4d]' : 'bg-surface ring-1 ring-line hover:ring-ink'}`}
+              className={`flex min-h-[60px] items-center gap-3 rounded-xl px-3.5 py-2 text-left ${on ? 'bg-[#f2faf5] dark:bg-[#15291f] ring-2 ring-[#1f7a4d]' : 'bg-surface ring-1 ring-line hover:ring-ink'}`}
             >
               <span className="flex-1">
                 <span className="block text-base font-bold">{s.name}</span>
@@ -303,14 +303,14 @@ function Candidate({
                 </span>
               </span>
               <span
-                className={`text-xs font-bold lg:text-[13px] ${f.best ? 'text-[#1f7a4d]' : 'text-ink-soft'}`}
+                className={`text-xs font-bold lg:text-[13px] ${f.best ? 'text-[#1f7a4d] dark:text-[#5fd394]' : 'text-ink-soft'}`}
               >
                 {f.label}
               </span>
             </button>
           );
         })}
-        <div className="flex flex-col gap-2 border-t border-[#eef0f3] pt-3 lg:flex-row">
+        <div className="flex flex-col gap-2 border-t border-line pt-3 lg:flex-row">
           <input
             type="text"
             list="identify-named"

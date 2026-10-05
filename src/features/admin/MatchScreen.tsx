@@ -37,9 +37,9 @@ const EMPTY: Line = {
 };
 
 const CARDS = [
-  ['green_cards', 'Green', 'bg-[#dff3e6] ring-[#1f7a4d]'],
-  ['yellow_cards', 'Yellow', 'bg-[#fff4c2] ring-[#e0b100]'],
-  ['red_cards', 'Red', 'bg-[#fde8e8] ring-[#9b1c1c]'],
+  ['green_cards', 'Green', 'bg-[#dff3e6] dark:bg-[#123d27] ring-[#1f7a4d]'],
+  ['yellow_cards', 'Yellow', 'bg-[#fff4c2] dark:bg-[#3d3410] ring-[#e0b100]'],
+  ['red_cards', 'Red', 'bg-[#fde8e8] dark:bg-[#4a1616] ring-[#9b1c1c]'],
 ] as const;
 
 /** One match: score, who played, goals, cards, player of the match, lock. */
@@ -256,7 +256,7 @@ export function MatchScreen() {
           </label>
         </div>
         <div className="flex flex-col lg:w-[300px]">
-          <div className="flex min-h-[52px] items-center gap-3 border-t border-[#eef0f3] lg:border-t-0">
+          <div className="flex min-h-[52px] items-center gap-3 border-t border-line lg:border-t-0">
             <span className="flex-1">
               <span className="block text-[15px] font-bold">Stats complete</span>
               <span className="muted block text-xs">Saved with the match</span>
@@ -271,7 +271,7 @@ export function MatchScreen() {
             />
           </div>
           {fixture.eh_fixture_id && (
-            <div className="flex min-h-[52px] items-center gap-3 border-t border-[#eef0f3]">
+            <div className="flex min-h-[52px] items-center gap-3 border-t border-line">
               <span className="flex-1">
                 <span className="block text-[15px] font-bold">Lock this match</span>
                 <span className="muted block text-xs">The sync will never change it</span>
@@ -292,14 +292,14 @@ export function MatchScreen() {
         {fixture.score_overridden && ' Score entered by hand, so the sync will not change it.'}
       </p>
       {fixture.withheld_count > 0 && (
-        <p className="mb-3 rounded-xl bg-[#fff1dc] px-3 py-2 text-sm text-[#7a4600]">
+        <p className="mb-3 rounded-xl bg-[#fff1dc] dark:bg-[#4a3010] px-3 py-2 text-sm text-[#7a4600] dark:text-[#ffc773]">
           England Hockey lists {fixture.withheld_count} player(s) with no member id, so they
           can&apos;t be imported. Add them below from Didn&apos;t play, with any goals or cards.
         </p>
       )}
 
       {/* Phone: one list at a time. */}
-      <div className="mb-3 flex rounded-full bg-[#e3e6eb] p-1 lg:hidden" role="tablist">
+      <div className="mb-3 flex rounded-full bg-line p-1 lg:hidden" role="tablist">
         {(
           [
             ['sheet', `Team sheet (${playedList.length})`],
@@ -322,7 +322,7 @@ export function MatchScreen() {
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
         <div className={tab === 'sheet' ? '' : 'hidden lg:block'}>
           <section className={`${panel} overflow-hidden`}>
-            <div className="hidden grid-cols-[28px_1fr_100px_100px_128px_40px_32px] items-center gap-2 border-b border-[#e3e6eb] px-4 py-3 text-xs font-bold uppercase tracking-wider text-ink-soft lg:grid">
+            <div className="hidden grid-cols-[28px_1fr_100px_100px_128px_40px_32px] items-center gap-2 border-b border-line px-4 py-3 text-xs font-bold uppercase tracking-wider text-ink-soft lg:grid">
               <span>#</span>
               <span>Player</span>
               <span className="text-center">Goals</span>
@@ -348,10 +348,10 @@ export function MatchScreen() {
               return (
                 <div
                   key={p.id}
-                  className={`border-b border-[#eef0f3] ${p.name_withheld ? 'bg-[#fff4f4]' : isOpen ? 'bg-[#fafbfc]' : ''}`}
+                  className={`border-b border-line ${p.name_withheld ? 'bg-[#fff4f4] dark:bg-[#2e1a1c]' : isOpen ? 'bg-[#fafbfc] dark:bg-[#1d2129]' : ''}`}
                 >
                   <div className="flex min-h-[56px] items-center gap-2.5 px-3.5 py-1.5 lg:grid lg:grid-cols-[28px_1fr_100px_100px_128px_40px_32px] lg:gap-2 lg:px-4">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eceef2] text-[13px] font-bold">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-line text-[13px] font-bold">
                       {shirt.get(p.id) ?? ''}
                     </span>
                     <button
@@ -361,7 +361,7 @@ export function MatchScreen() {
                       onClick={() => setOpen(isOpen ? null : p.id)}
                     >
                       <span
-                        className={`block truncate text-[15px] font-bold ${p.name_withheld ? 'text-[#9b1c1c]' : ''}`}
+                        className={`block truncate text-[15px] font-bold ${p.name_withheld ? 'text-[#9b1c1c] dark:text-[#ff9a9a]' : ''}`}
                       >
                         {p.name}
                       </span>
@@ -418,7 +418,7 @@ export function MatchScreen() {
                           setPotm(potm === p.id ? null : p.id);
                           setDirty(true);
                         }}
-                        className={`h-8 w-8 rounded-lg text-lg ${potm === p.id ? 'bg-[#fff4c2] text-[#a07a00] ring-2 ring-[#e0b100]' : 'text-[#c4c9d2] ring-1 ring-line'}`}
+                        className={`h-8 w-8 rounded-lg text-lg ${potm === p.id ? 'bg-[#fff4c2] dark:bg-[#3d3410] text-[#a07a00] dark:text-[#ffd84d] ring-2 ring-[#e0b100]' : 'text-[#c4c9d2] ring-1 ring-line'}`}
                       >
                         ★
                       </button>
@@ -474,7 +474,7 @@ export function MatchScreen() {
                             setPotm(potm === p.id ? null : p.id);
                             setDirty(true);
                           }}
-                          className={`min-h-tap flex-1 rounded-[10px] text-[13px] font-bold ${potm === p.id ? 'bg-[#fff4c2] ring-2 ring-[#e0b100]' : 'bg-surface ring-1 ring-line'}`}
+                          className={`min-h-tap flex-1 rounded-[10px] text-[13px] font-bold ${potm === p.id ? 'bg-[#fff4c2] dark:bg-[#3d3410] ring-2 ring-[#e0b100]' : 'bg-surface ring-1 ring-line'}`}
                         >
                           ★ POTM
                         </button>
@@ -593,12 +593,12 @@ export function MatchScreen() {
             return (
               <div
                 key={r.name}
-                className="flex min-h-[44px] items-center gap-2.5 border-t border-[#eef0f3] px-4 text-sm"
+                className="flex min-h-[44px] items-center gap-2.5 border-t border-line px-4 text-sm"
               >
                 <span className="flex-1 font-semibold">{r.name}</span>
                 <span className="muted text-xs">{r.position}</span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${matched ? 'bg-[#e6f4ec] text-[#155c39]' : 'bg-[#fde8e8] text-[#9b1c1c]'}`}
+                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${matched ? 'bg-[#e6f4ec] dark:bg-[#123d27] text-[#155c39] dark:text-[#8ee0b0]' : 'bg-[#fde8e8] dark:bg-[#4a1616] text-[#9b1c1c] dark:text-[#ff9a9a]'}`}
                 >
                   {matched ? 'Matched' : 'Not on EH'}
                 </span>

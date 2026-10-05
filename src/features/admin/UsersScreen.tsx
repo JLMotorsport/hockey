@@ -59,7 +59,7 @@ export function UsersScreen() {
       </PageHead>
       <Notices items={notices} />
       <section className={`${panel} overflow-hidden`}>
-        <div className="hidden grid-cols-[1fr_1fr_80px_80px_110px] gap-3 border-b border-[#e3e6eb] px-[18px] py-3 text-xs font-bold uppercase tracking-wider text-ink-soft lg:grid">
+        <div className="hidden grid-cols-[1fr_1fr_80px_80px_110px] gap-3 border-b border-line px-[18px] py-3 text-xs font-bold uppercase tracking-wider text-ink-soft lg:grid">
           <span>Name</span>
           <span>Team</span>
           <span>Plays for</span>
@@ -72,7 +72,7 @@ export function UsersScreen() {
           return (
             <div
               key={u.id}
-              className="flex min-h-[64px] items-center gap-2.5 border-b border-[#eef0f3] px-3.5 py-2 lg:grid lg:min-h-[54px] lg:grid-cols-[1fr_1fr_80px_80px_110px] lg:gap-3 lg:px-[18px] lg:py-1.5"
+              className="flex min-h-[64px] items-center gap-2.5 border-b border-line px-3.5 py-2 lg:grid lg:min-h-[54px] lg:grid-cols-[1fr_1fr_80px_80px_110px] lg:gap-3 lg:px-[18px] lg:py-1.5"
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-bold lg:font-semibold">

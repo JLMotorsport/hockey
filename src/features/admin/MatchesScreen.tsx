@@ -121,7 +121,7 @@ export function MatchesScreen() {
 
       {/* Laptop: a table. */}
       <section className={`${panel} hidden overflow-hidden lg:block`}>
-        <div className="grid grid-cols-[110px_54px_1fr_70px_minmax(0,320px)_90px] gap-3 border-b border-[#e3e6eb] px-[18px] py-3 text-xs font-bold uppercase tracking-wider text-ink-soft">
+        <div className="grid grid-cols-[110px_54px_1fr_70px_minmax(0,320px)_90px] gap-3 border-b border-line px-[18px] py-3 text-xs font-bold uppercase tracking-wider text-ink-soft">
           <span>Date</span>
           <span>Side</span>
           <span>Opponent</span>
@@ -134,7 +134,7 @@ export function MatchesScreen() {
           return (
             <div
               key={f.id}
-              className={`grid min-h-[52px] grid-cols-[110px_54px_1fr_70px_minmax(0,320px)_90px] items-center gap-3 border-b border-[#eef0f3] px-[18px] py-2.5 ${needs ? 'bg-[#fffaf3]' : ''}`}
+              className={`grid min-h-[52px] grid-cols-[110px_54px_1fr_70px_minmax(0,320px)_90px] items-center gap-3 border-b border-line px-[18px] py-2.5 ${needs ? 'bg-[#fffaf3] dark:bg-[#2a2216]' : ''}`}
             >
               <span className="text-sm text-ink-soft">
                 {formatShortDate(f.kickoff.slice(0, 10))}
