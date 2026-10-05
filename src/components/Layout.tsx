@@ -89,7 +89,7 @@ export function Layout() {
             <TopLink to="/players">Players</TopLink>
             <TopLink to="/fixtures">Fixtures</TopLink>
             <TopLink to="/rules">Rules</TopLink>
-            {profile?.is_admin && <TopLink to="/manage">Manage</TopLink>}
+            {profile?.is_admin && <TopLink to="/managers">Managers</TopLink>}
             {session ? (
               <>
                 <TopLink to="/account">Account</TopLink>
@@ -164,7 +164,7 @@ export function Layout() {
               ['/team-of-the-week', 'Team of the week'],
               ['/players', 'Players'],
               ['/rules', 'How it works'],
-              ...(profile?.is_admin ? [['/manage', 'Manager dashboard']] : []),
+              ...(profile?.is_admin ? [['/managers', 'Managers area']] : []),
               ...(session
                 ? [['/account', 'Account']]
                 : [

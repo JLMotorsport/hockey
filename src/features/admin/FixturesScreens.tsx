@@ -51,7 +51,7 @@ export function AdminFixturesScreen() {
     }
     await queryClient.invalidateQueries({ queryKey: keys.fixtures });
     await queryClient.invalidateQueries({ queryKey: keys.gameweeks });
-    navigate(`/manage/fixtures/${data}`);
+    navigate(`/managers/fixtures/${data}`);
   }
 
   return (
@@ -121,7 +121,7 @@ export function AdminFixturesScreen() {
                   <tr key={f.id}>
                     <td className="muted whitespace-nowrap">{formatWeekdayTime(f.kickoff)}</td>
                     <td>
-                      <Link to={`/manage/fixtures/${f.id}`}>
+                      <Link to={`/managers/fixtures/${f.id}`}>
                         {sideName.get(f.side_id)} {f.is_home ? 'v' : '@'} {f.opponent}
                       </Link>
                       {!f.eh_fixture_id && <span className="tag ml-2">manual</span>}
@@ -294,7 +294,7 @@ export function AdminFixtureScreen() {
     if (error) setNotices(errorLines(error).map((text) => ({ kind: 'error', text })));
     else {
       await queryClient.invalidateQueries({ queryKey: keys.fixtures });
-      navigate('/manage/fixtures');
+      navigate('/managers/fixtures');
     }
   }
 

@@ -37,7 +37,7 @@ export function OverviewScreen() {
           <h2>{unnamed} withheld names to correct</h2>
           <p className="text-sm">
             Their goals and cards are counting under &quot;Name withheld&quot;.{' '}
-            <Link to="/manage/players">Correct names</Link>
+            <Link to="/managers/players">Correct names</Link>
           </p>
         </section>
       )}
@@ -46,7 +46,7 @@ export function OverviewScreen() {
           <h2>{fresh} new players from England Hockey</h2>
           <p className="text-sm">
             They&apos;re scoring already but can&apos;t be picked until they have a position.{' '}
-            <Link to="/manage/players">Allocate positions</Link>
+            <Link to="/managers/players">Allocate positions</Link>
           </p>
         </section>
       )}
@@ -65,7 +65,7 @@ export function OverviewScreen() {
                 <tr key={f.id}>
                   <td className="whitespace-nowrap">{gw ? gameweekLabel(gw, all) : ''}</td>
                   <td>
-                    <Link to={`/manage/fixtures/${f.id}`}>
+                    <Link to={`/managers/fixtures/${f.id}`}>
                       {sideName.get(f.side_id)} {f.is_home ? 'v' : '@'} {f.opponent}
                     </Link>
                   </td>

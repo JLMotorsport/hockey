@@ -3,7 +3,7 @@ import { Splash } from './components/Splash';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
-import { AdminLayout } from './features/admin/AdminLayout';
+import { AdminLayout, ManageRedirect } from './features/admin/AdminLayout';
 import { AdminFixtureScreen, AdminFixturesScreen } from './features/admin/FixturesScreens';
 import {
   AdminDeadlinesScreen,
@@ -74,19 +74,20 @@ export function App() {
               <Route path="team-of-the-week" element={<TeamOfWeekScreen />} />
               <Route path="fixtures" element={<FixturesScreen />} />
               <Route path="rules" element={<RulesScreen />} />
-              <Route path="manage" element={<AdminLayout />}>
-                <Route index element={<OverviewScreen />} />
-                <Route path="fixtures" element={<AdminFixturesScreen />} />
-                <Route path="fixtures/:id" element={<AdminFixtureScreen />} />
-                <Route path="players" element={<AdminPlayersScreen />} />
-                <Route path="deadlines" element={<AdminDeadlinesScreen />} />
-                <Route path="sides" element={<AdminSidesScreen />} />
-                <Route path="users" element={<AdminUsersScreen />} />
-                <Route path="settings" element={<AdminSettingsScreen />} />
-              </Route>
+              <Route path="manage/*" element={<ManageRedirect />} />
               <Route path="*" element={<p className="my-6">We couldn&apos;t find that page.</p>} />
             </>
           )}
+        </Route>
+        <Route path="managers" element={<AdminLayout />}>
+          <Route index element={<OverviewScreen />} />
+          <Route path="fixtures" element={<AdminFixturesScreen />} />
+          <Route path="fixtures/:id" element={<AdminFixtureScreen />} />
+          <Route path="players" element={<AdminPlayersScreen />} />
+          <Route path="deadlines" element={<AdminDeadlinesScreen />} />
+          <Route path="sides" element={<AdminSidesScreen />} />
+          <Route path="users" element={<AdminUsersScreen />} />
+          <Route path="settings" element={<AdminSettingsScreen />} />
         </Route>
       </Routes>
     </BrowserRouter>
