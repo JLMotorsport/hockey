@@ -390,3 +390,23 @@ export function usePlayerHistory(playerId: number | undefined) {
     },
   });
 }
+
+/** Ids of matches with a player of the match, for the managers' checks. */
+export function usePotmFixtures() {
+  return useQuery({
+    queryKey: ['potm-fixtures'],
+    queryFn: async () =>
+      new Set(
+        (
+          await fetchAll((from, to) =>
+            requireSupabase()
+              .from('performances')
+              .select('fixture_id')
+              .eq('player_of_match', true)
+              .order('fixture_id')
+              .range(from, to),
+          )
+        ).map((r) => r.fixture_id),
+      ),
+  });
+}

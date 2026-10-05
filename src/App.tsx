@@ -4,15 +4,14 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
 import { AdminLayout, ManageRedirect } from './features/admin/AdminLayout';
-import { AdminFixtureScreen, AdminFixturesScreen } from './features/admin/FixturesScreens';
-import {
-  AdminDeadlinesScreen,
-  AdminPlayersScreen,
-  AdminSettingsScreen,
-  AdminSidesScreen,
-  AdminUsersScreen,
-} from './features/admin/ManageScreens';
+import { GameweeksScreen } from './features/admin/GameweeksScreen';
+import { IdentifyScreen } from './features/admin/IdentifyScreen';
+import { MatchScreen } from './features/admin/MatchScreen';
+import { MatchesScreen } from './features/admin/MatchesScreen';
 import { OverviewScreen } from './features/admin/OverviewScreen';
+import { PlayersScreen as ManagerPlayersScreen } from './features/admin/PlayersScreen';
+import { SettingsScreen } from './features/admin/SettingsScreen';
+import { UsersScreen } from './features/admin/UsersScreen';
 import { AccountScreen, LoginScreen, RegisterScreen } from './features/auth/AuthScreens';
 import {
   FixturesScreen,
@@ -81,13 +80,16 @@ export function App() {
         </Route>
         <Route path="managers" element={<AdminLayout />}>
           <Route index element={<OverviewScreen />} />
-          <Route path="fixtures" element={<AdminFixturesScreen />} />
-          <Route path="fixtures/:id" element={<AdminFixtureScreen />} />
-          <Route path="players" element={<AdminPlayersScreen />} />
-          <Route path="deadlines" element={<AdminDeadlinesScreen />} />
-          <Route path="sides" element={<AdminSidesScreen />} />
-          <Route path="users" element={<AdminUsersScreen />} />
-          <Route path="settings" element={<AdminSettingsScreen />} />
+          <Route path="matches" element={<MatchesScreen />} />
+          <Route path="matches/:id" element={<MatchScreen />} />
+          <Route path="players" element={<ManagerPlayersScreen />} />
+          <Route path="identify" element={<IdentifyScreen />} />
+          <Route path="gameweeks" element={<GameweeksScreen />} />
+          <Route path="users" element={<UsersScreen />} />
+          <Route path="settings" element={<SettingsScreen />} />
+          <Route path="fixtures/*" element={<ManageRedirect />} />
+          <Route path="deadlines" element={<ManageRedirect />} />
+          <Route path="sides" element={<ManageRedirect />} />
         </Route>
       </Routes>
     </BrowserRouter>
