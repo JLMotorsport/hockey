@@ -1,5 +1,5 @@
 // Fantasy points rules. The database (performance_points in
-// supabase/migrations/0002_game.sql) is the source of truth for totals; this
+// supabase/migrations/0015_away_wins.sql) is the source of truth for totals; this
 // mirrors it for the rules page and per-match breakdowns. tests/unit and
 // tests/integration check the two agree.
 
@@ -18,7 +18,8 @@ export const POINTS = {
   assist: 3,
   cleanSheet: { GK: 4, DEF: 4, MID: 1, FWD: 0 } as Record<Position, number>,
   concededPerPoint: 2,
-  teamWin: 2,
+  // Away wins count double, to reward travelling.
+  teamWin: { home: 1, away: 2 },
   playerOfMatch: 3,
   greenCard: -1,
   yellowCard: -2,
@@ -35,7 +36,8 @@ export const RULES_TABLE: [string, string][] = [
   ['Clean sheet (GK / DEF)', '4'],
   ['Clean sheet (MID)', '1'],
   ['Every 2 goals conceded (GK / DEF)', '-1'],
-  ['Team win', '2'],
+  ['Team win at home', '1'],
+  ['Team win away', '2'],
   ['Player of the match', '3'],
   ['Green card', '-1'],
   ['Yellow card', '-2'],
@@ -53,6 +55,8 @@ export interface StatLine {
   player_of_match: boolean;
   goals_for: number | null;
   goals_against: number | null;
+  /** Felixstowe at home (false: away). */
+  is_home: boolean;
 }
 
 /** [reason, points] pairs for one player in one match. */
@@ -69,7 +73,9 @@ export function breakdown(s: StatLine): [string, number][] {
     if ((s.position === 'GK' || s.position === 'DEF') && lost > 0) {
       items.push([`${s.goals_against} conceded`, -lost]);
     }
-    if (s.goals_for > s.goals_against) items.push(['Team win', POINTS.teamWin]);
+    if (s.goals_for > s.goals_against) {
+      items.push(s.is_home ? ['Home win', POINTS.teamWin.home] : ['Away win', POINTS.teamWin.away]);
+    }
   }
 
   if (s.player_of_match) items.push(['Player of the match', POINTS.playerOfMatch]);

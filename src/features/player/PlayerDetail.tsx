@@ -29,6 +29,7 @@ function lines(m: PlayerMatch, position: Position) {
     player_of_match: m.player_of_match,
     goals_for: m.fixture?.goals_for ?? null,
     goals_against: m.fixture?.goals_against ?? null,
+    is_home: m.fixture?.is_home ?? true,
   });
 }
 

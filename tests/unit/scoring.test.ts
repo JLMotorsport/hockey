@@ -10,12 +10,20 @@ const base: StatLine = {
   player_of_match: false,
   goals_for: null,
   goals_against: null,
+  is_home: true,
 };
 
 describe('points', () => {
-  it('defender goal, clean sheet and win', () => {
-    // 1 played + 6 goal + 4 clean sheet + 2 win
-    expect(points({ ...base, position: 'DEF', goals: 1, goals_for: 2, goals_against: 0 })).toBe(13);
+  it('defender goal, clean sheet and a home win', () => {
+    // 1 played + 6 goal + 4 clean sheet + 1 home win
+    expect(points({ ...base, position: 'DEF', goals: 1, goals_for: 2, goals_against: 0 })).toBe(12);
+  });
+
+  it('an away win is worth 2', () => {
+    const away = { ...base, goals_for: 3, goals_against: 1, is_home: false };
+    expect(points(away)).toBe(1 + 2);
+    expect(breakdown(away)).toContainEqual(['Away win', 2]);
+    expect(breakdown({ ...away, is_home: true })).toContainEqual(['Home win', 1]);
   });
 
   it('goalkeeper loses a point per 2 conceded', () => {

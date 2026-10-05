@@ -185,6 +185,7 @@ describe.skipIf(!configured)('league database', () => {
         player_of_match: false,
         goals_for: 2,
         goals_against: 0,
+        is_home: true,
       },
       {
         position: 'GK',
@@ -196,6 +197,7 @@ describe.skipIf(!configured)('league database', () => {
         player_of_match: false,
         goals_for: 0,
         goals_against: 7,
+        is_home: false,
       },
       {
         position: 'MID',
@@ -207,6 +209,7 @@ describe.skipIf(!configured)('league database', () => {
         player_of_match: true,
         goals_for: 3,
         goals_against: 0,
+        is_home: false,
       },
       {
         position: 'FWD',
@@ -218,6 +221,7 @@ describe.skipIf(!configured)('league database', () => {
         player_of_match: true,
         goals_for: null,
         goals_against: null,
+        is_home: true,
       },
     ];
     for (const l of lines) {
@@ -231,6 +235,7 @@ describe.skipIf(!configured)('league database', () => {
         p_player_of_match: l.player_of_match,
         p_goals_for: l.goals_for as number,
         p_goals_against: l.goals_against as number,
+        p_is_home: l.is_home,
       });
       expect(data).toBe(points(l));
     }
@@ -513,8 +518,8 @@ describe.skipIf(!configured)('league database', () => {
       });
       expect(saved.error).toBeNull();
 
-      const strikerPoints = 1 + 2 * 4 + 2; // played, 2 goals, win
-      const keeperPoints = 1 + 2; // played, win (1 conceded loses nothing)
+      const strikerPoints = 1 + 2 * 4 + 1; // played, 2 goals, home win
+      const keeperPoints = 1 + 1; // played, home win (1 conceded loses nothing)
       const { data: table } = await anon.rpc('league_table');
       const aliceRow = table!.find((r) => r.user_id === alice.id)!;
       expect(aliceRow.total).toBe(strikerPoints * 2 + keeperPoints);

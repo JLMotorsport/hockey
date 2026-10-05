@@ -654,20 +654,36 @@ export type Database = {
       };
       merge_players: { Args: { p_from: number; p_into: number }; Returns: undefined };
       name_key: { Args: { p_name: string }; Returns: string };
-      performance_points: {
-        Args: {
-          p_assists: number;
-          p_goals: number;
-          p_goals_against: number;
-          p_goals_for: number;
-          p_green: number;
-          p_player_of_match: boolean;
-          p_position: string;
-          p_red: number;
-          p_yellow: number;
-        };
-        Returns: number;
-      };
+      performance_points:
+        | {
+            Args: {
+              p_assists: number;
+              p_goals: number;
+              p_goals_against: number;
+              p_goals_for: number;
+              p_green: number;
+              p_player_of_match: boolean;
+              p_position: string;
+              p_red: number;
+              p_yellow: number;
+            };
+            Returns: number;
+          }
+        | {
+            Args: {
+              p_assists: number;
+              p_goals: number;
+              p_goals_against: number;
+              p_goals_for: number;
+              p_green: number;
+              p_is_home: boolean;
+              p_player_of_match: boolean;
+              p_position: string;
+              p_red: number;
+              p_yellow: number;
+            };
+            Returns: number;
+          };
       play_chip: { Args: { p_chip: string; p_side_id?: number }; Returns: number };
       price_ceiling: { Args: Record<PropertyKey, never>; Returns: number };
       price_floor: { Args: Record<PropertyKey, never>; Returns: number };
