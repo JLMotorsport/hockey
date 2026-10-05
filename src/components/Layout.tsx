@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import { CalendarIcon, HomeIcon, MenuIcon, PitchIcon, SwapIcon, TrophyIcon } from './icons';
 import { Sheet } from './Sheet';
+import { BUILD_COMMIT, BUILD_LABEL } from '@/lib/version';
 
 function Crest({ className = '' }: { className?: string }) {
   // The crest is red on transparent; shown white on the red header.
@@ -72,12 +73,25 @@ export function Layout() {
               <span className="block text-xl font-extrabold uppercase tracking-tight">
                 Fantasy Hockey
                 {/* On wider screens the corner holds the menu, so BETA sits by the title. */}
-                <span className="ml-2 hidden align-top text-[0.7rem] font-bold tracking-widest opacity-70 sm:inline">
+                <span
+                  title={`Build ${BUILD_COMMIT}`}
+                  className="ml-2 hidden align-top text-[0.7rem] font-bold tracking-widest opacity-70 sm:inline"
+                >
                   Beta
+                  <span className="ml-1.5 font-sans font-semibold normal-case tracking-normal tabular-nums">
+                    {BUILD_LABEL}
+                  </span>
                 </span>
               </span>
               <span className="block text-xs font-semibold uppercase tracking-widest text-white/80">
                 Felixstowe HC
+                {/* Phones: the corner under BETA holds the menu, so the build sits here. */}
+                <span
+                  title={`Build ${BUILD_COMMIT}`}
+                  className="ml-2 font-sans text-[0.65rem] normal-case tracking-normal tabular-nums opacity-80 sm:hidden"
+                >
+                  {BUILD_LABEL}
+                </span>
               </span>
             </span>
           </Link>
