@@ -53,7 +53,8 @@ export function MatchScreen() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [lines, setLines] = useState<Map<number, Line>>(new Map());
-  const [potm, setPotm] = useState<number | null>(null);
+  // Pitchero sometimes names joint players of the match, so it's a set.
+  const [potm, setPotm] = useState<Set<number>>(new Set());
   const [score, setScore] = useState({ for: '', against: '' });
   const [complete, setComplete] = useState(false);
   const [extra, setExtra] = useState<number[]>([]);
@@ -67,7 +68,7 @@ export function MatchScreen() {
     if (!detail.data) return;
     const { fixture, performances } = detail.data;
     setLines(new Map(performances.map((p) => [p.player_id, { ...p, played: true }])));
-    setPotm(performances.find((p) => p.player_of_match)?.player_id ?? null);
+    setPotm(new Set(performances.filter((p) => p.player_of_match).map((p) => p.player_id)));
     setScore({
       for: fixture.goals_for?.toString() ?? '',
       against: fixture.goals_against?.toString() ?? '',
@@ -97,6 +98,20 @@ export function MatchScreen() {
     setDirty(true);
   }
 
+  function togglePotm(pid: number) {
+    const next = new Set(potm);
+    if (next.has(pid)) next.delete(pid);
+    else next.add(pid);
+    setPotm(next);
+    setDirty(true);
+  }
+  function dropPotm(pid: number) {
+    if (!potm.has(pid)) return;
+    const next = new Set(potm);
+    next.delete(pid);
+    setPotm(next);
+  }
+
   const order = (a: Player, b: Player) =>
     (shirt.get(a.id) ? Number(shirt.get(a.id)) : 99) -
       (shirt.get(b.id) ? Number(shirt.get(b.id)) : 99) ||
@@ -123,7 +138,7 @@ export function MatchScreen() {
     points({
       ...line(p.id),
       position: p.position,
-      player_of_match: potm === p.id,
+      player_of_match: potm.has(p.id),
       goals_for: gf,
       goals_against: ga,
       is_home: fixture.is_home,
@@ -137,6 +152,12 @@ export function MatchScreen() {
   const unnamedHere = playedList.filter((p) => p.name_withheld).length;
 
   async function save() {
+    if ((gf === null) !== (ga === null)) {
+      setNotices([
+        { kind: 'error', text: 'Enter both scores, or clear both to let England Hockey set it.' },
+      ]);
+      return;
+    }
     setSaving(true);
     const stats = [...lines.entries()]
       .filter(([, l]) => l.played)
@@ -147,7 +168,7 @@ export function MatchScreen() {
         green_cards: l.green_cards,
         yellow_cards: l.yellow_cards,
         red_cards: l.red_cards,
-        player_of_match: potm === player_id,
+        player_of_match: potm.has(player_id),
       }));
     const { error } = await requireSupabase().rpc('save_match_stats', {
       p_fixture_id: fixture.id,
@@ -341,7 +362,7 @@ export function MatchScreen() {
                 l.green_cards && 'green',
                 l.yellow_cards && 'yellow',
                 l.red_cards && 'red',
-                potm === p.id && 'POTM',
+                potm.has(p.id) && 'POTM',
               ]
                 .filter(Boolean)
                 .join(', ');
@@ -412,13 +433,13 @@ export function MatchScreen() {
                     <span className="hidden justify-center lg:flex">
                       <button
                         type="button"
-                        aria-pressed={potm === p.id}
+                        aria-pressed={potm.has(p.id)}
                         aria-label={`${p.name} player of the match`}
                         onClick={() => {
-                          setPotm(potm === p.id ? null : p.id);
+                          togglePotm(p.id);
                           setDirty(true);
                         }}
-                        className={`h-8 w-8 rounded-lg text-lg ${potm === p.id ? 'bg-[#fff4c2] dark:bg-[#3d3410] text-[#a07a00] dark:text-[#ffd84d] ring-2 ring-[#e0b100]' : 'text-[#c4c9d2] ring-1 ring-line'}`}
+                        className={`h-8 w-8 rounded-lg text-lg ${potm.has(p.id) ? 'bg-[#fff4c2] dark:bg-[#3d3410] text-[#a07a00] dark:text-[#ffd84d] ring-2 ring-[#e0b100]' : 'text-[#c4c9d2] ring-1 ring-line'}`}
                       >
                         ★
                       </button>
@@ -469,12 +490,12 @@ export function MatchScreen() {
                         ))}
                         <button
                           type="button"
-                          aria-pressed={potm === p.id}
+                          aria-pressed={potm.has(p.id)}
                           onClick={() => {
-                            setPotm(potm === p.id ? null : p.id);
+                            togglePotm(p.id);
                             setDirty(true);
                           }}
-                          className={`min-h-tap flex-1 rounded-[10px] text-[13px] font-bold ${potm === p.id ? 'bg-[#fff4c2] dark:bg-[#3d3410] ring-2 ring-[#e0b100]' : 'bg-surface ring-1 ring-line'}`}
+                          className={`min-h-tap flex-1 rounded-[10px] text-[13px] font-bold ${potm.has(p.id) ? 'bg-[#fff4c2] dark:bg-[#3d3410] ring-2 ring-[#e0b100]' : 'bg-surface ring-1 ring-line'}`}
                         >
                           ★ POTM
                         </button>
@@ -484,7 +505,7 @@ export function MatchScreen() {
                         className="min-h-tap self-start text-sm font-semibold text-ink-soft"
                         onClick={() => {
                           update(p.id, { played: false });
-                          if (potm === p.id) setPotm(null);
+                          dropPotm(p.id);
                           setOpen(null);
                         }}
                       >
@@ -532,7 +553,7 @@ export function MatchScreen() {
                     className="text-xs font-semibold text-ink-soft underline"
                     onClick={() => {
                       update(p.id, { played: false });
-                      if (potm === p.id) setPotm(null);
+                      dropPotm(p.id);
                     }}
                   >
                     {p.name}
@@ -590,6 +611,7 @@ export function MatchScreen() {
           </div>
           {sheet.map((r) => {
             const matched = playedKeys.has(nameKey(r.name));
+            const unused = r.starter === false;
             return (
               <div
                 key={r.name}
@@ -598,9 +620,9 @@ export function MatchScreen() {
                 <span className="flex-1 font-semibold">{r.name}</span>
                 <span className="muted text-xs">{r.position}</span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${matched ? 'bg-[#e6f4ec] dark:bg-[#123d27] text-[#155c39] dark:text-[#8ee0b0]' : 'bg-[#fde8e8] dark:bg-[#4a1616] text-[#9b1c1c] dark:text-[#ff9a9a]'}`}
+                  className={`rounded-full px-2 py-0.5 text-xs font-bold ${matched ? 'bg-[#e6f4ec] dark:bg-[#123d27] text-[#155c39] dark:text-[#8ee0b0]' : unused ? 'bg-line text-[#3a404b] dark:text-[#c8ced8]' : 'bg-[#fde8e8] dark:bg-[#4a1616] text-[#9b1c1c] dark:text-[#ff9a9a]'}`}
                 >
-                  {matched ? 'Matched' : 'Not on EH'}
+                  {matched ? 'Matched' : unused ? 'Unused sub' : 'Not on EH'}
                 </span>
               </div>
             );

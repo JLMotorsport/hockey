@@ -1,8 +1,9 @@
 import type { Position } from './scoring';
 
 // Formations are "defenders-midfielders-forwards", always with 1 goalkeeper.
-// Every formation the manager can allow (matches the check in
-// supabase/migrations/0005_formations.sql) and the default set.
+// Every formation the manager can allow: the ones a 2 GK, 5 DEF, 5 MID, 3 FWD
+// squad can field (matches the check in supabase/migrations/0016_review_fixes.sql),
+// and the default set.
 export const ALL_FORMATIONS = [
   '4-4-2',
   '4-3-3',
@@ -11,11 +12,7 @@ export const ALL_FORMATIONS = [
   '5-3-2',
   '4-5-1',
   '5-4-1',
-  '3-3-4',
-  '4-2-4',
   '5-2-3',
-  '3-6-1',
-  '6-3-1',
 ] as const;
 export const DEFAULT_FORMATIONS = ['4-4-2', '4-3-3', '3-4-3', '3-5-2', '5-3-2', '4-5-1', '5-4-1'];
 

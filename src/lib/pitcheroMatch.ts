@@ -26,6 +26,8 @@ export interface PitcheroRow {
   fixture_id: number;
   name: string;
   position: string | null;
+  /** False for an unused substitute, who didn't play. */
+  starter?: boolean;
 }
 
 export interface NameSuggestion {
@@ -53,7 +55,11 @@ export function suggestWithheldNames(
     if (a.name_withheld) continue;
     namedIn.set(a.fixture_id, (namedIn.get(a.fixture_id) ?? new Set()).add(nameKey(a.name)));
   }
-  for (const p of pitchero) sheet.set(p.fixture_id, [...(sheet.get(p.fixture_id) ?? []), p.name]);
+  // Unused subs didn't play, so they can't be a withheld player who did.
+  for (const p of pitchero) {
+    if (p.starter === false) continue;
+    sheet.set(p.fixture_id, [...(sheet.get(p.fixture_id) ?? []), p.name]);
+  }
 
   // Unaccounted-for names per withheld player per game.
   const games = new Map<number, string[][]>();

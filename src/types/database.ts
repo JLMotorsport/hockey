@@ -167,18 +167,60 @@ export type Database = {
       gameweeks: {
         Row: {
           deadline: string;
+          deadline_manual: boolean;
           id: number;
           start_date: string;
         };
         Insert: {
           deadline: string;
+          deadline_manual?: boolean;
           id?: number;
           start_date: string;
         };
         Update: {
           deadline?: string;
+          deadline_manual?: boolean;
           id?: number;
           start_date?: string;
+        };
+        Relationships: [];
+      };
+      league_cache: {
+        Row: {
+          gameweek_id: number;
+          points: number;
+          user_id: string;
+        };
+        Insert: {
+          gameweek_id: number;
+          points: number;
+          user_id: string;
+        };
+        Update: {
+          gameweek_id?: number;
+          points?: number;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      league_cache_state: {
+        Row: {
+          built_gameweeks: number[];
+          built_version: number;
+          id: number;
+          version: number;
+        };
+        Insert: {
+          built_gameweeks?: number[];
+          built_version?: number;
+          id?: number;
+          version?: number;
+        };
+        Update: {
+          built_gameweeks?: number[];
+          built_version?: number;
+          id?: number;
+          version?: number;
         };
         Relationships: [];
       };
@@ -687,6 +729,7 @@ export type Database = {
       play_chip: { Args: { p_chip: string; p_side_id?: number }; Returns: number };
       price_ceiling: { Args: Record<PropertyKey, never>; Returns: number };
       price_floor: { Args: Record<PropertyKey, never>; Returns: number };
+      refresh_deadline: { Args: { p_gameweek_id: number }; Returns: undefined };
       require_admin: { Args: Record<PropertyKey, never>; Returns: undefined };
       save_match_stats: {
         Args: {
@@ -703,6 +746,7 @@ export type Database = {
         Returns: number;
       };
       season_half: { Args: { p_date: string }; Returns: number };
+      season_of: { Args: { p_date: string }; Returns: number };
       set_admin: { Args: { p_user: string; p_value: boolean }; Returns: undefined };
       set_deadline: { Args: { p_deadline: string; p_gameweek_id: number }; Returns: undefined };
       set_prices_from_points: { Args: Record<PropertyKey, never>; Returns: number };

@@ -22,6 +22,9 @@ export interface PitcheroFixture {
   id: string;
   /** UK date of the match, e.g. "2026-09-19". */
   date: string;
+  /** Push-back with its UK offset, e.g. "2026-09-19T13:30:00+01:00". */
+  dateTime: string;
+  opponent: string;
   played: boolean;
 }
 
@@ -33,8 +36,39 @@ export function parseFixtures(data: Json, teamId: number): PitcheroFixture[] {
     .map((f) => ({
       id: f.id as string,
       date: (f.dateTime as string).slice(0, 10),
+      dateTime: f.dateTime as string,
+      opponent: typeof f.opponent === 'string' ? f.opponent : '',
       played: f.hasOutcome === true,
     }));
+}
+
+const words = (name: string) =>
+  new Set(
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2 || /^\d+$/.test(w)),
+  );
+
+/**
+ * The Pitchero match for one of our fixtures: same UK date, not already used
+ * for another fixture. With two on one day (7s, tournaments), the one whose
+ * opponent shares most words with ours, then the nearest push-back.
+ */
+export function pickPitcheroMatch(
+  candidates: PitcheroFixture[],
+  fixture: { kickoff: string; opponent: string },
+  ukDate: string,
+  used: Set<string> = new Set(),
+): PitcheroFixture | undefined {
+  const sameDay = candidates.filter((f) => f.date === ukDate && !used.has(f.id));
+  if (sameDay.length <= 1) return sameDay[0];
+  const ours = words(fixture.opponent);
+  const overlap = (f: PitcheroFixture) => [...words(f.opponent)].filter((w) => ours.has(w)).length;
+  const gap = (f: PitcheroFixture) =>
+    Math.abs(Date.parse(f.dateTime) - Date.parse(fixture.kickoff));
+  return [...sameDay].sort((a, b) => overlap(b) - overlap(a) || gap(a) - gap(b))[0];
 }
 
 export interface PitcheroPlayer {

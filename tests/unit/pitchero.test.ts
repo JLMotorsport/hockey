@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { nextData, parseFixtures, parseLineup } from '../../supabase/functions/_shared/pitchero.ts';
+import {
+  nextData,
+  parseFixtures,
+  parseLineup,
+  pickPitcheroMatch,
+  type PitcheroFixture,
+} from '../../supabase/functions/_shared/pitchero.ts';
 import {
   mapPosition,
   nameKey,
@@ -95,6 +101,16 @@ describe('suggestWithheldNames', () => {
     expect(s.get(11)![0]).toEqual({ name: 'Dot Dunn', games: 2, of: 2 });
   });
 
+  it('leaves out unused subs, who did not play', () => {
+    const withSubs = [
+      ...pitchero,
+      { fixture_id: 1, name: 'Sub Sid', position: null, starter: false },
+      { fixture_id: 2, name: 'Sub Sid', position: null, starter: false },
+    ];
+    const s = suggestWithheldNames(appearances, withSubs, ['Ann Able', 'Bea Best']);
+    expect(s.get(11)!.map((x) => x.name)).not.toContain('Sub Sid');
+  });
+
   it('never suggests someone already in the player list', () => {
     const s = suggestWithheldNames(appearances, pitchero, ['Ann Able', 'Bea Best', 'Cat Cole']);
     expect(s.get(10)!.map((x) => x.name)).not.toContain('Cat Cole');
@@ -117,5 +133,69 @@ describe('suggestPositions', () => {
     expect(suggestPositions(apps, rows)).toEqual([
       { player_id: 5, position: 'DEF', evidence: 'Fullback 1, Sweeper 1, Midfield 1' },
     ]);
+  });
+});
+
+describe('pickPitcheroMatch', () => {
+  const f = (id: string, dateTime: string, opponent: string): PitcheroFixture => ({
+    id,
+    date: dateTime.slice(0, 10),
+    dateTime,
+    opponent,
+    played: true,
+  });
+  const list = [
+    f('a', '2026-08-22T11:00:00+01:00', 'Culford 7s'),
+    f('b', '2026-08-22T14:00:00+01:00', 'Ipswich 7s'),
+    f('c', '2026-08-29T13:00:00+01:00', 'Spalding 1'),
+  ];
+
+  it('takes the only match that day', () => {
+    expect(
+      pickPitcheroMatch(
+        list,
+        { kickoff: '2026-08-29T12:00:00Z', opponent: 'Spalding 1' },
+        '2026-08-29',
+      )?.id,
+    ).toBe('c');
+    expect(
+      pickPitcheroMatch(list, { kickoff: '2026-09-05T12:00:00Z', opponent: 'X' }, '2026-09-05'),
+    ).toBeUndefined();
+  });
+
+  it('tells two games on one day apart by opponent, then time', () => {
+    expect(
+      pickPitcheroMatch(
+        list,
+        { kickoff: '2026-08-22T10:00:00Z', opponent: 'Ipswich & East Suffolk 7s' },
+        '2026-08-22',
+      )?.id,
+    ).toBe('b');
+    expect(
+      pickPitcheroMatch(
+        list,
+        { kickoff: '2026-08-22T13:00:00Z', opponent: 'Tournament' },
+        '2026-08-22',
+      )?.id,
+    ).toBe('b');
+    expect(
+      pickPitcheroMatch(
+        list,
+        { kickoff: '2026-08-22T10:00:00Z', opponent: 'Tournament' },
+        '2026-08-22',
+      )?.id,
+    ).toBe('a');
+  });
+
+  it('never uses one Pitchero match for two fixtures', () => {
+    const used = new Set(['b']);
+    expect(
+      pickPitcheroMatch(
+        list,
+        { kickoff: '2026-08-22T13:00:00Z', opponent: 'Ipswich 7s' },
+        '2026-08-22',
+        used,
+      )?.id,
+    ).toBe('a');
   });
 });

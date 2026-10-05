@@ -1,4 +1,4 @@
-import { chipStates, seasonHalf } from '@/lib/chips';
+import { chipStates, seasonHalf, seasonOf } from '@/lib/chips';
 
 const gws = [
   { id: 1, start_date: '2026-10-03' },
@@ -31,5 +31,18 @@ describe('chips', () => {
     const played = [{ chip: 'wildcard', gameweek_id: 1, side_id: null }];
     expect(chipStates(played, gws, 2).wildcard.state).toBe('used');
     expect(chipStates(played, gws, 4).wildcard.state).toBe('available');
+  });
+
+  it('gives every chip back next season', () => {
+    expect(seasonOf('2026-07-04')).toBe(2026);
+    expect(seasonOf('2027-06-26')).toBe(2026);
+    expect(seasonOf('2027-07-03')).toBe(2027);
+    const next = [...gws, { id: 5, start_date: '2027-09-11' }];
+    const played = [
+      { chip: 'triple_captain', gameweek_id: 1, side_id: null },
+      { chip: 'wildcard', gameweek_id: 2, side_id: null },
+    ];
+    expect(chipStates(played, next, 5).triple_captain.state).toBe('available');
+    expect(chipStates(played, next, 5).wildcard.state).toBe('available');
   });
 });

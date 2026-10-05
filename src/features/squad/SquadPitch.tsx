@@ -94,7 +94,7 @@ export function SquadPitch({
             ...(r.doubled
               ? [chip?.chip === 'triple_captain' ? 'triple captain x3' : 'captain x2']
               : []),
-            ...(r.bus_points > 0 ? ['Team Bus x2'] : []),
+            ...(r.bus_points !== 0 ? ['Team Bus x2'] : []),
             ...(chip?.chip === 'rolling_subs' && r.bench_order !== null && r.sub === null
               ? ['Rolling Subs']
               : []),

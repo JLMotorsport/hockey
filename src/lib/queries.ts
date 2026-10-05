@@ -183,12 +183,18 @@ export function useAdminUsers() {
 }
 
 /** The gameweek that squad changes made now apply to. */
-export function nextOpenGameweek(gameweeks: Gameweek[], now = new Date()): Gameweek | undefined {
+export function nextOpenGameweek<G extends Pick<Gameweek, 'deadline'>>(
+  gameweeks: G[],
+  now = new Date(),
+): G | undefined {
   return gameweeks.find((g) => new Date(g.deadline) > now);
 }
 
 /** Gameweeks whose deadline has passed, oldest first. */
-export function lockedGameweeks(gameweeks: Gameweek[], now = new Date()): Gameweek[] {
+export function lockedGameweeks<G extends Pick<Gameweek, 'deadline'>>(
+  gameweeks: G[],
+  now = new Date(),
+): G[] {
   return gameweeks.filter((g) => new Date(g.deadline) <= now);
 }
 
@@ -318,7 +324,7 @@ export function usePitcheroEvidence() {
       const sheets = await fetchAll((from, to) =>
         db
           .from('pitchero_lineups')
-          .select('fixture_id, name, position')
+          .select('fixture_id, name, position, starter')
           .order('fixture_id')
           .order('pitchero_player_id')
           .range(from, to),

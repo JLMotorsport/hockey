@@ -34,6 +34,7 @@ import {
   nextData,
   parseFixtures as parsePitcheroFixtures,
   parseLineup as parsePitcheroLineup,
+  pickPitcheroMatch,
 } from '../_shared/pitchero.ts';
 
 // Line-ups are re-read for this long after a match, in case the team admin
@@ -156,7 +157,7 @@ async function importPitchero(admin: Admin, sideId: number, teamId: number): Pro
   const since = new Date(Date.now() - LINEUP_REFRESH_DAYS * 86_400_000).toISOString();
   const { data: due, error } = await admin
     .from('fixtures')
-    .select('id, kickoff')
+    .select('id, kickoff, opponent')
     .eq('side_id', sideId)
     .not('goals_for', 'is', null)
     .lte('kickoff', new Date().toISOString())
@@ -174,9 +175,11 @@ async function importPitchero(admin: Admin, sideId: number, teamId: number): Pro
 
   let lineups = 0;
   let potm = 0;
+  const used = new Set<string>();
   for (const fx of due) {
-    const match = fixtures.find((f) => f.date === ukDate(fx.kickoff));
+    const match = pickPitcheroMatch(fixtures, fx, ukDate(fx.kickoff), used);
     if (!match) continue;
+    used.add(match.id);
     const res = await fetch(`${PITCHERO_SITE}/teams/${teamId}/match-centre/${match.id}/lineup`);
     if (!res.ok) continue;
     const lineup = parsePitcheroLineup(nextData(await res.text()), teamId, match.id);

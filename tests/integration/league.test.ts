@@ -1418,3 +1418,205 @@ describe.skipIf(!configured)('league database', () => {
     });
   });
 });
+
+describe.skipIf(!configured)('fixes from the code review', () => {
+  const signIn = async (email: string) => {
+    const db = createClient<Database>(URL!, ANON!, opts);
+    const { data, error } = await db.auth.signInWithPassword({ email, password: 'password123' });
+    if (error) throw error;
+    return { db, id: data.user.id };
+  };
+  const fixture = async (side_id: number, kickoff: string, opponent: string) =>
+    (
+      await service
+        .from('fixtures')
+        .insert({ side_id, kickoff, opponent, gameweek_id: 0 })
+        .select('id, gameweek_id')
+        .single()
+    ).data!;
+  const deadlineOf = async (gw: number) =>
+    (await anon.from('gameweeks').select('deadline').eq('id', gw).single()).data!.deadline;
+
+  it('locks a gameweek an hour before a midweek game, and only then', async () => {
+    const sides = (await service.from('sides').select('id').order('sort_order')).data!;
+    // Saturday 15 May 2027 (BST): the usual deadline is 10:00 UK, 09:00 UTC.
+    const sat = await fixture(sides[0]!.id, '2027-05-15T13:00:00+00:00', 'Saturday Opp');
+    expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T09:00:00+00:00');
+    // A Saturday game with no time yet (00:00) changes nothing.
+    await fixture(sides[1]!.id, '2027-05-14T23:00:00+00:00', 'Time TBC'); // 00:00 UK on the 15th
+    expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T09:00:00+00:00');
+    // A Wednesday evening game brings it forward to an hour before.
+    const wed = await fixture(sides[2]!.id, '2027-05-12T18:30:00+00:00', 'Midweek Opp');
+    expect(wed.gameweek_id).toBe(sat.gameweek_id);
+    expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-12T17:30:00+00:00');
+    // Moved to the Sunday, the Saturday deadline comes back.
+    await service
+      .from('fixtures')
+      .update({ kickoff: '2027-05-16T13:00:00+00:00' })
+      .eq('id', wed.id);
+    expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T09:00:00+00:00');
+  });
+
+  it('gives player of the match only to a clear name match', async () => {
+    const side = (await service.from('sides').select('id').order('sort_order')).data![5]!.id;
+    const f = (
+      await service
+        .from('fixtures')
+        .insert({
+          side_id: side,
+          kickoff: '2026-09-27T12:00:00+01:00',
+          opponent: 'Two Entwistles',
+          gameweek_id: 0,
+          goals_for: 2,
+          goals_against: 1,
+        })
+        .select('id')
+        .single()
+    ).data!.id;
+    const ids = (
+      await service
+        .from('players')
+        .insert([
+          { name: 'Sam Entwistle', position: 'MID', side_id: side, price: 50 },
+          { name: 'Sophie Entwistle', position: 'MID', side_id: side, price: 50 },
+        ])
+        .select('id, name')
+    ).data!;
+    await service
+      .from('performances')
+      .insert(
+        ids.map((p) => ({ fixture_id: f, player_id: p.id, goals: 0, player_of_match: false })),
+      );
+    const potm = async () =>
+      (
+        await anon
+          .from('performances')
+          .select('player_id')
+          .eq('fixture_id', f)
+          .eq('player_of_match', true)
+      ).data!.map((r) => r.player_id);
+    // "S Entwistle" could be either, so nobody gets it.
+    await service.rpc('import_pitchero', {
+      p_fixture_id: f,
+      p_lineup: [] as never,
+      p_potm: ['S. Entwistle'] as never,
+    });
+    expect(await potm()).toEqual([]);
+    // The full name settles it.
+    await service.rpc('import_pitchero', {
+      p_fixture_id: f,
+      p_lineup: [] as never,
+      p_potm: ['Sophie Entwistle'] as never,
+    });
+    expect(await potm()).toEqual([ids.find((p) => p.name === 'Sophie Entwistle')!.id]);
+  });
+
+  it('gives chips back each season', async () => {
+    const erin = await signUp('erin@example.com', 'Erin XI');
+    const lastSeason = (
+      await service
+        .from('gameweeks')
+        .insert({ start_date: '2025-10-04', deadline: '2025-10-04T09:00:00+00:00' })
+        .select('id')
+        .single()
+    ).data!.id;
+    await service
+      .from('chips_played')
+      .insert([{ user_id: erin.id, gameweek_id: lastSeason, chip: 'triple_captain' }]);
+    const played = await erin.db.rpc('play_chip', { p_chip: 'triple_captain' });
+    expect(played.error).toBeNull();
+    // Once this season, though.
+    await erin.db.rpc('cancel_chip');
+    const thisSeason = (
+      await service
+        .from('gameweeks')
+        .select('id')
+        .lte('deadline', new Date().toISOString())
+        .gte('start_date', '2026-07-01')
+        .limit(1)
+        .single()
+    ).data!.id;
+    await service
+      .from('chips_played')
+      .insert([{ user_id: erin.id, gameweek_id: thisSeason, chip: 'triple_captain' }]);
+    expect((await erin.db.rpc('play_chip', { p_chip: 'triple_captain' })).error!.message).toMatch(
+      /already used that chip this season/,
+    );
+  });
+
+  it('keeps the armband and starting place when merging two picked players', async () => {
+    const boss = await signIn('boss@example.com');
+    const frank = await signUp('frank@example.com', 'Frank XI');
+    const side = (await service.from('sides').select('id').order('sort_order')).data![0]!.id;
+    const [from, into] = (
+      await service
+        .from('players')
+        .insert([
+          { name: 'Name withheld #99 (M1)', position: 'FWD', side_id: side, price: 50 },
+          { name: 'Real Ninety-Nine', position: 'FWD', side_id: side, price: 50 },
+        ])
+        .select('id')
+    ).data!.map((p) => p.id);
+    const gw = (
+      await service
+        .from('gameweeks')
+        .select('id')
+        .lte('deadline', new Date().toISOString())
+        .limit(1)
+        .single()
+    ).data!.id;
+    await service.from('picks').insert([
+      { user_id: frank.id, gameweek_id: gw, player_id: from!, is_captain: true, bench_order: null },
+      { user_id: frank.id, gameweek_id: gw, player_id: into!, is_captain: false, bench_order: 2 },
+    ]);
+    const merged = await boss.db.rpc('merge_players', { p_from: from!, p_into: into! });
+    expect(merged.error).toBeNull();
+    const picks = (
+      await service
+        .from('picks')
+        .select('player_id, is_captain, bench_order')
+        .eq('user_id', frank.id)
+        .eq('gameweek_id', gw)
+    ).data!;
+    expect(picks).toEqual([{ player_id: into, is_captain: true, bench_order: null }]);
+  });
+
+  it('keeps the league table up to date when points change', async () => {
+    const locked = (
+      await anon.from('gameweeks').select('id').lte('deadline', new Date().toISOString())
+    ).data!;
+    // What the table should say, worked out afresh for each locked gameweek.
+    const fresh = async (user: string) => {
+      let sum = 0;
+      for (const w of locked) {
+        const { data } = await anon.rpc('squad_for', { p_user: user, p_gameweek: w.id });
+        sum += (data ?? []).reduce((n, r) => n + (r.counts ? r.points : 0), 0);
+      }
+      return sum;
+    };
+    const before = (await anon.rpc('league_table')).data!;
+    expect((await anon.rpc('league_table')).data).toEqual(before);
+    const top = before.find((r) => r.total > 0)!;
+    expect(top.total).toBe(await fresh(top.user_id));
+
+    // A goal for one of their players: the table follows.
+    const { data: picks } = await service
+      .from('picks')
+      .select('player_id')
+      .eq('user_id', top.user_id);
+    const { data: perfs } = await service
+      .from('performances')
+      .select('id, goals')
+      .in('player_id', [...new Set(picks!.map((p) => p.player_id))]);
+    const perf = perfs![0]!;
+    await service
+      .from('performances')
+      .update({ goals: perf.goals + 1 })
+      .eq('id', perf.id);
+    const after = (await anon.rpc('league_table')).data!.find((r) => r.user_id === top.user_id)!;
+    expect(after.total).toBe(await fresh(top.user_id));
+    await service.from('performances').update({ goals: perf.goals }).eq('id', perf.id);
+    const back = (await anon.rpc('league_table')).data!.find((r) => r.user_id === top.user_id)!;
+    expect(back.total).toBe(top.total);
+  });
+});

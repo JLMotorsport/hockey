@@ -1,5 +1,5 @@
-// Chips: once-a-season boosts. play_chip() and squad_lineup() in
-// supabase/migrations/0012_chips.sql enforce and score them; this only
+// Chips: once-a-season boosts. play_chip() (supabase/migrations/0016_review_fixes.sql)
+// and squad_lineup() enforce and score them; this only
 // describes them and works out which are still available.
 
 export type ChipKey = 'triple_captain' | 'rolling_subs' | 'wildcard' | 'team_bus';
@@ -44,6 +44,12 @@ export interface PlayedChip {
   side_id: number | null;
 }
 
+/** The year a season starts in: July 2026 to June 2027 is 2026 (as season_of()). */
+export function seasonOf(date: string): number {
+  const year = Number(date.slice(0, 4));
+  return Number(date.slice(5, 7)) >= 7 ? year : year - 1;
+}
+
 /** 1 for July to December, 2 for January to June (as season_half()). */
 export function seasonHalf(date: string): 1 | 2 {
   return Number(date.slice(5, 7)) >= 7 ? 1 : 2;
@@ -67,9 +73,9 @@ export function chipStates(
     const active = played.find((p) => p.chip === key && p.gameweek_id === nextGameweekId);
     const spent = played.find((p) => {
       if (p.chip !== key || p.gameweek_id === nextGameweekId) return false;
-      if (key !== 'wildcard') return true;
       const start = startOf.get(p.gameweek_id);
-      return Boolean(start && nextStart && seasonHalf(start) === seasonHalf(nextStart));
+      if (!start || !nextStart || seasonOf(start) !== seasonOf(nextStart)) return false;
+      return key !== 'wildcard' || seasonHalf(start) === seasonHalf(nextStart);
     });
     out[key] = active
       ? { state: 'active', sideId: active.side_id }
