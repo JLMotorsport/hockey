@@ -1,3 +1,5 @@
+import { useCallback, useState } from 'react';
+import { Splash } from './components/Splash';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
@@ -46,9 +48,13 @@ function Home() {
 
 export function App() {
   const { loading } = useAuth();
+  // The opening screen, once per visit: until the app is ready and the pitch is drawn.
+  const [splash, setSplash] = useState(true);
+  const hideSplash = useCallback(() => setSplash(false), []);
   if (!isSupabaseConfigured) return <SetupScreen />;
   return (
     <BrowserRouter>
+      {splash && <Splash done={!loading} onGone={hideSplash} />}
       <Routes>
         <Route element={<Layout />}>
           {loading ? (
