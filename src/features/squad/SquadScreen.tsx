@@ -531,25 +531,6 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
 
   return (
     <>
-      <nav className="mb-3 flex rounded-full bg-surface p-1 shadow-card" aria-label="Squad pages">
-        {(
-          [
-            ['/squad', 'Pick team', 'pick'],
-            ['/transfers', 'Transfers', 'transfers'],
-          ] as const
-        ).map(([to, label, m]) => (
-          <Link
-            key={to}
-            to={to}
-            onClick={mode === m ? undefined : leave(to)}
-            aria-current={mode === m ? 'page' : undefined}
-            className={`flex min-h-[40px] flex-1 items-center justify-center rounded-full font-display text-sm font-bold uppercase no-underline hover:no-underline ${mode === m ? 'bg-brand text-white' : 'text-ink-soft'}`}
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
-
       <section className="hero !pb-3 !pt-3">
         <div className="flex items-baseline justify-between gap-2">
           <h1 className="m-0 text-3xl leading-none">{gameweekLabel(gameweek, all)}</h1>
@@ -558,10 +539,38 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           </span>
         </div>
         {mode === 'pick' ? (
-          <p className="mt-1 text-sm text-white/90">
-            {selected.size === STARTERS ? `Lining up ${pickedShape}. ` : ''}
-            Tap a player for captain, vice or a sub.
-          </p>
+          // Same height as the Transfers strip, so the bar doesn't jump between pages.
+          <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+            {(
+              [
+                [selected.size === STARTERS ? pickedShape : '-', 'Shape'],
+                [
+                  captainId
+                    ? shortName(poolById.get(captainId)?.name ?? '')
+                        .split(' ')
+                        .at(-1)
+                    : '-',
+                  'Captain',
+                ],
+                [
+                  viceId
+                    ? shortName(poolById.get(viceId)?.name ?? '')
+                        .split(' ')
+                        .at(-1)
+                    : '-',
+                  'Vice',
+                ],
+              ] as const
+            ).map(([value, label]) => (
+              <div
+                key={label}
+                className="flex min-w-0 items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5"
+              >
+                <span className="display-num min-w-0 truncate text-xl">{value}</span>
+                <span className="shrink-0 text-[0.7rem] uppercase text-white/85">{label}</span>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
             <div className="flex items-baseline justify-center gap-1.5 rounded-lg bg-white/15 px-2 py-1.5">
@@ -591,6 +600,25 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           </div>
         )}
       </section>
+
+      <nav className="mb-3 flex rounded-full bg-surface p-1 shadow-card" aria-label="Squad pages">
+        {(
+          [
+            ['/squad', 'Pick team', 'pick'],
+            ['/transfers', 'Transfers', 'transfers'],
+          ] as const
+        ).map(([to, label, m]) => (
+          <Link
+            key={to}
+            to={to}
+            onClick={mode === m ? undefined : leave(to)}
+            aria-current={mode === m ? 'page' : undefined}
+            className={`flex min-h-[40px] flex-1 items-center justify-center rounded-full font-display text-sm font-bold uppercase no-underline hover:no-underline ${mode === m ? 'bg-brand text-white' : 'text-ink-soft'}`}
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
 
       <Notices items={notices} />
 
