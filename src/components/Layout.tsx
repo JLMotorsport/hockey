@@ -58,6 +58,10 @@ export function Layout() {
   return (
     <div className="min-h-screen pb-20 sm:pb-0">
       <header className="sticky top-0 z-30 bg-brand text-white shadow-md">
+        {/* Still being built: BETA in the bar's top-right corner on phones. */}
+        <span className="pointer-events-none absolute right-3 top-1.5 font-display text-[0.7rem] font-bold uppercase tracking-widest text-white opacity-70 sm:hidden">
+          Beta
+        </span>
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5">
           <Link
             to="/"
@@ -67,6 +71,10 @@ export function Layout() {
             <span className="font-display leading-none">
               <span className="block text-xl font-extrabold uppercase tracking-tight">
                 Fantasy Hockey
+                {/* On wider screens the corner holds the menu, so BETA sits by the title. */}
+                <span className="ml-2 hidden align-top text-[0.7rem] font-bold tracking-widest opacity-70 sm:inline">
+                  Beta
+                </span>
               </span>
               <span className="block text-xs font-semibold uppercase tracking-widest text-white/80">
                 Felixstowe HC

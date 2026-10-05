@@ -445,6 +445,7 @@ export type Database = {
           display_name: string;
           id: string;
           is_admin: boolean;
+          side_id: number | null;
           team_name: string;
         };
         Insert: {
@@ -452,6 +453,7 @@ export type Database = {
           display_name: string;
           id: string;
           is_admin?: boolean;
+          side_id?: number | null;
           team_name: string;
         };
         Update: {
@@ -459,9 +461,18 @@ export type Database = {
           display_name?: string;
           id?: string;
           is_admin?: boolean;
+          side_id?: number | null;
           team_name?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'profiles_side_id_fkey';
+            columns: ['side_id'];
+            isOneToOne: false;
+            referencedRelation: 'sides';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       sides: {
         Row: {
@@ -680,6 +691,7 @@ export type Database = {
       set_deadline: { Args: { p_deadline: string; p_gameweek_id: number }; Returns: undefined };
       set_prices_from_points: { Args: Record<PropertyKey, never>; Returns: number };
       set_stats_lock: { Args: { p_fixture_id: number; p_locked: boolean }; Returns: undefined };
+      squad_fits_quota: { Args: { p_ids: number[] }; Returns: boolean };
       squad_for: {
         Args: { p_gameweek: number; p_user: string };
         Returns: {

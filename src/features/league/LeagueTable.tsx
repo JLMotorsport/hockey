@@ -3,17 +3,29 @@ import { useAuth } from '@/lib/auth/AuthProvider';
 import { gameweekLabel } from '@/lib/format';
 import { lockedGameweeks, useGameweeks, useLeagueTable } from '@/lib/queries';
 import { ErrorText, Loading } from '@/components/ui';
-import { movement } from '@/lib/table';
+import { leagueRows, movement } from '@/lib/table';
 
-export function LeagueTable({ limit }: { limit?: number }) {
+export function LeagueTable({
+  limit,
+  include,
+}: {
+  limit?: number;
+  /** A mini league: who's in it (ranked again from 1). */
+  include?: (userId: string) => boolean;
+}) {
   const { session } = useAuth();
   const table = useLeagueTable();
   const gameweeks = useGameweeks();
   if (table.isLoading || gameweeks.isLoading) return <Loading />;
   if (table.error) return <ErrorText error={table.error} />;
-  const all = table.data ?? [];
+  const all = include ? leagueRows(table.data ?? [], include) : (table.data ?? []);
   const rows = all.slice(0, limit);
-  if (!rows.length) return <p className="muted">No teams yet. Be the first.</p>;
+  if (!rows.length)
+    return (
+      <p className="muted">
+        {include ? 'Nobody in this league yet.' : 'No teams yet. Be the first.'}
+      </p>
+    );
   const locked = lockedGameweeks(gameweeks.data ?? []);
   const latest = locked.at(-1);
   // Movement only means something once there's a gameweek before this one.

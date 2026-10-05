@@ -8,6 +8,7 @@ import {
   nextOpenGameweek,
   useAllGameweekPoints,
   usePriceTrend,
+  useProfileSides,
   useFixtures,
   useGameweeks,
   usePlayers,
@@ -16,6 +17,8 @@ import {
   useSides,
 } from '@/lib/queries';
 import { CHIPS } from '@/lib/chips';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { inLeague, type LeagueKey } from '@/lib/table';
 import { POSITIONS, RULES_TABLE, type Position } from '@/lib/scoring';
 import { formatPrice } from '@/lib/squad';
 import { LeagueTable } from './LeagueTable';
@@ -59,14 +62,58 @@ export function HomeScreen() {
 }
 
 export function TableScreen() {
+  const { session, profile } = useAuth();
+  const sides = useSides();
+  const sideOf = useProfileSides();
+  const [league, setLeague] = useState<LeagueKey>('all');
+  const sideList = sides.data ?? [];
+  const mine = profile?.side_id ?? null;
+  // Overall, Men's and Women's, then each side with your own first.
+  const leagues: [LeagueKey, string][] = [
+    ['all', 'Overall'],
+    ['men', "Men's"],
+    ['women', "Women's"],
+    ...[...sideList]
+      .sort((a, b) => Number(b.id === mine) - Number(a.id === mine))
+      .map((s): [LeagueKey, string] => [
+        `side:${s.id}`,
+        s.id === mine ? `${s.short_name} (you)` : s.short_name,
+      ]),
+  ];
+  const include =
+    league === 'all'
+      ? undefined
+      : inLeague(league, sideOf.data ?? new Map<string, number | null>(), sideList);
+
   return (
     <>
       <h1>League table</h1>
+      <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Leagues">
+        {leagues.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={league === key}
+            onClick={() => setLeague(key)}
+            className={`min-h-[40px] shrink-0 rounded-full px-4 font-display text-sm font-bold uppercase ${league === key ? 'bg-brand text-white' : 'bg-surface ring-1 ring-line'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="card">
-        <LeagueTable />
+        <LeagueTable include={include} />
       </div>
       <p className="muted text-sm">
         Arrows: places up or down since the gameweek before. Tap a team to see their squad.
+        {session && !mine && (
+          <>
+            {' '}
+            <Link to="/account">Set the side you play for</Link> to join the Men&apos;s or
+            Women&apos;s league and your side&apos;s league.
+          </>
+        )}
       </p>
     </>
   );

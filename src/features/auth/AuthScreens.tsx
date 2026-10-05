@@ -1,7 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Notices, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { useSides } from '@/lib/queries';
 import { requireSupabase } from '@/lib/supabase';
 
 export function LoginScreen() {
@@ -81,7 +83,14 @@ export function LoginScreen() {
 export function RegisterScreen() {
   const { session } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ display_name: '', team_name: '', email: '', password: '' });
+  const [form, setForm] = useState({
+    display_name: '',
+    team_name: '',
+    email: '',
+    password: '',
+    side_id: '',
+  });
+  const sides = useSides();
   const [busy, setBusy] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
 
@@ -102,7 +111,11 @@ export function RegisterScreen() {
       email: form.email.trim(),
       password: form.password,
       options: {
-        data: { display_name: form.display_name.trim(), team_name: form.team_name.trim() },
+        data: {
+          display_name: form.display_name.trim(),
+          team_name: form.team_name.trim(),
+          side_id: form.side_id,
+        },
         emailRedirectTo: `${window.location.origin}/squad`,
       },
     });
@@ -145,6 +158,20 @@ export function RegisterScreen() {
           />
         </label>
         <label className="field">
+          Your side (optional)
+          <select className="input" value={form.side_id} onChange={set('side_id')}>
+            <option value="">I don't play / not sure</option>
+            {(sides.data ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <span className="muted text-xs">
+            Puts you in the Men's or Women's league and your side's own league too.
+          </span>
+        </label>
+        <label className="field">
           Email
           <input
             className="input"
@@ -181,6 +208,9 @@ export function RegisterScreen() {
 export function AccountScreen() {
   const { session, profile } = useAuth();
   const [teamName, setTeamName] = useState(profile?.team_name ?? '');
+  const [sideId, setSideId] = useState(profile?.side_id ? String(profile.side_id) : '');
+  const sides = useSides();
+  const queryClient = useQueryClient();
   const [password, setPassword] = useState('');
   const [notices, setNotices] = useState<Notice[]>([]);
 
@@ -200,6 +230,16 @@ export function AccountScreen() {
           ? { kind: 'error', text: error.message }
           : { kind: 'success', text: 'Team name saved.' },
       );
+    }
+    if (sideId !== (profile!.side_id ? String(profile!.side_id) : '')) {
+      const { error } = await db
+        .from('profiles')
+        .update({ side_id: sideId ? Number(sideId) : null })
+        .eq('id', profile!.id);
+      out.push(
+        error ? { kind: 'error', text: error.message } : { kind: 'success', text: 'Side saved.' },
+      );
+      await queryClient.invalidateQueries();
     }
     if (password) {
       if (password.length < 8)
@@ -233,6 +273,20 @@ export function AccountScreen() {
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
           />
+        </label>
+        <label className="field">
+          Your side (optional)
+          <select className="input" value={sideId} onChange={(e) => setSideId(e.target.value)}>
+            <option value="">I don't play / not sure</option>
+            {(sides.data ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <span className="muted text-xs">
+            Puts you in the Men's or Women's league and your side's own league too.
+          </span>
         </label>
         <label className="field">
           New password

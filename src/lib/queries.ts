@@ -145,6 +145,21 @@ export function useChips(userId: string | undefined) {
   });
 }
 
+/** The side each manager says they play for (for mini leagues). */
+export function useProfileSides() {
+  return useQuery({
+    queryKey: ['profile-sides'],
+    queryFn: async () =>
+      new Map(
+        (
+          await fetchAll((from, to) =>
+            requireSupabase().from('profiles').select('id, side_id').order('id').range(from, to),
+          )
+        ).map((r) => [r.id, r.side_id] as [string, number | null]),
+      ),
+  });
+}
+
 export function useProfile(id: string | undefined) {
   return useQuery({
     queryKey: keys.profile(id ?? ''),
