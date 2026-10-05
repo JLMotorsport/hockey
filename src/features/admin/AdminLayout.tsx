@@ -5,6 +5,7 @@ import { Notices, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { formatDayTime } from '@/lib/format';
 import { requireSupabase } from '@/lib/supabase';
+import { BUILD_COMMIT, BUILD_LABEL } from '@/lib/version';
 import { useManagerStatus } from './status';
 
 interface SyncResult {
@@ -90,6 +91,12 @@ export function AdminLayout() {
               </span>
               <span className="block text-[11px] font-bold uppercase tracking-[0.2em] text-[#ff8a8a] lg:text-xs">
                 Managers
+                <span
+                  title={`Build ${BUILD_COMMIT}`}
+                  className="ml-2 font-sans text-[10px] font-semibold tracking-normal tabular-nums text-white/60 lg:text-[11px]"
+                >
+                  {BUILD_LABEL}
+                </span>
               </span>
             </span>
           </Link>
