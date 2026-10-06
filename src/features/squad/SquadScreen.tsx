@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ErrorText, Loading, Notices, PosBadge, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { formatWeekdayTime, gameweekLabel, shortName } from '@/lib/format';
+import { formatDeadline, formatWeekdayTime, gameweekLabel, shortName } from '@/lib/format';
 import {
   keys,
   nextOpenGameweek,
@@ -17,7 +17,16 @@ import {
   useFixtures,
   useSquad,
   lockedGameweeks,
+  useOwnership,
+  usePriceTrend,
 } from '@/lib/queries';
+import {
+  cardNames,
+  fixtureCode,
+  PLAYER_DATA,
+  priceChange,
+  type PlayerData,
+} from '@/lib/pickDisplay';
 import { fixtureLabel, formByPlayer } from '@/lib/form';
 import { ChipsCard } from './ChipsCard';
 import { chipName } from '@/lib/chips';
@@ -90,6 +99,28 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
       ),
     [gameweekPoints.data, gameweeks.data],
   );
+  // What the line under each card shows (FPL's "Player Data"), remembered per device.
+  const lastLocked = lockedGameweeks(all).at(-1);
+  const trend = usePriceTrend();
+  const ownership = useOwnership(lastLocked?.id);
+  const [dataKey, setDataKey] = useState<PlayerData>(() => {
+    try {
+      const saved = localStorage.getItem('pick-player-data');
+      return PLAYER_DATA.find((o) => o.key === saved)?.key ?? 'opponent';
+    } catch {
+      return 'opponent';
+    }
+  });
+  const [dataOpen, setDataOpen] = useState(false);
+  function chooseData(key: PlayerData) {
+    setDataKey(key);
+    setDataOpen(false);
+    try {
+      localStorage.setItem('pick-player-data', key);
+    } catch {
+      // Private browsing: it just isn't remembered.
+    }
+  }
   const wildcard = Boolean(
     gameweek && chips.data?.some((c) => c.chip === 'wildcard' && c.gameweek_id === gameweek.id),
   );
@@ -403,6 +434,33 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
       (!onlyPicked || inSquad(p.id)),
   );
 
+  const squadPlayers = [...picked, ...benchPlayers.filter((p): p is SquadPlayer => p !== null)];
+  const names = cardNames(squadPlayers);
+  const lastPoints = new Map(
+    (gameweekPoints.data ?? [])
+      .filter((r) => r.gameweek_id === lastLocked?.id)
+      .map((r) => [r.player_id, r.points]),
+  );
+  /** The line under a card, for the chosen Player Data. */
+  function dataFor(p: SquadPlayer): string {
+    switch (dataKey) {
+      case 'opponent':
+        return fixtureCode(fixtures.data ?? [], p.side_id, gameweek!.id);
+      case 'price':
+        return `${formatPrice(p.price)}m`;
+      case 'change':
+        return priceChange(trend.data?.get(p.id));
+      case 'form':
+        return form.get(p.id)?.toFixed(1) ?? '-';
+      case 'gw':
+        return lastLocked ? `${lastPoints.get(p.id) ?? 0} pts` : '-';
+      case 'total':
+        return `${points.data?.get(p.id) ?? 0} pts`;
+      case 'ownership':
+        return lastLocked ? `${ownership.data?.get(p.id) ?? 0}%` : '-';
+    }
+  }
+  const dataMuted = (p: SquadPlayer) => dataKey === 'opponent' && dataFor(p) === 'No game';
   const pickedShape = formationOf(summary.byPosition);
   // The shape the starters make; with fewer than 11, room for the first allowed one.
   const formation =
@@ -417,10 +475,9 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           ? {
               key: `p${p.id}`,
               position: pos,
-              name: shortName(p.name),
-              tag: sideById.get(p.side_id)?.short_name,
-              sub: nextFor(p),
-              subMuted: nextFor(p) === 'No game',
+              name: names.get(p.id) ?? shortName(p.name),
+              sub: dataFor(p),
+              subMuted: dataMuted(p),
               captain: captainId === p.id,
               badge: viceId === p.id ? 'V' : undefined,
               highlight: swapFrom !== null && canSwap(swapFrom, p.id),
@@ -448,11 +505,9 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
       ? {
           key: `b${p.id}`,
           position: p.position,
-          name: shortName(p.name),
-          tag: sideById.get(p.side_id)?.short_name,
-          sub: nextFor(p),
-          subMuted: nextFor(p) === 'No game',
-          badge: i === 0 ? undefined : String(i),
+          name: names.get(p.id) ?? shortName(p.name),
+          sub: dataFor(p),
+          subMuted: dataMuted(p),
           highlight: swapFrom !== null && canSwap(swapFrom, p.id),
           onClick: () => (swapFrom !== null ? swap(swapFrom, p.id) : setFocus(p.id)),
         }
@@ -482,7 +537,6 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
 
   // Transfers: the 15 by position, price above each, empty slots up to FPL's
   // 2 GK, 5 DEF, 5 MID, 3 FWD while the squad isn't full.
-  const squadPlayers = [...picked, ...benchPlayers.filter((p): p is SquadPlayer => p !== null)];
   const sideCounts = new Map<number, number>();
   for (const p of squadPlayers) sideCounts.set(p.side_id, (sideCounts.get(p.side_id) ?? 0) + 1);
 
@@ -609,268 +663,8 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           ['Squad', `${summary.count}/${STARTERS + BENCH}`, summary.count !== STARTERS + BENCH],
         ];
 
-  return (
+  const overlays = (
     <>
-      {/* Red bar: the gameweek, the page switch and chips, all in one. */}
-      <section className="hero !mb-2 !pb-2 !pt-2">
-        <div className="flex items-baseline gap-2">
-          <h1 className="m-0 text-xl leading-none">{gameweekLabel(gameweek, all).split(' ')[0]}</h1>
-          <span className="text-xs text-white/90">
-            Deadline {formatWeekdayTime(gameweek.deadline)}
-          </span>
-        </div>
-        <div className="mt-1.5 flex gap-1.5">
-          <nav className="flex flex-1 rounded-full bg-black/20 p-1" aria-label="Squad pages">
-            {(
-              [
-                ['/squad', 'Pick team', 'pick'],
-                ['/transfers', 'Transfers', 'transfers'],
-              ] as const
-            ).map(([to, label, m]) => (
-              <Link
-                key={to}
-                to={to}
-                onClick={mode === m ? undefined : leave(to)}
-                aria-current={mode === m ? 'page' : undefined}
-                className={`flex min-h-[36px] flex-1 items-center justify-center rounded-full font-display text-sm font-bold uppercase no-underline hover:no-underline ${mode === m ? 'bg-white text-brand' : 'text-white/85 hover:text-white'}`}
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
-          <button
-            type="button"
-            onClick={() => setChipsOpen(true)}
-            className={`flex min-h-tap max-w-[9rem] items-center gap-1 rounded-full px-3 font-display text-sm font-bold uppercase ${activeChip ? 'bg-white text-brand' : 'bg-black/20 text-white'}`}
-          >
-            <span className="truncate">{activeChip ? `${activeChip} ✓` : 'Chips'}</span>
-            <span className="text-[0.6rem]" aria-hidden="true">
-              ▼
-            </span>
-          </button>
-          {mode === 'transfers' && (
-            <button
-              type="button"
-              onClick={() => setView(view === 'pitch' ? 'list' : 'pitch')}
-              aria-label={view === 'pitch' ? 'Show as a list' : 'Show on the pitch'}
-              className="min-h-tap rounded-full bg-black/20 px-3 font-display text-sm font-bold uppercase text-white"
-            >
-              {view === 'pitch' ? 'List' : 'Pitch'}
-            </button>
-          )}
-        </div>
-      </section>
-
-      <Notices items={notices} />
-
-      {chipsOpen && (
-        <Sheet title="Chips" onClose={() => setChipsOpen(false)}>
-          <ChipsCard
-            userId={session.user.id}
-            gameweek={gameweek}
-            gameweeks={all}
-            sides={sides.data ?? []}
-            onNotice={setNotices}
-            only={mode === 'pick' ? ['triple_captain', 'rolling_subs', 'team_bus'] : ['wildcard']}
-          />
-        </Sheet>
-      )}
-
-      {mode === 'pick' && empty ? (
-        <section className="card text-center">
-          <h2>No squad yet</h2>
-          <p className="muted mb-3">Pick your 15 players on Transfers first.</p>
-          <Link className="btn" to="/transfers">
-            Go to transfers
-          </Link>
-        </section>
-      ) : mode === 'transfers' && view === 'pitch' ? (
-        <>
-          {freeFix && (
-            <p className="mb-3 rounded-xl border border-[#9cc3ea] bg-[#eaf3fc] px-3 py-2 text-sm font-semibold text-[#123a5e] dark:border-[#2c4f73] dark:bg-[#14263a] dark:text-[#cfe3f7]">
-              Squads are now 2 GK, 5 DEF, 5 MID and 3 FWD. Changes this week to get yours there are
-              free: tap a player to swap them for a position you&apos;re short of.
-            </p>
-          )}
-          <div className="relative">
-            <Pitch rows={transferRows} compact />
-            {squadPlayers.length < STARTERS + BENCH && (
-              <button
-                type="button"
-                onClick={autoFill}
-                className="absolute left-3 top-6 z-10 min-h-[36px] rounded-full bg-white px-3 font-display text-sm font-extrabold uppercase text-[#14181f] shadow-card"
-              >
-                Auto pick
-              </button>
-            )}
-            {dirty && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSwapFrom(null);
-                  setLoadedFrom(null);
-                  setNotices([]);
-                }}
-                className="absolute right-3 top-6 z-10 min-h-[36px] rounded-full bg-black/55 px-3 font-display text-sm font-extrabold uppercase text-white shadow-card"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-          <p className="muted mt-3 text-center text-sm">
-            Tap a player to transfer them out, or an empty shirt to add one. Like for like: a
-            defender out, a defender in.
-          </p>
-        </>
-      ) : mode === 'pick' ? (
-        <>
-          {swapping && (
-            <div className="fixed inset-x-4 bottom-[8.5rem] z-30 flex items-center sm:static sm:mb-3 justify-between gap-2 rounded-xl bg-[#16181d] px-3 py-2 text-sm font-semibold text-white shadow-card">
-              <span>Tap who {swapping.name} swaps with</span>
-              <button
-                type="button"
-                className="min-h-tap rounded-full px-3 font-display font-bold uppercase text-[#ffd400]"
-                onClick={() => setSwapFrom(null)}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-          <Pitch rows={slots} bench={benchSlots} compact />
-          <details className="muted mt-3 text-center text-sm">
-            <summary className="min-h-tap cursor-pointer font-semibold text-brand">
-              The strip shows who their side plays. How subs and captains work
-            </summary>
-            <p className="mt-1 text-left">
-              Tap an empty shirt to add a player, or a player to make them captain (C) or vice (V),
-              or swap them with a sub. If your captain doesn&apos;t play, your vice scores double
-              instead. If a starter doesn&apos;t play, the first sub who did comes on, as long as
-              the team still lines up in an allowed formation.
-            </p>
-          </details>
-        </>
-      ) : (
-        <>
-          <div className="my-3 flex flex-wrap items-center gap-2">
-            <select
-              className="input-inline"
-              aria-label="Filter by side"
-              value={sideFilter}
-              onChange={(e) => setSideFilter(e.target.value)}
-            >
-              <option value="">All sides</option>
-              {(sides.data ?? []).map((side) => (
-                <option key={side.id} value={side.id}>
-                  {side.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className="input-inline"
-              aria-label="Filter by position"
-              value={posFilter}
-              onChange={(e) => setPosFilter(e.target.value)}
-            >
-              <option value="">All positions</option>
-              {POSITIONS.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={onlyPicked}
-                onChange={(e) => setOnlyPicked(e.target.checked)}
-              />{' '}
-              Only my picks
-            </label>
-          </div>
-          <StatsTable
-            rows={visible}
-            columns={statColumns}
-            defaultSort="pts"
-            tiebreak={(p) => statPoints(p.id)}
-            rowTint={(p) => inSquad(p.id)}
-            lead={(p) => {
-              const slot = benchSlot(p.id);
-              return (
-                <label className="flex min-h-[44px] min-w-0 cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5 shrink-0 accent-[#d91414]"
-                    aria-label={`Pick ${p.name}`}
-                    checked={inSquad(p.id)}
-                    onChange={() => toggle(p.id)}
-                  />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate font-bold">{p.name}</span>
-                    <span className="muted flex min-w-0 items-center gap-1 text-xs">
-                      <PosBadge position={p.position} />
-                      <span className="truncate">
-                        {sideById.get(p.side_id)?.short_name}
-                        {' · '}
-                        {nextFor(p) === 'No game' ? 'No game' : nextFor(p)}
-                        {slot >= 0 && ` · ${slot === 0 ? 'sub GK' : `sub ${slot}`}`}
-                        {!p.active && ' · unavailable'}
-                      </span>
-                    </span>
-                  </span>
-                </label>
-              );
-            }}
-          />
-        </>
-      )}
-
-      {/* Save stays in reach: sitting on the tab bar on phones (64px tabs + border +
-          safe area), pinned at the bottom on desktop. */}
-      {showProblems && problemsOpen && (
-        <ul className="fixed inset-x-3 bottom-[calc(8rem+env(safe-area-inset-bottom))] z-30 list-disc space-y-1 rounded-xl border border-[#f2c27a] bg-[#fff4e5] py-2 pl-7 pr-3 text-sm font-semibold text-[#6b3d00] shadow-card dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8] sm:static sm:mb-2">
-          {problems.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
-      )}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+1px+env(safe-area-inset-bottom))] z-20 flex items-center gap-3 border-t border-line bg-surface py-1.5 pl-4 pr-2 sm:sticky sm:bottom-4 sm:mt-4 sm:rounded-2xl sm:border sm:pr-3 sm:shadow-card">
-        {showProblems ? (
-          // Rules broken: say so here instead of the numbers; tap for the full list.
-          <button
-            type="button"
-            onClick={() => setProblemsOpen(!problemsOpen)}
-            aria-expanded={problemsOpen}
-            className="flex min-h-tap min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold leading-tight text-[#8a4b00] dark:text-[#ffc773]"
-          >
-            <span aria-hidden="true">⚠</span>
-            <span className="line-clamp-2 min-w-0">
-              {problems[0]}
-              {problems.length > 1 && ` (+${problems.length - 1} more)`}
-            </span>
-          </button>
-        ) : (
-          <div className="flex min-w-0 flex-1 gap-3.5">
-            {barStats.map(([label, value, warn]) => (
-              <span key={label} className="flex min-w-0 flex-col leading-none">
-                <span className="text-[0.62rem] uppercase tracking-wider text-ink-soft">
-                  {label}
-                </span>
-                <span className={`display-num mt-0.5 truncate text-lg ${warn ? 'text-brand' : ''}`}>
-                  {value}
-                </span>
-              </span>
-            ))}
-          </div>
-        )}
-        <button
-          type="button"
-          className="btn shrink-0 px-5"
-          disabled={saving || (mode === 'pick' && empty)}
-          onClick={() => void save()}
-        >
-          {saving ? 'Saving' : mode === 'transfers' ? 'Save' : 'Save team'}
-        </button>
-      </div>
-      <div className="h-16 sm:hidden" />
-
       {picker && (
         <PlayerPicker
           title={
@@ -1003,4 +797,504 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
       )}
     </>
   );
+
+  if (mode === 'pick') {
+    const subsTone = 'text-[#1f7a4d] dark:text-[#7fd6a2]';
+    const groups = [
+      ...POSITIONS.map((pos) => ({
+        title: pos === 'GK' ? 'Goalkeeper' : `${POSITION_NAMES[pos]}s`,
+        rows: picked.filter((p) => p.position === pos),
+      })),
+      {
+        title: 'Subs',
+        rows: benchPlayers.filter((p): p is SquadPlayer => p !== null),
+        tone: subsTone,
+      },
+    ];
+    const chrome = 'bg-black/[0.06] dark:bg-[#1f232c]';
+    return (
+      <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+        {/* Title bar, as FPL's: back, the page, and Transfers where FPL has its assistant. */}
+        <header className="flex h-[46px] shrink-0 items-center gap-1">
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={() => {
+              if (dirty && !window.confirm('You have unsaved changes. Leave without saving?'))
+                return;
+              if ((window.history.state as { idx?: number } | null)?.idx) navigate(-1);
+              else navigate('/dashboard');
+            }}
+            className="flex h-11 w-11 items-center justify-center"
+          >
+            <span
+              aria-hidden="true"
+              className={`flex h-9 w-9 items-center justify-center rounded-full pb-0.5 text-xl ${chrome}`}
+            >
+              ‹
+            </span>
+          </button>
+          <h1 className="m-0 flex-1 text-center font-sans text-[1.2rem] font-extrabold normal-case tracking-normal">
+            Pick Team
+          </h1>
+          <Link
+            to="/transfers"
+            onClick={leave('/transfers')}
+            className="flex min-h-tap items-center text-ink no-underline hover:no-underline"
+          >
+            <span
+              className={`flex h-8 items-center rounded-full px-2.5 text-xs font-bold ${chrome}`}
+            >
+              Transfers
+            </span>
+          </Link>
+        </header>
+        <p className="m-0 shrink-0 pb-2 pt-0.5 text-center text-[0.8rem]">
+          <span className="font-semibold text-ink-soft">
+            Gameweek {all.filter((g) => g.start_date <= gameweek.start_date).length}
+          </span>{' '}
+          <span className="text-ink-soft">•</span>{' '}
+          <b>Deadline: {formatDeadline(gameweek.deadline)}</b>
+        </p>
+
+        <Notices items={notices} />
+
+        {empty ? (
+          <section className="card mt-2 text-center">
+            <h2>No squad yet</h2>
+            <p className="muted mb-3">Pick your 15 players on Transfers first.</p>
+            <Link className="btn" to="/transfers">
+              Go to transfers
+            </Link>
+          </section>
+        ) : (
+          <>
+            <ChipsCard
+              userId={session.user.id}
+              gameweek={gameweek}
+              gameweeks={all}
+              sides={sides.data ?? []}
+              onNotice={setNotices}
+              elsewhere={{ wildcard: 'Transfers' }}
+            />
+            <div className="mb-2 flex shrink-0 items-center gap-2">
+              <div
+                className={`flex flex-1 rounded-[10px] p-[3px] ${chrome}`}
+                role="group"
+                aria-label="View"
+              >
+                {(['pitch', 'list'] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    aria-pressed={view === v}
+                    onClick={() => setView(v)}
+                    className={`min-h-[38px] flex-1 rounded-lg text-sm font-semibold capitalize ${view === v ? 'bg-[#14181f] text-white dark:bg-[#eceff4] dark:text-[#0e1014]' : 'text-ink-soft'}`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+              {view === 'pitch' && (
+                <button
+                  type="button"
+                  onClick={() => setDataOpen(true)}
+                  aria-label={`Player data: ${PLAYER_DATA.find((o) => o.key === dataKey)?.label}. Change`}
+                  className="flex min-h-tap items-center gap-1.5 rounded-[10px] border border-line px-2.5 text-sm font-semibold"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-3 w-4 rounded-[2px] border-[1.5px] border-current"
+                  />
+                  {PLAYER_DATA.find((o) => o.key === dataKey)?.label}
+                  <span aria-hidden="true" className="text-[0.6rem]">
+                    ▼
+                  </span>
+                </button>
+              )}
+            </div>
+
+            {view === 'pitch' ? (
+              <Pitch
+                rows={slots}
+                bench={benchSlots}
+                compact
+                variant="card"
+                fieldClass={dirty ? PICK_FIELD.saving : PICK_FIELD.idle}
+              />
+            ) : (
+              <StatsTable
+                rows={squadPlayers}
+                groups={groups}
+                columns={statColumns}
+                defaultSort="pts"
+                tiebreak={(p) => statPoints(p.id)}
+                lead={(p) => {
+                  const slot = benchSlot(p.id);
+                  const badge = captainId === p.id ? 'C' : viceId === p.id ? 'V' : null;
+                  const side = sideById.get(p.side_id)?.short_name ?? '';
+                  return (
+                    <span className="flex min-w-0 items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label={`${p.name}: stats`}
+                        onClick={() => setStatsFor(p.id)}
+                        className="-ml-2 flex h-11 w-7 shrink-0 items-center justify-center font-serif font-bold italic text-ink-soft"
+                      >
+                        i
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFocus(p.id)}
+                        className="flex min-h-tap min-w-0 flex-1 flex-col justify-center text-left"
+                      >
+                        <span className="truncate font-bold">{p.name}</span>
+                        <span className="muted truncate text-xs">
+                          {slot >= 0
+                            ? `${slot === 0 ? 'Sub GK' : `Sub ${slot}`} · ${side}`
+                            : `${side} · ${nextFor(p)}`}
+                        </span>
+                      </button>
+                      {badge && (
+                        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-ink text-[0.62rem] font-extrabold text-surface">
+                          {badge}
+                        </span>
+                      )}
+                    </span>
+                  );
+                }}
+              />
+            )}
+          </>
+        )}
+
+        {swapping && (
+          <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-[25rem] items-center justify-between gap-2 rounded-xl bg-[#16181d] px-3 py-2 text-sm font-semibold text-white shadow-card">
+            <span>Tap who {swapping.name} swaps with</span>
+            <button
+              type="button"
+              className="min-h-tap rounded-full px-3 font-display font-bold uppercase text-[#ffd400]"
+              onClick={() => setSwapFrom(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Only once something has changed, as in FPL. */}
+        {dirty && !empty && (
+          <div className="sticky bottom-0 z-20 -mx-2 mt-auto bg-paper px-2.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-2">
+            {showProblems && problemsOpen && (
+              <ul className="mb-2 list-disc space-y-1 rounded-xl border border-[#f2c27a] bg-[#fff4e5] py-2 pl-7 pr-3 text-sm font-semibold text-[#6b3d00] dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8]">
+                {problems.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            )}
+            {/* A broken rule sits beside Save, so the pitch doesn't move. */}
+            <div className="flex gap-2">
+              {showProblems && (
+                <button
+                  type="button"
+                  onClick={() => setProblemsOpen(!problemsOpen)}
+                  aria-expanded={problemsOpen}
+                  className="flex min-h-[46px] min-w-0 flex-1 items-center gap-1.5 text-left text-[0.8rem] font-semibold leading-tight text-[#8a4b00] dark:text-[#ffc773]"
+                >
+                  <span aria-hidden="true">⚠</span>
+                  <span className="line-clamp-2 min-w-0">
+                    {problems[0]}
+                    {problems.length > 1 && ` (+${problems.length - 1} more)`}
+                  </span>
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void save()}
+                className={`min-h-[46px] rounded-full bg-[#e83434] text-base font-extrabold text-white disabled:opacity-60 ${showProblems ? 'shrink-0 px-5' : 'w-full'}`}
+              >
+                {saving ? 'Saving' : showProblems ? 'Save' : 'Save Your Team'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {dataOpen && (
+          <Sheet title="Player Data" onClose={() => setDataOpen(false)}>
+            <div role="radiogroup" aria-label="Player data">
+              {PLAYER_DATA.map((o) => (
+                <button
+                  key={o.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={dataKey === o.key}
+                  onClick={() => chooseData(o.key)}
+                  className="flex min-h-[52px] w-full items-center border-b border-line text-left"
+                >
+                  <span className="flex flex-1 flex-col">
+                    <span className="text-[1.05rem] font-bold">{o.label}</span>
+                    <span className="text-xs text-ink-soft">{o.help}</span>
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-ink"
+                  >
+                    {dataKey === o.key && (
+                      <span className="h-[11px] w-[11px] rounded-full bg-ink" />
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-3.5 text-xs leading-snug text-ink-soft">
+              FPL&apos;s FDR and Selling Price aren&apos;t here: we don&apos;t have opponents&apos;
+              league tables, and players sell at their current price.
+            </p>
+          </Sheet>
+        )}
+
+        {overlays}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Red bar: the gameweek, the page switch and chips, all in one. */}
+      <section className="hero !mb-2 !pb-2 !pt-2">
+        <div className="flex items-baseline gap-2">
+          <h1 className="m-0 text-xl leading-none">{gameweekLabel(gameweek, all).split(' ')[0]}</h1>
+          <span className="text-xs text-white/90">
+            Deadline {formatWeekdayTime(gameweek.deadline)}
+          </span>
+        </div>
+        <div className="mt-1.5 flex gap-1.5">
+          <nav className="flex flex-1 rounded-full bg-black/20 p-1" aria-label="Squad pages">
+            {(
+              [
+                ['/squad', 'Pick team', 'pick'],
+                ['/transfers', 'Transfers', 'transfers'],
+              ] as const
+            ).map(([to, label, m]) => (
+              <Link
+                key={to}
+                to={to}
+                onClick={mode === m ? undefined : leave(to)}
+                aria-current={mode === m ? 'page' : undefined}
+                className={`flex min-h-[36px] flex-1 items-center justify-center rounded-full font-display text-sm font-bold uppercase no-underline hover:no-underline ${mode === m ? 'bg-white text-brand' : 'text-white/85 hover:text-white'}`}
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
+          <button
+            type="button"
+            onClick={() => setChipsOpen(true)}
+            className={`flex min-h-tap max-w-[9rem] items-center gap-1 rounded-full px-3 font-display text-sm font-bold uppercase ${activeChip ? 'bg-white text-brand' : 'bg-black/20 text-white'}`}
+          >
+            <span className="truncate">{activeChip ? `${activeChip} ✓` : 'Chips'}</span>
+            <span className="text-[0.6rem]" aria-hidden="true">
+              ▼
+            </span>
+          </button>
+          {mode === 'transfers' && (
+            <button
+              type="button"
+              onClick={() => setView(view === 'pitch' ? 'list' : 'pitch')}
+              aria-label={view === 'pitch' ? 'Show as a list' : 'Show on the pitch'}
+              className="min-h-tap rounded-full bg-black/20 px-3 font-display text-sm font-bold uppercase text-white"
+            >
+              {view === 'pitch' ? 'List' : 'Pitch'}
+            </button>
+          )}
+        </div>
+      </section>
+
+      <Notices items={notices} />
+
+      {chipsOpen && (
+        <Sheet title="Chips" onClose={() => setChipsOpen(false)}>
+          <ChipsCard
+            userId={session.user.id}
+            gameweek={gameweek}
+            gameweeks={all}
+            sides={sides.data ?? []}
+            onNotice={setNotices}
+            only={['wildcard']}
+          />
+        </Sheet>
+      )}
+
+      {view === 'pitch' ? (
+        <>
+          {freeFix && (
+            <p className="mb-3 rounded-xl border border-[#9cc3ea] bg-[#eaf3fc] px-3 py-2 text-sm font-semibold text-[#123a5e] dark:border-[#2c4f73] dark:bg-[#14263a] dark:text-[#cfe3f7]">
+              Squads are now 2 GK, 5 DEF, 5 MID and 3 FWD. Changes this week to get yours there are
+              free: tap a player to swap them for a position you&apos;re short of.
+            </p>
+          )}
+          <div className="relative">
+            <Pitch rows={transferRows} compact />
+            {squadPlayers.length < STARTERS + BENCH && (
+              <button
+                type="button"
+                onClick={autoFill}
+                className="absolute left-3 top-6 z-10 min-h-[36px] rounded-full bg-white px-3 font-display text-sm font-extrabold uppercase text-[#14181f] shadow-card"
+              >
+                Auto pick
+              </button>
+            )}
+            {dirty && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSwapFrom(null);
+                  setLoadedFrom(null);
+                  setNotices([]);
+                }}
+                className="absolute right-3 top-6 z-10 min-h-[36px] rounded-full bg-black/55 px-3 font-display text-sm font-extrabold uppercase text-white shadow-card"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <p className="muted mt-3 text-center text-sm">
+            Tap a player to transfer them out, or an empty shirt to add one. Like for like: a
+            defender out, a defender in.
+          </p>
+        </>
+      ) : (
+        <>
+          <div className="my-3 flex flex-wrap items-center gap-2">
+            <select
+              className="input-inline"
+              aria-label="Filter by side"
+              value={sideFilter}
+              onChange={(e) => setSideFilter(e.target.value)}
+            >
+              <option value="">All sides</option>
+              {(sides.data ?? []).map((side) => (
+                <option key={side.id} value={side.id}>
+                  {side.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className="input-inline"
+              aria-label="Filter by position"
+              value={posFilter}
+              onChange={(e) => setPosFilter(e.target.value)}
+            >
+              <option value="">All positions</option>
+              {POSITIONS.map((p) => (
+                <option key={p}>{p}</option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={onlyPicked}
+                onChange={(e) => setOnlyPicked(e.target.checked)}
+              />{' '}
+              Only my picks
+            </label>
+          </div>
+          <StatsTable
+            rows={visible}
+            columns={statColumns}
+            defaultSort="pts"
+            tiebreak={(p) => statPoints(p.id)}
+            rowTint={(p) => inSquad(p.id)}
+            lead={(p) => {
+              const slot = benchSlot(p.id);
+              return (
+                <label className="flex min-h-[44px] min-w-0 cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 shrink-0 accent-[#d91414]"
+                    aria-label={`Pick ${p.name}`}
+                    checked={inSquad(p.id)}
+                    onChange={() => toggle(p.id)}
+                  />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-bold">{p.name}</span>
+                    <span className="muted flex min-w-0 items-center gap-1 text-xs">
+                      <PosBadge position={p.position} />
+                      <span className="truncate">
+                        {sideById.get(p.side_id)?.short_name}
+                        {' · '}
+                        {nextFor(p) === 'No game' ? 'No game' : nextFor(p)}
+                        {slot >= 0 && ` · ${slot === 0 ? 'sub GK' : `sub ${slot}`}`}
+                        {!p.active && ' · unavailable'}
+                      </span>
+                    </span>
+                  </span>
+                </label>
+              );
+            }}
+          />
+        </>
+      )}
+
+      {/* Save stays in reach: sitting on the tab bar on phones (64px tabs + border +
+          safe area), pinned at the bottom on desktop. */}
+      {showProblems && problemsOpen && (
+        <ul className="fixed inset-x-3 bottom-[calc(8rem+env(safe-area-inset-bottom))] z-30 list-disc space-y-1 rounded-xl border border-[#f2c27a] bg-[#fff4e5] py-2 pl-7 pr-3 text-sm font-semibold text-[#6b3d00] shadow-card dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8] sm:static sm:mb-2">
+          {problems.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
+      )}
+      <div className="fixed inset-x-0 bottom-[calc(4rem+1px+env(safe-area-inset-bottom))] z-20 flex items-center gap-3 border-t border-line bg-surface py-1.5 pl-4 pr-2 sm:sticky sm:bottom-4 sm:mt-4 sm:rounded-2xl sm:border sm:pr-3 sm:shadow-card">
+        {showProblems ? (
+          // Rules broken: say so here instead of the numbers; tap for the full list.
+          <button
+            type="button"
+            onClick={() => setProblemsOpen(!problemsOpen)}
+            aria-expanded={problemsOpen}
+            className="flex min-h-tap min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold leading-tight text-[#8a4b00] dark:text-[#ffc773]"
+          >
+            <span aria-hidden="true">⚠</span>
+            <span className="line-clamp-2 min-w-0">
+              {problems[0]}
+              {problems.length > 1 && ` (+${problems.length - 1} more)`}
+            </span>
+          </button>
+        ) : (
+          <div className="flex min-w-0 flex-1 gap-3.5">
+            {barStats.map(([label, value, warn]) => (
+              <span key={label} className="flex min-w-0 flex-col leading-none">
+                <span className="text-[0.62rem] uppercase tracking-wider text-ink-soft">
+                  {label}
+                </span>
+                <span className={`display-num mt-0.5 truncate text-lg ${warn ? 'text-brand' : ''}`}>
+                  {value}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          className="btn shrink-0 px-5"
+          disabled={saving}
+          onClick={() => void save()}
+        >
+          {saving ? 'Saving' : 'Save'}
+        </button>
+      </div>
+      <div className="h-16 sm:hidden" />
+
+      {overlays}
+    </>
+  );
 }
+
+// Pick team's pitch: the screen's height less the title bar, gameweek line,
+// chips, view switch, subs and (once changed) the save button, with a floor so
+// short screens scroll rather than squash.
+const PICK_FIELD = {
+  idle: 'h-[max(18rem,calc(100dvh-20.5rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))]',
+  saving:
+    'h-[max(18rem,calc(100dvh-24.25rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))]',
+};

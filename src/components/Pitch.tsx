@@ -247,10 +247,19 @@ export interface PitchSlot {
 }
 
 /** Shirt plus name plate, as on the Premier League app. */
-function PlayerSpot({ slot, compact = false }: { slot: PitchSlot; compact?: boolean }) {
+function PlayerSpot({
+  slot,
+  compact = false,
+  card = false,
+}: {
+  slot: PitchSlot;
+  compact?: boolean;
+  card?: boolean;
+}) {
   const label = slot.name
     ? `${slot.name}${slot.captain ? ' (captain)' : ''}`
     : `Add ${slot.label ?? slot.position}`;
+  if (card) return <CardSpot slot={slot} label={label} />;
   const inner = (
     <>
       {slot.heading !== undefined && (
@@ -323,6 +332,59 @@ function PlayerSpot({ slot, compact = false }: { slot: PitchSlot; compact?: bool
   );
 }
 
+/** FPL's player card: shirt on a dark tile, surname, then one line of data. */
+function CardSpot({ slot, label }: { slot: PitchSlot; label: string }) {
+  const inner = (
+    <>
+      {slot.heading !== undefined && (
+        <span className="mb-0.5 font-display text-xs font-extrabold uppercase text-[#0e3d22]">
+          {slot.heading || '\u00a0'}
+        </span>
+      )}
+      <span
+        className={`relative flex w-full flex-col items-center overflow-hidden rounded-md shadow ${slot.name ? 'bg-[rgb(10_60_30_/_0.55)]' : 'bg-black/20'}`}
+      >
+        {slot.name && (slot.captain || slot.badge) && (
+          <span className="absolute left-0.5 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-[#0e1014] text-[0.6rem] font-extrabold text-white ring-1 ring-white sm:h-5 sm:w-5 sm:text-xs">
+            {slot.badge ?? 'C'}
+          </span>
+        )}
+        <Shirt
+          keeper={slot.position === 'GK'}
+          empty={!slot.name}
+          className="mt-1 h-9 w-9 drop-shadow sm:h-12 sm:w-12"
+        />
+        {slot.name ? (
+          <>
+            <span className="block w-full truncate bg-white px-0.5 pt-0.5 text-center text-[0.72rem] font-bold leading-tight text-[#14181f] sm:text-xs">
+              {slot.name}
+            </span>
+            <span
+              className={`block w-full truncate bg-[#eef0f2] px-0.5 pb-0.5 text-center text-[0.68rem] font-semibold leading-tight sm:text-xs ${slot.subMuted ? 'text-[#6b7280]' : 'text-[#14181f]'}`}
+            >
+              {slot.sub ?? '\u00a0'}
+            </span>
+          </>
+        ) : (
+          <span className="mb-1 font-display text-[0.7rem] font-bold uppercase text-white">
+            {slot.label ?? slot.position}
+          </span>
+        )}
+      </span>
+    </>
+  );
+  const cls = `flex min-w-0 max-w-[4.9rem] flex-1 basis-0 flex-col items-center rounded-md sm:max-w-[6.5rem] ${slot.highlight ? 'ring-2 ring-[#ffd400] ring-offset-2 ring-offset-transparent' : ''} ${slot.faded ? 'opacity-50' : ''}`;
+  return slot.onClick ? (
+    <button type="button" onClick={slot.onClick} aria-label={label} className={cls}>
+      {inner}
+    </button>
+  ) : (
+    <div aria-label={label} className={cls}>
+      {inner}
+    </div>
+  );
+}
+
 /**
  * Players on the pitch: keeper at the top by the goal, forwards nearest you.
  * Sponsor boards (components/SponsorBoards.tsx) are parked for now; to bring
@@ -333,8 +395,14 @@ export function Pitch({
   bench,
   fit = false,
   compact = false,
+  variant = 'plate',
+  fieldClass,
 }: {
   rows: Record<Position, PitchSlot[]>;
+  /** 'card': FPL's player cards (Pick team); 'plate': shirt over a name plate. */
+  variant?: 'plate' | 'card';
+  /** Height of the field, overriding compact's (a page with other chrome around it). */
+  fieldClass?: string;
   /** Phones: sized to the screen (smaller shirts) so the whole team is in view. */
   compact?: boolean;
   /** Fill the parent's height instead of keeping a real pitch's shape (the social image). */
@@ -352,18 +420,29 @@ export function Pitch({
           : 'mx-auto w-full max-w-[26rem] overflow-hidden rounded-2xl bg-[#1b6e41] shadow-card'
       }
     >
-      <PitchField rows={rows} order={order} fit={fit} compact={compact} hasBench={Boolean(bench)} />
+      <PitchField
+        rows={rows}
+        order={order}
+        fit={fit}
+        compact={compact}
+        hasBench={Boolean(bench)}
+        card={variant === 'card'}
+        fieldClass={fieldClass}
+      />
       {bench && (
         <div
-          className={`bg-[#cfe6d6] px-1 ${compact ? 'pb-1.5 pt-1 sm:pb-3 sm:pt-2' : 'pb-3 pt-2'}`}
+          className={`${variant === 'card' ? 'bg-[#8fd1a6]' : 'bg-[#cfe6d6]'} px-1 ${compact ? 'pb-1.5 pt-1 sm:pb-3 sm:pt-2' : 'pb-3 pt-2'}`}
           aria-label="Subs"
         >
-          <div className="flex justify-center gap-0.5 sm:gap-2">
+          <div
+            className={`flex justify-center ${variant === 'card' ? 'gap-1.5' : 'gap-0.5'} sm:gap-2`}
+          >
             {/* Each sub's position above them, as in FPL; blank over an empty outfield slot. */}
             {bench.map((slot) => (
               <PlayerSpot
                 key={slot.key}
                 compact={compact}
+                card={variant === 'card'}
                 slot={{
                   ...slot,
                   heading:
@@ -395,17 +474,23 @@ function PitchField({
   fit = false,
   compact = false,
   hasBench = false,
+  card = false,
+  fieldClass,
 }: {
   rows: Record<Position, PitchSlot[]>;
   order: Position[];
   fit?: boolean;
   compact?: boolean;
   hasBench?: boolean;
+  card?: boolean;
+  fieldClass?: string;
 }) {
   return (
     <div
-      className={`relative w-full overflow-hidden ${compact ? COMPACT_FIELD[hasBench ? 'withBench' : 'noBench'] : ''}`}
-      style={fit ? { height: '100%' } : compact ? undefined : { aspectRatio: '590 / 954' }}
+      className={`relative w-full overflow-hidden ${fieldClass ?? (compact ? COMPACT_FIELD[hasBench ? 'withBench' : 'noBench'] : '')}`}
+      style={
+        fit ? { height: '100%' } : compact || fieldClass ? undefined : { aspectRatio: '590 / 954' }
+      }
     >
       <PitchMarkings stretch />
       <Boards />
@@ -413,9 +498,12 @@ function PitchField({
         className={`relative flex h-full flex-col justify-around px-1 ${fit ? 'py-3' : compact ? 'py-1.5 sm:py-6' : 'py-6'}`}
       >
         {order.map((pos) => (
-          <div key={pos} className="flex justify-center gap-0.5 sm:gap-2">
+          <div
+            key={pos}
+            className={`flex justify-center ${card ? 'gap-1.5 px-1' : 'gap-0.5'} sm:gap-2`}
+          >
             {rows[pos].map((slot) => (
-              <PlayerSpot key={slot.key} slot={slot} compact={compact} />
+              <PlayerSpot key={slot.key} slot={slot} compact={compact} card={card} />
             ))}
           </div>
         ))}

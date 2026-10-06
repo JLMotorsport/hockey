@@ -29,6 +29,14 @@ export function formatWeekdayTime(iso: string): string {
   return weekdayTime.format(new Date(iso));
 }
 
+/** A deadline as FPL writes it: "Sat 10 Oct at 10:00". */
+export function formatDeadline(iso: string): string {
+  const part = Object.fromEntries(
+    dayTime.formatToParts(new Date(iso)).map((x) => [x.type, x.value]),
+  ) as Record<string, string>;
+  return `${part.weekday} ${part.day} ${part.month} at ${part.hour}:${part.minute}`;
+}
+
 /** "2026-09-12" (a date column) -> "12 Sep" */
 export function formatShortDate(day: string): string {
   return shortDate.format(new Date(`${day}T12:00:00Z`));

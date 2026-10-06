@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { sortBy, type SortDir } from '@/lib/playerStats';
 
 export interface StatColumn<T> {
@@ -23,6 +23,7 @@ export function StatsTable<T extends { id: number }>({
   tiebreak,
   rowTint,
   empty = 'No players match.',
+  groups,
 }: {
   rows: T[];
   columns: StatColumn<T>[];
@@ -34,13 +35,19 @@ export function StatsTable<T extends { id: number }>({
   /** Highlight a row (e.g. picked); applied to the fixed cell too. */
   rowTint?: (row: T) => boolean;
   empty?: string;
+  /** Rows in titled sections (as FPL's list of your 15), sorted within each. */
+  groups?: { title: string; rows: T[]; tone?: string }[];
 }) {
   const [sort, setSort] = useState<{ key: string; dir: SortDir }>({
     key: defaultSort,
     dir: 'desc',
   });
   const column = columns.find((c) => c.key === sort.key) ?? columns[0]!;
-  const sorted = sortBy(rows, column.value, sort.dir, tiebreak);
+  const sections = (groups ?? [{ title: '', rows }]).map((g) => ({
+    ...g,
+    rows: sortBy(g.rows, column.value, sort.dir, tiebreak),
+  }));
+  const count = sections.reduce((n, g) => n + g.rows.length, 0);
 
   return (
     <div className="card overflow-hidden !p-0">
@@ -86,27 +93,41 @@ export function StatsTable<T extends { id: number }>({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((r) => {
-              const tint = rowTint?.(r) ?? false;
-              return (
-                <tr key={r.id} className={`border-b border-line ${tint ? 'bg-brand/5' : ''}`}>
-                  <td
-                    className={`sticky left-0 z-10 w-[10.5rem] min-w-[10.5rem] max-w-[10.5rem] px-3 py-1.5 shadow-[6px_0_6px_-6px_rgb(0_0_0_/_0.35)] ${tint ? 'bg-[color-mix(in_srgb,rgb(var(--surface))_95%,rgb(var(--brand)))]' : 'bg-surface'}`}
-                  >
-                    {lead(r)}
-                  </td>
-                  {columns.map((c) => (
-                    <td
-                      key={c.key}
-                      className={`whitespace-nowrap px-2 text-right tabular-nums ${c.key === column.key ? 'font-bold' : ''}`}
+            {sections.map((g) => (
+              <Fragment key={g.title}>
+                {g.title && (
+                  <tr>
+                    <th
+                      colSpan={columns.length + 1}
+                      className={`px-3 pb-1 pt-2 text-left font-display text-[0.95rem] font-extrabold uppercase ${g.tone ?? ''}`}
                     >
-                      {c.render ? c.render(r) : (c.value(r) ?? '-')}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-            {!sorted.length && (
+                      <span className="sticky left-3">{g.title}</span>
+                    </th>
+                  </tr>
+                )}
+                {g.rows.map((r) => {
+                  const tint = rowTint?.(r) ?? false;
+                  return (
+                    <tr key={r.id} className={`border-b border-line ${tint ? 'bg-brand/5' : ''}`}>
+                      <td
+                        className={`sticky left-0 z-10 w-[10.5rem] min-w-[10.5rem] max-w-[10.5rem] px-3 py-1.5 shadow-[6px_0_6px_-6px_rgb(0_0_0_/_0.35)] ${tint ? 'bg-[color-mix(in_srgb,rgb(var(--surface))_95%,rgb(var(--brand)))]' : 'bg-surface'}`}
+                      >
+                        {lead(r)}
+                      </td>
+                      {columns.map((c) => (
+                        <td
+                          key={c.key}
+                          className={`whitespace-nowrap px-2 text-right tabular-nums ${c.key === column.key ? 'font-bold' : ''}`}
+                        >
+                          {c.render ? c.render(r) : (c.value(r) ?? '-')}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </Fragment>
+            ))}
+            {!count && (
               <tr>
                 <td colSpan={columns.length + 1} className="muted px-4 py-4">
                   {empty}

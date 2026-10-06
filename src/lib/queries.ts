@@ -440,3 +440,31 @@ export function usePlayerStats() {
     },
   });
 }
+
+/**
+ * Ownership: the share of managers who had each player in a locked gameweek
+ * (squads are only readable once the deadline has passed), 0 to 100.
+ */
+export function useOwnership(gameweekId: number | undefined) {
+  return useQuery({
+    queryKey: ['ownership', gameweekId ?? 0],
+    enabled: Boolean(gameweekId),
+    queryFn: async () => {
+      const rows = await fetchAll((from, to) =>
+        requireSupabase()
+          .from('picks')
+          .select('user_id, player_id')
+          .eq('gameweek_id', gameweekId as number)
+          .order('user_id')
+          .order('player_id')
+          .range(from, to),
+      );
+      const managers = new Set(rows.map((r) => r.user_id)).size;
+      const counts = new Map<number, number>();
+      for (const r of rows) counts.set(r.player_id, (counts.get(r.player_id) ?? 0) + 1);
+      return new Map(
+        [...counts].map(([id, n]) => [id, managers ? Math.round((n / managers) * 1000) / 10 : 0]),
+      );
+    },
+  });
+}

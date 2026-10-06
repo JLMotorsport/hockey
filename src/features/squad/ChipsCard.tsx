@@ -15,6 +15,14 @@ const CHIP_ICONS: Record<ChipKey, () => JSX.Element> = {
   team_bus: TeamBusIcon,
 };
 
+// Each chip's colour behind its icon, as FPL's tiles.
+const CHIP_COLOURS: Record<ChipKey, string> = {
+  triple_captain: 'bg-[#d91414]',
+  rolling_subs: 'bg-[#2a7ab0]',
+  team_bus: 'bg-[#1f7a4d]',
+  wildcard: 'bg-[#6b7280]',
+};
+
 /** The four chips for the gameweek being picked: play, swap or cancel. */
 export function ChipsCard({
   userId,
@@ -23,6 +31,7 @@ export function ChipsCard({
   sides,
   onNotice,
   only,
+  elsewhere,
 }: {
   userId: string;
   gameweek: Gameweek;
@@ -31,6 +40,8 @@ export function ChipsCard({
   onNotice: (notices: Notice[]) => void;
   /** Which chips belong on this page (team chips on Pick team, wildcard on Transfers). */
   only?: ChipKey[];
+  /** Chips shown greyed out because they're played on another page, with that page's name. */
+  elsewhere?: Partial<Record<ChipKey, string>>;
 }) {
   const queryClient = useQueryClient();
   const chips = useChips(userId);
@@ -67,49 +78,52 @@ export function ChipsCard({
   }
 
   return (
-    <section className="mb-3" aria-label="Chips">
+    <section className="mb-2" aria-label="Chips">
       <div
         className={`grid gap-1.5 ${shown.length === 1 ? 'mx-auto max-w-[11rem] grid-cols-1' : shown.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}
       >
         {shown.map((c) => {
           const state = states[c.key];
           const Icon = CHIP_ICONS[c.key];
+          const away = elsewhere?.[c.key];
           return (
             <button
               key={c.key}
               type="button"
-              disabled={state.state === 'used'}
-              aria-label={`${c.name}: ${label(state)}`}
+              disabled={state.state === 'used' || Boolean(away)}
+              aria-label={`${c.name}: ${away ? `on ${away}` : label(state)}`}
               onClick={() => {
                 setSideId(state.state === 'active' && state.sideId ? String(state.sideId) : '');
                 setOpen(c);
               }}
-              className={`flex flex-col items-center gap-0.5 rounded-xl px-1 pb-1.5 pt-1.5 text-center shadow-card ${state.state === 'used' ? 'bg-surface opacity-55' : 'bg-surface'}`}
+              className={`flex min-h-tap flex-col items-center gap-[3px] rounded-[10px] bg-surface px-1 py-1.5 text-center shadow-card dark:shadow-none ${state.state === 'used' || away ? 'opacity-50' : ''}`}
             >
               <span
-                className={`flex h-6 w-6 items-center justify-center rounded-full [&>svg]:h-4 [&>svg]:w-4 ${state.state === 'active' ? 'bg-brand text-white' : 'bg-[#16181d] text-white dark:bg-white dark:text-[#16181d]'}`}
+                className={`flex h-[26px] w-[26px] items-center justify-center rounded-lg text-white [&>svg]:h-4 [&>svg]:w-4 ${CHIP_COLOURS[c.key]}`}
               >
                 <Icon />
               </span>
-              <span className="whitespace-nowrap font-display text-[0.72rem] font-extrabold uppercase leading-tight">
+              <span className="flex min-h-[23px] items-center text-[0.66rem] font-bold leading-[1.1]">
                 {c.name}
               </span>
               <span
-                className={`w-full rounded-md py-0.5 font-display text-[0.68rem] font-bold uppercase ${
+                className={`w-[92%] rounded-md py-0.5 text-[0.69rem] font-bold ${
                   state.state === 'active'
                     ? 'bg-brand text-white'
-                    : state.state === 'used'
-                      ? 'bg-line text-ink-soft'
-                      : 'bg-[#16181d] text-white dark:bg-white dark:text-[#16181d]'
+                    : state.state === 'used' || away
+                      ? 'text-ink-soft'
+                      : 'border-[1.5px] border-ink'
                 }`}
               >
-                {state.state === 'active'
-                  ? c.key === 'team_bus'
-                    ? `Active: ${sideShort(state.sideId)}`
-                    : 'Active'
-                  : state.state === 'used'
-                    ? label(state)
-                    : 'Play'}
+                {away
+                  ? away
+                  : state.state === 'active'
+                    ? c.key === 'team_bus'
+                      ? `Active: ${sideShort(state.sideId)}`
+                      : 'Active'
+                    : state.state === 'used'
+                      ? label(state)
+                      : 'Play'}
               </span>
             </button>
           );

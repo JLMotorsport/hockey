@@ -65,7 +65,6 @@ export function App() {
               <Route path="register" element={<RegisterScreen />} />
               <Route path="account" element={<AccountScreen />} />
               <Route path="dashboard" element={<DashboardScreen />} />
-              <Route path="squad" element={<SquadScreen mode="pick" />} />
               <Route path="transfers" element={<SquadScreen mode="transfers" />} />
               <Route path="table" element={<TableScreen />} />
               <Route path="teams/:userId" element={<TeamScreen />} />
@@ -78,6 +77,8 @@ export function App() {
             </>
           )}
         </Route>
+        {/* Pick team is a full screen of its own, as in FPL: its own title bar, no tabs. */}
+        {!loading && <Route path="squad" element={<SquadScreen mode="pick" />} />}
         <Route path="managers" element={<AdminLayout />}>
           <Route index element={<OverviewScreen />} />
           <Route path="matches" element={<MatchesScreen />} />
