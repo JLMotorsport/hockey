@@ -1,3 +1,4 @@
+import { seasonStats, type StatRow } from './playerStats';
 import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_FORMATIONS } from './formation';
 import { requireSupabase } from './supabase';
@@ -414,5 +415,28 @@ export function usePotmFixtures() {
           )
         ).map((r) => r.fixture_id),
       ),
+  });
+}
+
+/** Season totals per player (apps, goals, assists, POTM, clean sheets, cards). */
+export function usePlayerStats() {
+  return useQuery({
+    queryKey: ['player-stats'],
+    queryFn: async () => {
+      const rows = (await fetchAll((from, to) =>
+        requireSupabase()
+          .from('performances')
+          .select(
+            'player_id, goals, assists, green_cards, yellow_cards, red_cards, player_of_match, fixture:fixtures(goals_against)',
+          )
+          .order('id')
+          .range(from, to),
+      )) as unknown as (Omit<StatRow, 'goals_against'> & {
+        fixture: { goals_against: number | null } | null;
+      })[];
+      return seasonStats(
+        rows.map((r) => ({ ...r, goals_against: r.fixture?.goals_against ?? null })),
+      );
+    },
   });
 }

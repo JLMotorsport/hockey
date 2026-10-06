@@ -22,6 +22,8 @@ import {
 import { fixtureLabel, formByPlayer } from '@/lib/form';
 import { ChipsCard } from './ChipsCard';
 import { chipName } from '@/lib/chips';
+import { StatsTable } from '@/components/StatsTable';
+import { usePlayerColumns } from '@/features/player/statColumns';
 import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
 import { DEFAULT_FORMATIONS, formationOf, pitchRows } from '@/lib/formation';
 import { Pitch, Shirt, type PitchSlot } from '@/components/Pitch';
@@ -103,6 +105,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<'pitch' | 'list'>('pitch');
   const [chipsOpen, setChipsOpen] = useState(false);
+  const { columns: statColumns, points: statPoints } = usePlayerColumns();
   const [problemsOpen, setProblemsOpen] = useState(false);
   // Choosing a player: for a pitch position, or for a bench slot (0 = sub keeper).
   const [picker, setPicker] = useState<{ positions: Position[]; slot?: number } | null>(null);
@@ -718,59 +721,40 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
               Only my picks
             </label>
           </div>
-          <div className="card">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Pick</th>
-                  <th>Player</th>
-                  <th>Pos</th>
-                  <th>Side</th>
-                  <th className="num">Price</th>
-                  <th className="num">Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((p) => {
-                  const isPicked = inSquad(p.id);
-                  const slot = benchSlot(p.id);
-                  return (
-                    <tr key={p.id} className={isPicked ? 'bg-brand/5' : ''}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5 accent-[#d91414]"
-                          aria-label={`Pick ${p.name}`}
-                          checked={isPicked}
-                          onChange={() => toggle(p.id)}
-                        />
-                      </td>
-                      <td>
-                        {p.name}
-                        <span className="muted block text-xs">
-                          {nextFor(p) === 'No game' ? 'No game' : `v ${nextFor(p)}`} · Form{' '}
-                          {formFor(p.id)}
-                        </span>
-                        {slot >= 0 && (
-                          <span className="muted"> ({slot === 0 ? 'sub GK' : `sub ${slot}`})</span>
-                        )}
-                        {!p.active && <span className="muted"> (unavailable)</span>}
-                      </td>
-                      <td>
-                        <PosBadge position={p.position} />
-                      </td>
-                      <td>{sideById.get(p.side_id)?.short_name}</td>
-                      <td className="num">
-                        {formatPrice(p.price)}
-                        <PriceTrend change={trend.data?.get(p.id)} />
-                      </td>
-                      <td className="num">{points.data?.get(p.id) ?? 0}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <StatsTable
+            rows={visible}
+            columns={statColumns}
+            defaultSort="pts"
+            tiebreak={(p) => statPoints(p.id)}
+            rowTint={(p) => inSquad(p.id)}
+            lead={(p) => {
+              const slot = benchSlot(p.id);
+              return (
+                <label className="flex min-h-[44px] min-w-0 cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 shrink-0 accent-[#d91414]"
+                    aria-label={`Pick ${p.name}`}
+                    checked={inSquad(p.id)}
+                    onChange={() => toggle(p.id)}
+                  />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-bold">{p.name}</span>
+                    <span className="muted flex min-w-0 items-center gap-1 text-xs">
+                      <PosBadge position={p.position} />
+                      <span className="truncate">
+                        {sideById.get(p.side_id)?.short_name}
+                        {' · '}
+                        {nextFor(p) === 'No game' ? 'No game' : nextFor(p)}
+                        {slot >= 0 && ` · ${slot === 0 ? 'sub GK' : `sub ${slot}`}`}
+                        {!p.active && ' · unavailable'}
+                      </span>
+                    </span>
+                  </span>
+                </label>
+              );
+            }}
+          />
         </>
       )}
 
