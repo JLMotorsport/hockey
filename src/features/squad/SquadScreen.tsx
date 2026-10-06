@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ErrorText, Loading, Notices, PosBadge, type Notice } from '@/components/ui';
+import { ErrorText, Loading, Notices, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { formatDeadline, formatWeekdayTime, gameweekLabel, shortName } from '@/lib/format';
+import { formatDeadline, shortName } from '@/lib/format';
 import {
   keys,
   nextOpenGameweek,
@@ -29,7 +29,6 @@ import {
 } from '@/lib/pickDisplay';
 import { fixtureLabel, formByPlayer } from '@/lib/form';
 import { ChipsCard } from './ChipsCard';
-import { chipName } from '@/lib/chips';
 import { PlayerPicker } from './PlayerPicker';
 import { StatsTable } from '@/components/StatsTable';
 import { usePlayerColumns } from '@/features/player/statColumns';
@@ -112,6 +111,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     }
   });
   const [dataOpen, setDataOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   function chooseData(key: PlayerData) {
     setDataKey(key);
     setDataOpen(false);
@@ -129,13 +129,9 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   const [captainId, setCaptainId] = useState<number | null>(null);
   const [viceId, setViceId] = useState<number | null>(null);
   const [loadedFrom, setLoadedFrom] = useState<number | null>(null);
-  const [sideFilter, setSideFilter] = useState('');
-  const [posFilter, setPosFilter] = useState('');
-  const [onlyPicked, setOnlyPicked] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<'pitch' | 'list'>('pitch');
-  const [chipsOpen, setChipsOpen] = useState(false);
   const { columns: statColumns, points: statPoints } = usePlayerColumns();
   const [problemsOpen, setProblemsOpen] = useState(false);
   // Choosing a player: for a pitch position, or for a bench slot (0 = sub keeper).
@@ -323,11 +319,6 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     setViceId(id);
   }
 
-  function toggle(id: number) {
-    if (inSquad(id)) remove(id);
-    else add(id);
-  }
-
   /** Can a and b trade places? Keepers only swap with keepers. */
   function canSwap(a: number, b: number) {
     if (a === b || isKeeper(a) !== isKeeper(b)) return false;
@@ -426,13 +417,6 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
       navigate('/squad');
     } else navigate('/dashboard');
   }
-
-  const visible = pool.filter(
-    (p) =>
-      (!sideFilter || String(p.side_id) === sideFilter) &&
-      (!posFilter || p.position === posFilter) &&
-      (!onlyPicked || inSquad(p.id)),
-  );
 
   const squadPlayers = [...picked, ...benchPlayers.filter((p): p is SquadPlayer => p !== null)];
   const names = cardNames(squadPlayers);
@@ -591,12 +575,13 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           ...here.map((p): PitchSlot => ({
             key: `t${p.id}`,
             position: pos,
-            name: shortName(p.name),
-            tag: sideById.get(p.side_id)?.short_name,
+            name: names.get(p.id) ?? shortName(p.name),
             heading: `${formatPrice(p.price)}m`,
             headingPill: true,
-            sub: nextFor(p),
-            subMuted: nextFor(p) === 'No game',
+            sub: dataFor(p),
+            subMuted: dataMuted(p),
+            // New this gameweek, as FPL outlines a player just brought in.
+            highlight: previousIds.length > 0 && !previousIds.includes(p.id),
             onClick: () => setFocus(p.id),
           })),
           ...Array.from({ length: empty }, (_, i): PitchSlot => ({
@@ -609,6 +594,22 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
       ];
     }),
   ) as Record<Position, PitchSlot[]>;
+
+  // This gameweek's transfers for the confirm sheet: out and in, like for like.
+  const ins = squadPlayers.filter((p) => !previousIds.includes(p.id));
+  const outs = previousIds.length
+    ? previousIds
+        .filter((id) => !inSquad(id))
+        .map((id) => (players.data ?? []).find((q) => q.id === id))
+        .filter((q): q is NonNullable<typeof q> => Boolean(q))
+    : [];
+  const moves: [MovePlayer | null, MovePlayer | null][] = [];
+  const unpaired = previousIds.length ? [...ins] : [];
+  for (const out of outs) {
+    const i = unpaired.findIndex((q) => q.position === out.position);
+    moves.push([out, i >= 0 ? unpaired.splice(i, 1)[0]! : null]);
+  }
+  for (const inn of unpaired) moves.push([null, inn]);
 
   // Unsaved changes, so switching page can warn first.
   const savedStarters = new Set(currentStarters);
@@ -628,41 +629,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     void to;
   };
   const empty = squadPlayers.length === 0;
-  // Chips for this page: team chips on Pick team, the wildcard on Transfers.
-  const pageChips = mode === 'pick' ? ['triple_captain', 'rolling_subs', 'team_bus'] : ['wildcard'];
-  const played = chips.data?.find(
-    (c) => c.gameweek_id === gameweek.id && pageChips.includes(c.chip),
-  );
-  const activeChip = played ? chipName(played.chip) : null;
   const showProblems = problems.length > 0 && (selected.size > 0 || bench.some((b) => b !== null));
-  const surname = (id: number | null) =>
-    id
-      ? (shortName(poolById.get(id)?.name ?? '')
-          .split(' ')
-          .at(-1) ?? '-')
-      : '-';
-  // The numbers that matter while picking, always in view in the bottom bar.
-  const barStats: [string, string, boolean][] =
-    mode === 'pick'
-      ? [
-          ['Shape', selected.size === STARTERS ? pickedShape : '-', false],
-          ['Captain', surname(captainId), false],
-          ['Vice', surname(viceId), false],
-        ]
-      : [
-          ['Bank', `${formatPrice(bank)}m`, bank < 0],
-          [
-            'Transfers',
-            summary.transfers === null || freeFix
-              ? 'Free'
-              : wildcard
-                ? 'WC'
-                : `${summary.transfers}/${s.transfers_per_gameweek}`,
-            false,
-          ],
-          ['Squad', `${summary.count}/${STARTERS + BENCH}`, summary.count !== STARTERS + BENCH],
-        ];
-
   const overlays = (
     <>
       {picker && (
@@ -798,78 +765,101 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     </>
   );
 
-  if (mode === 'pick') {
-    const subsTone = 'text-[#1f7a4d] dark:text-[#7fd6a2]';
-    const groups = [
-      ...POSITIONS.map((pos) => ({
-        title: pos === 'GK' ? 'Goalkeeper' : `${POSITION_NAMES[pos]}s`,
-        rows: picked.filter((p) => p.position === pos),
-      })),
-      {
-        title: 'Subs',
-        rows: benchPlayers.filter((p): p is SquadPlayer => p !== null),
-        tone: subsTone,
-      },
-    ];
-    const chrome = 'bg-black/[0.06] dark:bg-[#1f232c]';
-    return (
-      <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
-        {/* Title bar, as FPL's: back, the page, and Transfers where FPL has its assistant. */}
-        <header className="flex h-[46px] shrink-0 items-center gap-1">
-          <button
-            type="button"
-            aria-label="Back"
-            onClick={() => {
-              if (dirty && !window.confirm('You have unsaved changes. Leave without saving?'))
-                return;
-              // Always back to My Team, as FPL, wherever you came from.
-              setLoadedFrom(null);
-              navigate('/dashboard');
-            }}
-            className="flex h-11 w-11 items-center justify-center"
+  const subsTone = 'text-[#1f7a4d] dark:text-[#7fd6a2]';
+  const isPick = mode === 'pick';
+  const groupTitle = (pos: Position) => (pos === 'GK' ? 'Goalkeeper' : `${POSITION_NAMES[pos]}s`);
+  // Pick team: the 11 by position, then the subs. Transfers: all 15 by position.
+  const groups = isPick
+    ? [
+        ...POSITIONS.map((pos) => ({
+          title: groupTitle(pos),
+          rows: picked.filter((p) => p.position === pos),
+        })),
+        {
+          title: 'Subs',
+          rows: benchPlayers.filter((p): p is SquadPlayer => p !== null),
+          tone: subsTone,
+        },
+      ]
+    : POSITIONS.map((pos) => ({
+        title: pos === 'GK' ? 'Goalkeepers' : groupTitle(pos),
+        rows: squadPlayers.filter((p) => p.position === pos),
+      }));
+  const unlimited = wildcard || freeFix || summary.transfers === null;
+  const transfersLeft = unlimited
+    ? null
+    : Math.max(0, s.transfers_per_gameweek - (summary.transfers ?? 0));
+  // FPL's numbers row, as far as this game has them (no points hits, so no Cost).
+  const transferStats: [string, string, string][] = [
+    [
+      unlimited ? 'Unlimited' : `${transfersLeft} / ${s.transfers_per_gameweek}`,
+      unlimited ? 'Transfers' : 'Free transfers left',
+      '',
+    ],
+    [`${summary.count}/${STARTERS + BENCH}`, 'Squad', ''],
+    [`${formatPrice(bank)}m`, 'Bank', bank < 0 ? 'bg-brand text-white' : 'bg-[#1f7a4d] text-white'],
+  ];
+  /** The first position with an empty place, for Add Player. */
+  const firstGap = POSITIONS.find(
+    (pos) => squadPlayers.filter((p) => p.position === pos).length < SQUAD_QUOTA[pos],
+  );
+  const chrome = 'bg-black/[0.06] dark:bg-[#1f232c]';
+  return (
+    <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+      {/* Title bar, as FPL's: back, the page, and Transfers where FPL has its assistant. */}
+      <header className="flex h-[46px] shrink-0 items-center gap-1">
+        <button
+          type="button"
+          aria-label="Back"
+          onClick={() => {
+            if (dirty && !window.confirm('You have unsaved changes. Leave without saving?')) return;
+            // Always back to My Team, as FPL, wherever you came from.
+            setLoadedFrom(null);
+            navigate('/dashboard');
+          }}
+          className="flex h-11 w-11 items-center justify-center"
+        >
+          <span
+            aria-hidden="true"
+            className={`flex h-9 w-9 items-center justify-center rounded-full pb-0.5 text-xl ${chrome}`}
           >
-            <span
-              aria-hidden="true"
-              className={`flex h-9 w-9 items-center justify-center rounded-full pb-0.5 text-xl ${chrome}`}
-            >
-              ‹
-            </span>
-          </button>
-          <h1 className="m-0 flex-1 text-center font-sans text-[1.2rem] font-extrabold normal-case tracking-normal">
-            Pick Team
-          </h1>
-          <Link
-            to="/transfers"
-            onClick={leave('/transfers')}
-            className="flex min-h-tap items-center text-ink no-underline hover:no-underline"
-          >
-            <span
-              className={`flex h-8 items-center rounded-full px-2.5 text-xs font-bold ${chrome}`}
-            >
-              Transfers
-            </span>
+            ‹
+          </span>
+        </button>
+        <h1 className="m-0 flex-1 text-center font-sans text-[1.2rem] font-extrabold normal-case tracking-normal">
+          {isPick ? 'Pick Team' : 'Transfers'}
+        </h1>
+        <Link
+          to={isPick ? '/transfers' : '/squad'}
+          onClick={leave(isPick ? '/transfers' : '/squad')}
+          className="flex min-h-tap items-center text-ink no-underline hover:no-underline"
+        >
+          <span className={`flex h-8 items-center rounded-full px-2.5 text-xs font-bold ${chrome}`}>
+            {isPick ? 'Transfers' : 'Pick Team'}
+          </span>
+        </Link>
+      </header>
+      <p className="m-0 shrink-0 pb-2 pt-0.5 text-center text-[0.8rem]">
+        <span className="font-semibold text-ink-soft">
+          Gameweek {all.filter((g) => g.start_date <= gameweek.start_date).length}
+        </span>{' '}
+        <span className="text-ink-soft">•</span>{' '}
+        <b>Deadline: {formatDeadline(gameweek.deadline)}</b>
+      </p>
+
+      <Notices items={notices} />
+
+      {isPick && empty ? (
+        <section className="card mt-2 text-center">
+          <h2>No squad yet</h2>
+          <p className="muted mb-3">Pick your 15 players on Transfers first.</p>
+          <Link className="btn" to="/transfers">
+            Go to transfers
           </Link>
-        </header>
-        <p className="m-0 shrink-0 pb-2 pt-0.5 text-center text-[0.8rem]">
-          <span className="font-semibold text-ink-soft">
-            Gameweek {all.filter((g) => g.start_date <= gameweek.start_date).length}
-          </span>{' '}
-          <span className="text-ink-soft">•</span>{' '}
-          <b>Deadline: {formatDeadline(gameweek.deadline)}</b>
-        </p>
-
-        <Notices items={notices} />
-
-        {empty ? (
-          <section className="card mt-2 text-center">
-            <h2>No squad yet</h2>
-            <p className="muted mb-3">Pick your 15 players on Transfers first.</p>
-            <Link className="btn" to="/transfers">
-              Go to transfers
-            </Link>
-          </section>
-        ) : (
-          <>
+        </section>
+      ) : (
+        <>
+          {isPick ? (
             <ChipsCard
               userId={session.user.id}
               gameweek={gameweek}
@@ -878,416 +868,359 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
               onNotice={setNotices}
               elsewhere={{ wildcard: 'Transfers' }}
             />
-            <div className="mb-2 flex shrink-0 items-center gap-2">
-              <div
-                className={`flex flex-1 rounded-[10px] p-[3px] ${chrome}`}
-                role="group"
-                aria-label="View"
-              >
-                {(['pitch', 'list'] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    aria-pressed={view === v}
-                    onClick={() => setView(v)}
-                    className={`min-h-[38px] flex-1 rounded-lg text-sm font-semibold capitalize ${view === v ? 'bg-[#14181f] text-white dark:bg-[#eceff4] dark:text-[#0e1014]' : 'text-ink-soft'}`}
-                  >
-                    {v}
-                  </button>
-                ))}
+          ) : (
+            <div className="mb-2 flex shrink-0 items-stretch gap-1.5">
+              {transferStats.map(([value, label, tone]) => (
+                <div key={label} className="flex flex-1 flex-col items-center justify-center gap-1">
+                  <span className={`rounded-lg px-2 py-1 text-[0.95rem] font-extrabold ${tone}`}>
+                    {value}
+                  </span>
+                  <span className="text-center text-[0.7rem] leading-tight text-ink-soft">
+                    {label}
+                  </span>
+                </div>
+              ))}
+              <div className="w-[5.75rem] shrink-0">
+                <ChipsCard
+                  userId={session.user.id}
+                  gameweek={gameweek}
+                  gameweeks={all}
+                  sides={sides.data ?? []}
+                  onNotice={setNotices}
+                  only={['wildcard']}
+                  className=""
+                />
               </div>
-              {view === 'pitch' && (
-                <button
-                  type="button"
-                  onClick={() => setDataOpen(true)}
-                  aria-label={`Player data: ${PLAYER_DATA.find((o) => o.key === dataKey)?.label}. Change`}
-                  className="flex min-h-tap items-center gap-1.5 rounded-[10px] border border-line px-2.5 text-sm font-semibold"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="h-3 w-4 rounded-[2px] border-[1.5px] border-current"
-                  />
-                  {PLAYER_DATA.find((o) => o.key === dataKey)?.label}
-                  <span aria-hidden="true" className="text-[0.6rem]">
-                    ▼
-                  </span>
-                </button>
-              )}
             </div>
-
-            {view === 'pitch' ? (
-              <Pitch
-                rows={slots}
-                bench={benchSlots}
-                compact
-                variant="card"
-                fieldClass={dirty ? PICK_FIELD.saving : PICK_FIELD.idle}
-              />
-            ) : (
-              <StatsTable
-                rows={squadPlayers}
-                groups={groups}
-                columns={statColumns}
-                defaultSort="pts"
-                tiebreak={(p) => statPoints(p.id)}
-                lead={(p) => {
-                  const slot = benchSlot(p.id);
-                  const badge = captainId === p.id ? 'C' : viceId === p.id ? 'V' : null;
-                  const side = sideById.get(p.side_id)?.short_name ?? '';
-                  return (
-                    <span className="flex min-w-0 items-center gap-1">
-                      <button
-                        type="button"
-                        aria-label={`${p.name}: stats`}
-                        onClick={() => setStatsFor(p.id)}
-                        className="-ml-2 flex h-11 w-7 shrink-0 items-center justify-center font-serif font-bold italic text-ink-soft"
-                      >
-                        i
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFocus(p.id)}
-                        className="flex min-h-tap min-w-0 flex-1 flex-col justify-center text-left"
-                      >
-                        <span className="truncate font-bold">{p.name}</span>
-                        <span className="muted truncate text-xs">
-                          {slot >= 0
-                            ? `${slot === 0 ? 'Sub GK' : `Sub ${slot}`} · ${side}`
-                            : `${side} · ${nextFor(p)}`}
-                        </span>
-                      </button>
-                      {badge && (
-                        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-ink text-[0.62rem] font-extrabold text-surface">
-                          {badge}
-                        </span>
-                      )}
-                    </span>
-                  );
-                }}
-              />
-            )}
-          </>
-        )}
-
-        {swapping && (
-          <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-[25rem] items-center justify-between gap-2 rounded-xl bg-[#16181d] px-3 py-2 text-sm font-semibold text-white shadow-card">
-            <span>Tap who {swapping.name} swaps with</span>
-            <button
-              type="button"
-              className="min-h-tap rounded-full px-3 font-display font-bold uppercase text-[#ffd400]"
-              onClick={() => setSwapFrom(null)}
+          )}
+          {!isPick && freeFix && (
+            <p className="mb-2 rounded-xl border border-[#9cc3ea] bg-[#eaf3fc] px-3 py-1.5 text-xs font-semibold text-[#123a5e] dark:border-[#2c4f73] dark:bg-[#14263a] dark:text-[#cfe3f7]">
+              Squads are now 2 GK, 5 DEF, 5 MID and 3 FWD. Changes this week to get yours there are
+              free.
+            </p>
+          )}
+          <div className="mb-2 flex shrink-0 items-center gap-2">
+            <div
+              className={`flex flex-1 rounded-[10px] p-[3px] ${chrome}`}
+              role="group"
+              aria-label="View"
             >
-              Cancel
-            </button>
-          </div>
-        )}
-
-        {/* Only once something has changed, as in FPL. */}
-        {dirty && !empty && (
-          <div className="sticky bottom-0 z-20 -mx-2 mt-auto bg-paper px-2.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-2">
-            {showProblems && problemsOpen && (
-              <ul className="mb-2 list-disc space-y-1 rounded-xl border border-[#f2c27a] bg-[#fff4e5] py-2 pl-7 pr-3 text-sm font-semibold text-[#6b3d00] dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8]">
-                {problems.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
-            )}
-            {/* A broken rule sits beside Save, so the pitch doesn't move. */}
-            <div className="flex gap-2">
-              {showProblems && (
+              {(['pitch', 'list'] as const).map((v) => (
                 <button
+                  key={v}
                   type="button"
-                  onClick={() => setProblemsOpen(!problemsOpen)}
-                  aria-expanded={problemsOpen}
-                  className="flex min-h-[46px] min-w-0 flex-1 items-center gap-1.5 text-left text-[0.8rem] font-semibold leading-tight text-[#8a4b00] dark:text-[#ffc773]"
+                  aria-pressed={view === v}
+                  onClick={() => setView(v)}
+                  className={`min-h-[38px] flex-1 rounded-lg text-sm font-semibold capitalize ${view === v ? 'bg-[#14181f] text-white dark:bg-[#eceff4] dark:text-[#0e1014]' : 'text-ink-soft'}`}
                 >
-                  <span aria-hidden="true">⚠</span>
-                  <span className="line-clamp-2 min-w-0">
-                    {problems[0]}
-                    {problems.length > 1 && ` (+${problems.length - 1} more)`}
-                  </span>
-                </button>
-              )}
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => void save()}
-                className={`min-h-[46px] rounded-full bg-[#e83434] text-base font-extrabold text-white disabled:opacity-60 ${showProblems ? 'shrink-0 px-5' : 'w-full'}`}
-              >
-                {saving ? 'Saving' : showProblems ? 'Save' : 'Save Your Team'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {dataOpen && (
-          <Sheet title="Player Data" onClose={() => setDataOpen(false)}>
-            <div role="radiogroup" aria-label="Player data">
-              {PLAYER_DATA.map((o) => (
-                <button
-                  key={o.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={dataKey === o.key}
-                  onClick={() => chooseData(o.key)}
-                  className="flex min-h-[52px] w-full items-center border-b border-line text-left"
-                >
-                  <span className="flex flex-1 flex-col">
-                    <span className="text-[1.05rem] font-bold">{o.label}</span>
-                    <span className="text-xs text-ink-soft">{o.help}</span>
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-ink"
-                  >
-                    {dataKey === o.key && (
-                      <span className="h-[11px] w-[11px] rounded-full bg-ink" />
-                    )}
-                  </span>
+                  {v}
                 </button>
               ))}
             </div>
-            <p className="mt-3.5 text-xs leading-snug text-ink-soft">
-              FPL&apos;s FDR and Selling Price aren&apos;t here: we don&apos;t have opponents&apos;
-              league tables, and players sell at their current price.
-            </p>
-          </Sheet>
-        )}
-
-        {overlays}
-      </div>
-    );
-  }
-
-  return (
-    <>
-      {/* Red bar: the gameweek, the page switch and chips, all in one. */}
-      <section className="hero !mb-2 !pb-2 !pt-2">
-        <div className="flex items-baseline gap-2">
-          <h1 className="m-0 text-xl leading-none">{gameweekLabel(gameweek, all).split(' ')[0]}</h1>
-          <span className="text-xs text-white/90">
-            Deadline {formatWeekdayTime(gameweek.deadline)}
-          </span>
-        </div>
-        <div className="mt-1.5 flex gap-1.5">
-          <nav className="flex flex-1 rounded-full bg-black/20 p-1" aria-label="Squad pages">
-            {(
-              [
-                ['/squad', 'Pick team', 'pick'],
-                ['/transfers', 'Transfers', 'transfers'],
-              ] as const
-            ).map(([to, label, m]) => (
-              <Link
-                key={to}
-                to={to}
-                onClick={mode === m ? undefined : leave(to)}
-                aria-current={mode === m ? 'page' : undefined}
-                className={`flex min-h-[36px] flex-1 items-center justify-center rounded-full font-display text-sm font-bold uppercase no-underline hover:no-underline ${mode === m ? 'bg-white text-brand' : 'text-white/85 hover:text-white'}`}
+            {view === 'pitch' && (
+              <button
+                type="button"
+                onClick={() => setDataOpen(true)}
+                aria-label={`Player data: ${PLAYER_DATA.find((o) => o.key === dataKey)?.label}. Change`}
+                className="flex min-h-tap items-center gap-1.5 rounded-[10px] border border-line px-2.5 text-sm font-semibold"
               >
-                {label}
-              </Link>
-            ))}
-          </nav>
+                <span
+                  aria-hidden="true"
+                  className="h-3 w-4 rounded-[2px] border-[1.5px] border-current"
+                />
+                {PLAYER_DATA.find((o) => o.key === dataKey)?.label}
+                <span aria-hidden="true" className="text-[0.6rem]">
+                  ▼
+                </span>
+              </button>
+            )}
+          </div>
+
+          {view === 'pitch' && isPick ? (
+            <Pitch
+              rows={slots}
+              bench={benchSlots}
+              compact
+              variant="card"
+              fieldClass={dirty ? PICK_FIELD.saving : PICK_FIELD.idle}
+            />
+          ) : view === 'pitch' ? (
+            <div className="relative">
+              <Pitch rows={transferRows} compact variant="card" fieldClass={TRANSFER_FIELD} />
+              {squadPlayers.length < STARTERS + BENCH && (
+                <button
+                  type="button"
+                  onClick={autoFill}
+                  className="absolute left-2.5 top-8 z-10 min-h-[32px] rounded-full bg-white px-3 text-xs font-extrabold text-[#14181f] shadow-card"
+                >
+                  Auto pick
+                </button>
+              )}
+              {dirty && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSwapFrom(null);
+                    setLoadedFrom(null);
+                    setNotices([]);
+                  }}
+                  className="absolute right-2.5 top-8 z-10 min-h-[32px] rounded-full bg-black/55 px-3 text-xs font-extrabold text-white shadow-card"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          ) : (
+            <StatsTable
+              rows={squadPlayers}
+              groups={groups}
+              columns={statColumns}
+              defaultSort="pts"
+              tiebreak={(p) => statPoints(p.id)}
+              lead={(p) => {
+                const slot = benchSlot(p.id);
+                const badge = !isPick
+                  ? null
+                  : captainId === p.id
+                    ? 'C'
+                    : viceId === p.id
+                      ? 'V'
+                      : null;
+                const side = sideById.get(p.side_id)?.short_name ?? '';
+                return (
+                  <span className="flex min-w-0 items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label={`${p.name}: stats`}
+                      onClick={() => setStatsFor(p.id)}
+                      className="-ml-2 flex h-11 w-7 shrink-0 items-center justify-center font-serif font-bold italic text-ink-soft"
+                    >
+                      i
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFocus(p.id)}
+                      className="flex min-h-tap min-w-0 flex-1 flex-col justify-center text-left"
+                    >
+                      <span className="truncate font-bold">{p.name}</span>
+                      <span className="muted truncate text-xs">
+                        {isPick && slot >= 0
+                          ? `${slot === 0 ? 'Sub GK' : `Sub ${slot}`} · ${side}`
+                          : `${side} · ${nextFor(p)}`}
+                      </span>
+                    </button>
+                    {badge && (
+                      <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-ink text-[0.62rem] font-extrabold text-surface">
+                        {badge}
+                      </span>
+                    )}
+                  </span>
+                );
+              }}
+            />
+          )}
+        </>
+      )}
+
+      {swapping && (
+        <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-[25rem] items-center justify-between gap-2 rounded-xl bg-[#16181d] px-3 py-2 text-sm font-semibold text-white shadow-card">
+          <span>Tap who {swapping.name} swaps with</span>
           <button
             type="button"
-            onClick={() => setChipsOpen(true)}
-            className={`flex min-h-tap max-w-[9rem] items-center gap-1 rounded-full px-3 font-display text-sm font-bold uppercase ${activeChip ? 'bg-white text-brand' : 'bg-black/20 text-white'}`}
+            className="min-h-tap rounded-full px-3 font-display font-bold uppercase text-[#ffd400]"
+            onClick={() => setSwapFrom(null)}
           >
-            <span className="truncate">{activeChip ? `${activeChip} ✓` : 'Chips'}</span>
-            <span className="text-[0.6rem]" aria-hidden="true">
-              ▼
-            </span>
+            Cancel
           </button>
-          {mode === 'transfers' && (
+        </div>
+      )}
+
+      {/* Transfers, as FPL: Add Player for an empty place, Next to review and confirm. */}
+      {!isPick && (
+        <div className="sticky bottom-0 z-20 -mx-2 mt-auto flex gap-2.5 bg-paper px-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2.5">
+          <button
+            type="button"
+            disabled={!firstGap}
+            onClick={() => firstGap && setPicker({ positions: [firstGap] })}
+            className="min-h-[46px] flex-1 rounded-full bg-[#e83434] text-base font-extrabold text-white disabled:bg-black/[0.06] disabled:text-ink-soft dark:disabled:bg-[#1f232c]"
+          >
+            Add Player
+          </button>
+          <button
+            type="button"
+            disabled={!dirty}
+            onClick={() => setConfirmOpen(true)}
+            className="min-h-[46px] flex-1 rounded-full bg-[#14181f] text-base font-extrabold text-white disabled:border-[1.5px] disabled:border-line disabled:bg-transparent disabled:text-ink-soft dark:bg-[#eceff4] dark:text-[#0e1014] dark:disabled:bg-transparent"
+          >
+            Next
+          </button>
+        </div>
+      )}
+
+      {/* Pick team: only once something has changed, as in FPL. */}
+      {isPick && dirty && !empty && (
+        <div className="sticky bottom-0 z-20 -mx-2 mt-auto bg-paper px-2.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-2">
+          {showProblems && problemsOpen && (
+            <ul className="mb-2 list-disc space-y-1 rounded-xl border border-[#f2c27a] bg-[#fff4e5] py-2 pl-7 pr-3 text-sm font-semibold text-[#6b3d00] dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8]">
+              {problems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          )}
+          {/* A broken rule sits beside Save, so the pitch doesn't move. */}
+          <div className="flex gap-2">
+            {showProblems && (
+              <button
+                type="button"
+                onClick={() => setProblemsOpen(!problemsOpen)}
+                aria-expanded={problemsOpen}
+                className="flex min-h-[46px] min-w-0 flex-1 items-center gap-1.5 text-left text-[0.8rem] font-semibold leading-tight text-[#8a4b00] dark:text-[#ffc773]"
+              >
+                <span aria-hidden="true">⚠</span>
+                <span className="line-clamp-2 min-w-0">
+                  {problems[0]}
+                  {problems.length > 1 && ` (+${problems.length - 1} more)`}
+                </span>
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setView(view === 'pitch' ? 'list' : 'pitch')}
-              aria-label={view === 'pitch' ? 'Show as a list' : 'Show on the pitch'}
-              className="min-h-tap rounded-full bg-black/20 px-3 font-display text-sm font-bold uppercase text-white"
+              disabled={saving}
+              onClick={() => void save()}
+              className={`min-h-[46px] rounded-full bg-[#e83434] text-base font-extrabold text-white disabled:opacity-60 ${showProblems ? 'shrink-0 px-5' : 'w-full'}`}
             >
-              {view === 'pitch' ? 'List' : 'Pitch'}
+              {saving ? 'Saving' : showProblems ? 'Save' : 'Save Your Team'}
             </button>
-          )}
+          </div>
         </div>
-      </section>
+      )}
 
-      <Notices items={notices} />
-
-      {chipsOpen && (
-        <Sheet title="Chips" onClose={() => setChipsOpen(false)}>
-          <ChipsCard
-            userId={session.user.id}
-            gameweek={gameweek}
-            gameweeks={all}
-            sides={sides.data ?? []}
-            onNotice={setNotices}
-            only={['wildcard']}
-          />
+      {confirmOpen && (
+        <Sheet title="Confirm Transfers" onClose={() => setConfirmOpen(false)}>
+          <p className="muted mb-3 text-sm">
+            Gameweek {all.filter((g) => g.start_date <= gameweek.start_date).length} • Deadline:{' '}
+            {formatDeadline(gameweek.deadline)}
+          </p>
+          {moves.length ? (
+            <>
+              <div className="grid grid-cols-[1fr_1.5rem_1fr] border-b border-line pb-1.5 text-xs font-bold text-ink-soft">
+                <span>OUT</span>
+                <span />
+                <span>IN</span>
+              </div>
+              {moves.map(([out, inn], i) => (
+                <div
+                  key={i}
+                  className="grid min-h-[58px] grid-cols-[1fr_1.5rem_1fr] items-center border-b border-line"
+                >
+                  <MoveCell
+                    player={out}
+                    side={out ? sideById.get(out.side_id)?.short_name : undefined}
+                  />
+                  <span aria-hidden="true" className="text-center text-ink-soft">
+                    →
+                  </span>
+                  <MoveCell
+                    player={inn}
+                    side={inn ? sideById.get(inn.side_id)?.short_name : undefined}
+                  />
+                </div>
+              ))}
+            </>
+          ) : (
+            <p className="mb-0">
+              {previousIds.length
+                ? 'No transfers: just your line-up has changed.'
+                : `Your first squad: ${squadPlayers.length} players.`}
+            </p>
+          )}
+          <dl className="mt-4 space-y-2.5 text-sm">
+            {(
+              [
+                [
+                  'Transfers this gameweek',
+                  unlimited
+                    ? wildcard
+                      ? 'Unlimited (wildcard)'
+                      : 'Unlimited'
+                    : `${summary.transfers ?? 0} of ${s.transfers_per_gameweek}`,
+                ],
+                ['Bank after', `${formatPrice(bank)}m`],
+                ['Then', 'On to Pick Team'],
+              ] as const
+            ).map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-3">
+                <dt className="text-ink-soft">{label}</dt>
+                <dd className="m-0 font-bold">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {problems.length > 0 && (
+            <ul className="mt-3 list-disc space-y-1 rounded-xl border border-[#f2c27a] bg-[#fff4e5] py-2 pl-7 pr-3 text-sm font-semibold text-[#6b3d00] dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8]">
+              {problems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          )}
+          <p className="mb-3 mt-4 text-xs leading-snug text-ink-soft">
+            You can change your team again until the deadline. No points hits here: once your free
+            transfers are used, that&apos;s it until next gameweek (or play your wildcard).
+          </p>
+          <button
+            type="button"
+            disabled={saving || problems.length > 0}
+            onClick={() => {
+              setConfirmOpen(false);
+              void save();
+            }}
+            className="min-h-[48px] w-full rounded-full bg-[#e83434] text-base font-extrabold text-white disabled:opacity-60"
+          >
+            {saving ? 'Saving' : problems.length ? 'Fix the above first' : 'Confirm Transfers'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmOpen(false)}
+            className="mt-1 min-h-tap w-full text-sm font-bold text-ink-soft"
+          >
+            Back to Transfers
+          </button>
         </Sheet>
       )}
 
-      {view === 'pitch' ? (
-        <>
-          {freeFix && (
-            <p className="mb-3 rounded-xl border border-[#9cc3ea] bg-[#eaf3fc] px-3 py-2 text-sm font-semibold text-[#123a5e] dark:border-[#2c4f73] dark:bg-[#14263a] dark:text-[#cfe3f7]">
-              Squads are now 2 GK, 5 DEF, 5 MID and 3 FWD. Changes this week to get yours there are
-              free: tap a player to swap them for a position you&apos;re short of.
-            </p>
-          )}
-          <div className="relative">
-            <Pitch rows={transferRows} compact />
-            {squadPlayers.length < STARTERS + BENCH && (
+      {dataOpen && (
+        <Sheet title="Player Data" onClose={() => setDataOpen(false)}>
+          <div role="radiogroup" aria-label="Player data">
+            {PLAYER_DATA.map((o) => (
               <button
+                key={o.key}
                 type="button"
-                onClick={autoFill}
-                className="absolute left-3 top-6 z-10 min-h-[36px] rounded-full bg-white px-3 font-display text-sm font-extrabold uppercase text-[#14181f] shadow-card"
+                role="radio"
+                aria-checked={dataKey === o.key}
+                onClick={() => chooseData(o.key)}
+                className="flex min-h-[52px] w-full items-center border-b border-line text-left"
               >
-                Auto pick
-              </button>
-            )}
-            {dirty && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSwapFrom(null);
-                  setLoadedFrom(null);
-                  setNotices([]);
-                }}
-                className="absolute right-3 top-6 z-10 min-h-[36px] rounded-full bg-black/55 px-3 font-display text-sm font-extrabold uppercase text-white shadow-card"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-          <p className="muted mt-3 text-center text-sm">
-            Tap a player to transfer them out, or an empty shirt to add one. Like for like: a
-            defender out, a defender in.
-          </p>
-        </>
-      ) : (
-        <>
-          <div className="my-3 flex flex-wrap items-center gap-2">
-            <select
-              className="input-inline"
-              aria-label="Filter by side"
-              value={sideFilter}
-              onChange={(e) => setSideFilter(e.target.value)}
-            >
-              <option value="">All sides</option>
-              {(sides.data ?? []).map((side) => (
-                <option key={side.id} value={side.id}>
-                  {side.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className="input-inline"
-              aria-label="Filter by position"
-              value={posFilter}
-              onChange={(e) => setPosFilter(e.target.value)}
-            >
-              <option value="">All positions</option>
-              {POSITIONS.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={onlyPicked}
-                onChange={(e) => setOnlyPicked(e.target.checked)}
-              />{' '}
-              Only my picks
-            </label>
-          </div>
-          <StatsTable
-            rows={visible}
-            columns={statColumns}
-            defaultSort="pts"
-            tiebreak={(p) => statPoints(p.id)}
-            rowTint={(p) => inSquad(p.id)}
-            lead={(p) => {
-              const slot = benchSlot(p.id);
-              return (
-                <label className="flex min-h-[44px] min-w-0 cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5 shrink-0 accent-[#d91414]"
-                    aria-label={`Pick ${p.name}`}
-                    checked={inSquad(p.id)}
-                    onChange={() => toggle(p.id)}
-                  />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate font-bold">{p.name}</span>
-                    <span className="muted flex min-w-0 items-center gap-1 text-xs">
-                      <PosBadge position={p.position} />
-                      <span className="truncate">
-                        {sideById.get(p.side_id)?.short_name}
-                        {' · '}
-                        {nextFor(p) === 'No game' ? 'No game' : nextFor(p)}
-                        {slot >= 0 && ` · ${slot === 0 ? 'sub GK' : `sub ${slot}`}`}
-                        {!p.active && ' · unavailable'}
-                      </span>
-                    </span>
-                  </span>
-                </label>
-              );
-            }}
-          />
-        </>
-      )}
-
-      {/* Save stays in reach: sitting on the tab bar on phones (64px tabs + border +
-          safe area), pinned at the bottom on desktop. */}
-      {showProblems && problemsOpen && (
-        <ul className="fixed inset-x-3 bottom-[calc(8rem+env(safe-area-inset-bottom))] z-30 list-disc space-y-1 rounded-xl border border-[#f2c27a] bg-[#fff4e5] py-2 pl-7 pr-3 text-sm font-semibold text-[#6b3d00] shadow-card dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8] sm:static sm:mb-2">
-          {problems.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
-      )}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+1px+env(safe-area-inset-bottom))] z-20 flex items-center gap-3 border-t border-line bg-surface py-1.5 pl-4 pr-2 sm:sticky sm:bottom-4 sm:mt-4 sm:rounded-2xl sm:border sm:pr-3 sm:shadow-card">
-        {showProblems ? (
-          // Rules broken: say so here instead of the numbers; tap for the full list.
-          <button
-            type="button"
-            onClick={() => setProblemsOpen(!problemsOpen)}
-            aria-expanded={problemsOpen}
-            className="flex min-h-tap min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold leading-tight text-[#8a4b00] dark:text-[#ffc773]"
-          >
-            <span aria-hidden="true">⚠</span>
-            <span className="line-clamp-2 min-w-0">
-              {problems[0]}
-              {problems.length > 1 && ` (+${problems.length - 1} more)`}
-            </span>
-          </button>
-        ) : (
-          <div className="flex min-w-0 flex-1 gap-3.5">
-            {barStats.map(([label, value, warn]) => (
-              <span key={label} className="flex min-w-0 flex-col leading-none">
-                <span className="text-[0.62rem] uppercase tracking-wider text-ink-soft">
-                  {label}
+                <span className="flex flex-1 flex-col">
+                  <span className="text-[1.05rem] font-bold">{o.label}</span>
+                  <span className="text-xs text-ink-soft">{o.help}</span>
                 </span>
-                <span className={`display-num mt-0.5 truncate text-lg ${warn ? 'text-brand' : ''}`}>
-                  {value}
+                <span
+                  aria-hidden="true"
+                  className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-ink"
+                >
+                  {dataKey === o.key && <span className="h-[11px] w-[11px] rounded-full bg-ink" />}
                 </span>
-              </span>
+              </button>
             ))}
           </div>
-        )}
-        <button
-          type="button"
-          className="btn shrink-0 px-5"
-          disabled={saving}
-          onClick={() => void save()}
-        >
-          {saving ? 'Saving' : 'Save'}
-        </button>
-      </div>
-      <div className="h-16 sm:hidden" />
+          <p className="mt-3.5 text-xs leading-snug text-ink-soft">
+            FPL&apos;s FDR and Selling Price aren&apos;t here: we don&apos;t have opponents&apos;
+            league tables, and players sell at their current price.
+          </p>
+        </Sheet>
+      )}
 
       {overlays}
-    </>
+    </div>
   );
 }
 
@@ -1299,3 +1232,22 @@ const PICK_FIELD = {
   saving:
     'h-[max(18rem,calc(100dvh-24.25rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))]',
 };
+
+// Transfers: all 15 on the pitch, no subs strip; the rest as Pick team's.
+const TRANSFER_FIELD =
+  'h-[max(21rem,calc(100dvh-18.1rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))]';
+
+type MovePlayer = { name: string; position: Position; side_id: number; price: number };
+
+/** One side of a transfer on the confirm sheet: name, then position, side and price. */
+function MoveCell({ player, side }: { player: MovePlayer | null; side?: string }) {
+  if (!player) return <span className="text-ink-soft">-</span>;
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate font-bold">{player.name}</span>
+      <span className="truncate text-xs text-ink-soft">
+        {player.position} · {side} · {formatPrice(player.price)}m
+      </span>
+    </span>
+  );
+}

@@ -32,6 +32,7 @@ export function ChipsCard({
   onNotice,
   only,
   elsewhere,
+  className = 'mb-2',
 }: {
   userId: string;
   gameweek: Gameweek;
@@ -42,6 +43,7 @@ export function ChipsCard({
   only?: ChipKey[];
   /** Chips shown greyed out because they're played on another page, with that page's name. */
   elsewhere?: Partial<Record<ChipKey, string>>;
+  className?: string;
 }) {
   const queryClient = useQueryClient();
   const chips = useChips(userId);
@@ -78,9 +80,9 @@ export function ChipsCard({
   }
 
   return (
-    <section className="mb-2" aria-label="Chips">
+    <section className={className} aria-label="Chips">
       <div
-        className={`grid gap-1.5 ${shown.length === 1 ? 'mx-auto max-w-[11rem] grid-cols-1' : shown.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}
+        className={`grid gap-1.5 ${shown.length === 1 ? 'grid-cols-1' : shown.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}
       >
         {shown.map((c) => {
           const state = states[c.key];

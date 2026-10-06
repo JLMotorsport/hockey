@@ -336,7 +336,7 @@ function PlayerSpot({
 function CardSpot({ slot, label }: { slot: PitchSlot; label: string }) {
   const inner = (
     <>
-      {slot.heading !== undefined && (
+      {slot.heading !== undefined && !slot.headingPill && (
         <span className="mb-0.5 font-display text-xs font-extrabold uppercase text-[#0e3d22]">
           {slot.heading || '\u00a0'}
         </span>
@@ -349,10 +349,16 @@ function CardSpot({ slot, label }: { slot: PitchSlot; label: string }) {
             {slot.badge ?? 'C'}
           </span>
         )}
+        {/* A price (Transfers) goes on the tile, above the shirt, as FPL's. */}
+        {slot.headingPill && (
+          <span className="pt-0.5 text-[0.66rem] font-extrabold leading-tight text-white sm:text-xs">
+            {slot.heading || '\u00a0'}
+          </span>
+        )}
         <Shirt
           keeper={slot.position === 'GK'}
           empty={!slot.name}
-          className="mt-1 h-9 w-9 drop-shadow sm:h-12 sm:w-12"
+          className={`${slot.headingPill ? 'mt-0' : 'mt-1'} h-9 w-9 drop-shadow sm:h-12 sm:w-12`}
         />
         {slot.name ? (
           <>
