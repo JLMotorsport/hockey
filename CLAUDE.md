@@ -12,6 +12,11 @@ RLS, Edge Functions).
   `supabase/migrations/0002_game.sql` and `src/lib/scoring.ts`. The integration tests check parity.
 - No em dashes in any user-facing copy.
 - 44px minimum touch targets for anything people tap on a phone.
+- **Design first.** Any redesign or new screen goes on the design canvas
+  (https://claude.ai/artifact/6n4Ajquvq6JKRTKP27beB7) for the owner to approve before it is
+  built or pushed. Draw phone boards at the real screen size (390 x 844 with the iOS status bar
+  and Safari bar), in dark mode, so fit and spacing can be judged and tweaked there. Only build
+  once a board is approved, and match it.
 
 ## Commands
 
