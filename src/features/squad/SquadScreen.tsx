@@ -31,6 +31,7 @@ import { fixtureLabel, formByPlayer } from '@/lib/form';
 import { ChipsCard } from './ChipsCard';
 import { PlayerPicker } from './PlayerPicker';
 import { StatsTable } from '@/components/StatsTable';
+import { VersionSwitch } from '@/components/VersionSwitch';
 import { usePlayerColumns } from '@/features/player/statColumns';
 import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
 import { DEFAULT_FORMATIONS, formationOf, pitchRows } from '@/lib/formation';
@@ -826,6 +827,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
             ‹
           </span>
         </button>
+        <VersionSwitch tone="page" />
         <h1 className="m-0 flex-1 text-center font-sans text-[1.2rem] font-extrabold normal-case tracking-normal">
           {isPick ? 'Pick Team' : 'Transfers'}
         </h1>

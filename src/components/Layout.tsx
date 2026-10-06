@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { CalendarIcon, HomeIcon, MenuIcon, PitchIcon, SwapIcon, TrophyIcon } from './icons';
 import { Sheet } from './Sheet';
 import { BUILD_COMMIT, BUILD_LABEL } from '@/lib/version';
+import { VersionSwitch } from './VersionSwitch';
 
 function Crest({ className = '' }: { className?: string }) {
   // The crest is red on transparent; shown white on the red header.
@@ -47,7 +48,7 @@ function Tab({ to, icon, children }: { to: string; icon: ReactNode; children: st
   );
 }
 
-export function Layout() {
+export function Layout({ children }: { children?: ReactNode } = {}) {
   const { session, profile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -89,6 +90,10 @@ export function Layout() {
               </span>
             </span>
           </Link>
+          {/* Testing: switch between this morning's design and the redesign. */}
+          <div className="ml-auto mt-2 sm:ml-0 sm:mt-0">
+            <VersionSwitch />
+          </div>
           <nav className="hidden flex-wrap items-center gap-1 sm:flex">
             {session && <TopLink to="/dashboard">My team</TopLink>}
             {session && <TopLink to="/squad">Pick</TopLink>}
@@ -126,9 +131,7 @@ export function Layout() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 pb-10">
-        <Outlet />
-      </main>
+      <main className="mx-auto max-w-5xl px-4 pb-10">{children ?? <Outlet />}</main>
       <footer className="muted mx-auto hidden max-w-5xl px-4 pb-8 text-xs sm:block">
         Fixtures, line-ups, goals and cards from England Hockey.
       </footer>

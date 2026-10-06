@@ -25,6 +25,9 @@ import { SquadScreen } from './features/squad/SquadScreen';
 import { TeamScreen } from './features/squad/TeamScreen';
 import { TeamOfWeekScreen } from './features/totw/TeamOfWeekScreen';
 import { useAuth } from './lib/auth/AuthProvider';
+import { useUiVersion } from './lib/uiVersion';
+import { PlayersScreenV1 } from './features/v1/PlayersScreenV1';
+import { SquadScreenV1 } from './features/v1/SquadScreenV1';
 import { isSupabaseConfigured } from './lib/env';
 
 function SetupScreen() {
@@ -43,6 +46,21 @@ function SetupScreen() {
 function Home() {
   const { session } = useAuth();
   return session ? <Navigate to="/dashboard" replace /> : <HomeScreen />;
+}
+
+// Testing: V1 is this morning's design (6 Oct), inside the usual header and tabs.
+function Squad({ mode }: { mode: 'pick' | 'transfers' }) {
+  return useUiVersion() === 'v1' ? (
+    <Layout>
+      <SquadScreenV1 mode={mode} />
+    </Layout>
+  ) : (
+    <SquadScreen mode={mode} />
+  );
+}
+
+function Players() {
+  return useUiVersion() === 'v1' ? <PlayersScreenV1 /> : <PlayersScreen />;
 }
 
 export function App() {
@@ -68,7 +86,7 @@ export function App() {
 
               <Route path="table" element={<TableScreen />} />
               <Route path="teams/:userId" element={<TeamScreen />} />
-              <Route path="players" element={<PlayersScreen />} />
+              <Route path="players" element={<Players />} />
               <Route path="team-of-the-week" element={<TeamOfWeekScreen />} />
               <Route path="fixtures" element={<FixturesScreen />} />
               <Route path="rules" element={<RulesScreen />} />
@@ -78,8 +96,8 @@ export function App() {
           )}
         </Route>
         {/* Pick team and Transfers are full screens of their own, as in FPL: their own title bar, no tabs. */}
-        {!loading && <Route path="squad" element={<SquadScreen mode="pick" />} />}
-        {!loading && <Route path="transfers" element={<SquadScreen mode="transfers" />} />}
+        {!loading && <Route path="squad" element={<Squad mode="pick" />} />}
+        {!loading && <Route path="transfers" element={<Squad mode="transfers" />} />}
         <Route path="managers" element={<AdminLayout />}>
           <Route index element={<OverviewScreen />} />
           <Route path="matches" element={<MatchesScreen />} />

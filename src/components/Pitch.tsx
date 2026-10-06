@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import type { Position } from '@/lib/scoring';
+import { useUiVersion } from '@/lib/uiVersion';
+import { Pitch as PitchV1 } from '@/features/v1/PitchV1';
 
 // Our half of a hockey pitch as FPL draws a football one: seen from behind
 // the goal in perspective, boards behind it, goal at the top. Real hockey
@@ -396,7 +398,7 @@ function CardSpot({ slot, label }: { slot: PitchSlot; label: string }) {
  * Sponsor boards (components/SponsorBoards.tsx) are parked for now; to bring
  * them back, render them above and below PitchField.
  */
-export function Pitch({
+function PitchV2({
   rows,
   bench,
   fit = false,
@@ -516,4 +518,12 @@ function PitchField({
       </div>
     </div>
   );
+}
+
+/** The pitch, or this morning's (V1) while the V1/V2 test switch is on V1. */
+export function Pitch(props: ComponentProps<typeof PitchV2>) {
+  const version = useUiVersion();
+  // V1's pitch ignores the props it doesn't know (variant, fieldClass).
+  if (version === 'v1') return <PitchV1 {...props} />;
+  return <PitchV2 {...props} />;
 }
