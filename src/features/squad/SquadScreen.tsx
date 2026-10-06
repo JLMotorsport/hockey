@@ -822,8 +822,9 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
             onClick={() => {
               if (dirty && !window.confirm('You have unsaved changes. Leave without saving?'))
                 return;
-              if ((window.history.state as { idx?: number } | null)?.idx) navigate(-1);
-              else navigate('/dashboard');
+              // Always back to My Team, as FPL, wherever you came from.
+              setLoadedFrom(null);
+              navigate('/dashboard');
             }}
             className="flex h-11 w-11 items-center justify-center"
           >
