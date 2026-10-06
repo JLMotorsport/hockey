@@ -1,5 +1,6 @@
 import {
   autoArrange,
+  autoPick,
   fitsQuota,
   formatPrice,
   isValidArrangement,
@@ -182,5 +183,60 @@ describe('squad make-up', () => {
       'Your 15 needs 2 GK, 5 DEF, 5 MID and 3 FWD (you have 2 GK, 5 DEF, 6 MID, 2 FWD).',
     );
     expect(fitsQuota({ GK: 2, DEF: 5, MID: 5, FWD: 3 })).toBe(true);
+  });
+});
+
+describe('autoPick', () => {
+  const mk = (
+    id: number,
+    position: 'GK' | 'DEF' | 'MID' | 'FWD',
+    price: number,
+    side = id % 4,
+  ) => ({
+    id,
+    name: `P${id}`,
+    position,
+    side_id: side,
+    side_name: '',
+    price,
+    active: true,
+  });
+  // Plenty of each position at a range of prices.
+  const pool = [
+    ...[1, 2, 3, 4].map((i) => mk(i, 'GK', 40 + i * 5)),
+    ...[10, 11, 12, 13, 14, 15, 16, 17].map((i) => mk(i, 'DEF', 40 + (i - 10) * 5)),
+    ...[20, 21, 22, 23, 24, 25, 26, 27].map((i) => mk(i, 'MID', 40 + (i - 20) * 10)),
+    ...[30, 31, 32, 33, 34, 35].map((i) => mk(i, 'FWD', 45 + (i - 30) * 10)),
+  ];
+  const score = (id: number) => id % 10; // higher id in a block scores more
+
+  it('fills an empty squad to 2/5/5/3 within the bank and side limit', () => {
+    const picked = autoPick({ squad: [], pool, bank: 1000, maxPerSide: 5, score })!;
+    const counts = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+    for (const p of picked) counts[p.position] += 1;
+    expect(counts).toEqual({ GK: 2, DEF: 5, MID: 5, FWD: 3 });
+    expect(picked.reduce((s, p) => s + p.price, 0)).toBeLessThanOrEqual(1000);
+    const sides = new Map<number, number>();
+    for (const p of picked) sides.set(p.side_id, (sides.get(p.side_id) ?? 0) + 1);
+    expect(Math.max(...sides.values())).toBeLessThanOrEqual(5);
+  });
+
+  it('only fills the gaps and keeps money for them', () => {
+    const squad = pool.filter((p) =>
+      [1, 2, 10, 11, 12, 13, 14, 20, 21, 22, 23, 24, 30, 31].includes(p.id),
+    );
+    // One forward short, 70 in the bank: the best forward it can afford.
+    const picked = autoPick({
+      squad,
+      pool: pool.filter((p) => !squad.includes(p)),
+      bank: 70,
+      maxPerSide: 15,
+      score,
+    })!;
+    expect(picked.map((p) => p.id)).toEqual([32]);
+  });
+
+  it('gives up when the bank cannot cover the places', () => {
+    expect(autoPick({ squad: [], pool, bank: 300, maxPerSide: 5, score })).toBeNull();
   });
 });

@@ -229,3 +229,60 @@ export function autoArrange(
   }
   return null;
 }
+
+/**
+ * Auto Pick: fill the squad's empty places up to 2 GK, 5 DEF, 5 MID, 3 FWD
+ * from `pool`, best `score` first, within the bank and the max per side. Each
+ * pick leaves enough money for the cheapest players in the places still to
+ * fill. Null if it can't be done.
+ */
+export function autoPick({
+  squad,
+  pool,
+  bank,
+  maxPerSide,
+  score,
+}: {
+  squad: SquadPlayer[];
+  /** Players who could be added: active, not already in the squad. */
+  pool: SquadPlayer[];
+  bank: number;
+  maxPerSide: number;
+  score: (id: number) => number;
+}): SquadPlayer[] | null {
+  const counts: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+  const perSide = new Map<number, number>();
+  for (const p of squad) {
+    counts[p.position] += 1;
+    perSide.set(p.side_id, (perSide.get(p.side_id) ?? 0) + 1);
+  }
+  // Midfield and forwards first, so the money goes where the points are.
+  const slots = (['MID', 'FWD', 'DEF', 'GK'] as Position[]).flatMap((pos) =>
+    Array<Position>(Math.max(0, SQUAD_QUOTA[pos] - counts[pos])).fill(pos),
+  );
+  const chosen: SquadPlayer[] = [];
+  let money = bank;
+  const free = (p: SquadPlayer) =>
+    !chosen.includes(p) && (perSide.get(p.side_id) ?? 0) < maxPerSide;
+  for (let i = 0; i < slots.length; i++) {
+    const pos = slots[i]!;
+    // The cheapest way to fill the places after this one.
+    const rest: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+    for (const r of slots.slice(i + 1)) rest[r] += 1;
+    const reserve = (Object.keys(rest) as Position[]).reduce((sum, r) => {
+      const prices = pool
+        .filter((p) => p.position === r && free(p))
+        .map((p) => p.price)
+        .sort((a, b) => a - b);
+      return sum + prices.slice(0, rest[r]).reduce((a, b) => a + b, 0);
+    }, 0);
+    const best = pool
+      .filter((p) => p.position === pos && free(p) && p.price <= money - reserve)
+      .sort((a, b) => score(b.id) - score(a.id) || b.price - a.price || a.id - b.id)[0];
+    if (!best) return null;
+    chosen.push(best);
+    money -= best.price;
+    perSide.set(best.side_id, (perSide.get(best.side_id) ?? 0) + 1);
+  }
+  return chosen;
+}

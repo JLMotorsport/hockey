@@ -13,7 +13,7 @@ import {
 } from '@/lib/queries';
 import { formatPrice } from '@/lib/squad';
 
-const Card = ({ colour }: { colour: string }) => (
+const card = (colour: string) => (
   <span
     aria-hidden="true"
     className={`inline-block h-3 w-2.5 rounded-[2px] align-[-1px] ${colour}`}
@@ -86,19 +86,19 @@ export function usePlayerColumns<T extends Pick<Player, 'id' | 'price'>>(): {
     { key: 'potm', label: 'POTM', title: 'Player of the match', value: (p) => st(p.id).potm },
     {
       key: 'green',
-      label: <Card colour="bg-[#1f9d55]" />,
+      label: card('bg-[#1f9d55]'),
       title: 'Green cards',
       value: (p) => st(p.id).green,
     },
     {
       key: 'yellow',
-      label: <Card colour="bg-[#f5c400]" />,
+      label: card('bg-[#f5c400]'),
       title: 'Yellow cards',
       value: (p) => st(p.id).yellow,
     },
     {
       key: 'red',
-      label: <Card colour="bg-[#d91414]" />,
+      label: card('bg-[#d91414]'),
       title: 'Red cards',
       value: (p) => st(p.id).red,
     },

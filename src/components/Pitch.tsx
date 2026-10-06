@@ -1,58 +1,139 @@
 import type { ReactNode } from 'react';
 import type { Position } from '@/lib/scoring';
 
-// A hockey pitch, portrait, our goal at the bottom. Proportions follow a real
-// pitch (91.4m x 55m): shooting circles 14.63m from the goal, dashed 5m arcs
-// outside them, 23m lines, centre line and penalty spots.
+// Our half of a hockey pitch as FPL draws a football one: seen from behind
+// the goal in perspective, boards behind it, goal at the top. Real hockey
+// geometry (55m wide; shooting circle 14.63m from the posts, dashed 5m arc
+// outside it, penalty spot 6.475m out, 23m line, centre line at 45.7m),
+// projected so the far end is narrower. Drawn into a 1000 x 1000 box that is
+// stretched to fit, with lines that keep their width.
+const PW = 55; // metres across
+const PL = 45.7; // metres to the centre line
+const TOP = 0.11; // backline, as a share of the height (boards and goal above)
+const BOTTOM = 0.985; // centre line
+const NEAR = 0.84; // width of the backline compared with the centre line
+
+function project(xm: number, ym: number): [number, number] {
+  const v = TOP + (BOTTOM - TOP) * (ym / PL);
+  const k = NEAR + (1 - NEAR) * ((v - TOP) / (BOTTOM - TOP));
+  return [500 + (xm / PW - 0.5) * 940 * k, v * 1000];
+}
+
+function path(points: [number, number][]): string {
+  return points
+    .map(([x, y], i) => {
+      const [px, py] = project(x, y);
+      return `${i ? 'L' : 'M'}${px.toFixed(1)} ${py.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
+const straight = (x1: number, y1: number, x2: number, y2: number, n = 16) =>
+  path(
+    Array.from({ length: n + 1 }, (_, i) => [x1 + ((x2 - x1) * i) / n, y1 + ((y2 - y1) * i) / n]),
+  );
+
+/** The D: quarter circles from each post joined by a straight. */
+function circleD(r: number): string {
+  const l = PW / 2 - 1.83;
+  const rr = PW / 2 + 1.83;
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= 24; i++) {
+    const t = Math.PI - (Math.PI / 2) * (i / 24);
+    pts.push([l + r * Math.cos(t), r * Math.sin(t)]);
+  }
+  for (let i = 0; i <= 24; i++) {
+    const t = Math.PI / 2 - (Math.PI / 2) * (i / 24);
+    pts.push([rr + r * Math.cos(t), r * Math.sin(t)]);
+  }
+  return path(pts);
+}
+
 export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
-  const W = 550; // 55m
-  const H = 914; // 91.4m
-  // Stretched to fill a box of another shape (the social image), lines keep their width.
+  void stretch; // always stretched now; kept so callers needn't change
   const line = {
     stroke: 'white',
-    strokeWidth: 3,
+    strokeWidth: 2.5,
     fill: 'none',
-    opacity: 0.85,
-    vectorEffect: stretch ? ('non-scaling-stroke' as const) : undefined,
+    opacity: 0.9,
+    vectorEffect: 'non-scaling-stroke' as const,
   };
-  const goalW = 36.6; // 3.66m
-  const cx = W / 2;
-  const r = 146.3; // shooting circle
-  // Circle: quarter arcs from each post plus the straight between the posts.
-  const circle = (y: number, dir: 1 | -1, radius: number) => {
-    const l = cx - goalW / 2;
-    const rr = cx + goalW / 2;
-    const sweep = dir === -1 ? 1 : 0;
-    return `M ${l - radius} ${y} A ${radius} ${radius} 0 0 ${sweep} ${l} ${y + dir * radius} L ${rr} ${y + dir * radius} A ${radius} ${radius} 0 0 ${sweep} ${rr + radius} ${y}`;
-  };
+  const [spotX, spotY] = project(PW / 2, 6.475);
+  const [gl] = project(PW / 2 - 1.83, 0);
+  const [gr] = project(PW / 2 + 1.83, 0);
+  const [, back] = project(0, 0);
+  const goalTop = back - 34;
+  // Stripes across the grass, deeper towards the viewer.
+  const stripes = Array.from({ length: 9 }, (_, i) => {
+    const y0 = project(0, (PL / 8) * (i - 1))[1];
+    const y1 = project(0, (PL / 8) * i)[1];
+    return { y: i === 0 ? 0 : y0, h: y1 - (i === 0 ? 0 : y0), dark: i % 2 === 0 };
+  });
   return (
     <svg
-      viewBox={`-20 -20 ${W + 40} ${H + 40}`}
-      preserveAspectRatio={stretch ? 'none' : undefined}
+      viewBox="0 0 1000 1000"
+      preserveAspectRatio="none"
       className="absolute inset-0 h-full w-full"
       aria-hidden="true"
     >
       <defs>
-        <pattern id="turf" width="550" height="114" patternUnits="userSpaceOnUse">
-          <rect width="550" height="57" fill="#23864f" />
-          <rect y="57" width="550" height="57" fill="#1f7a48" />
+        <pattern id="net" width="10" height="10" patternUnits="userSpaceOnUse">
+          <path d="M0 0L10 10M10 0L0 10" stroke="white" strokeWidth="1" opacity="0.55" />
         </pattern>
+        <linearGradient id="boards" x1="0" x2="1">
+          <stop offset="0" stopColor="#d91414" />
+          <stop offset="1" stopColor="#a50f0f" />
+        </linearGradient>
       </defs>
-      <rect x="-20" y="-20" width={W + 40} height={H + 40} fill="#1b6e41" />
-      <rect width={W} height={H} fill="url(#turf)" />
-      <rect width={W} height={H} {...line} />
-      <line x1="0" y1={H / 2} x2={W} y2={H / 2} {...line} />
-      <line x1="0" y1="229" x2={W} y2="229" {...line} />
-      <line x1="0" y1={H - 229} x2={W} y2={H - 229} {...line} />
-      <path d={circle(0, 1, r)} {...line} />
-      <path d={circle(H, -1, r)} {...line} />
-      <path d={circle(0, 1, r + 50)} {...line} strokeDasharray="10 12" />
-      <path d={circle(H, -1, r + 50)} {...line} strokeDasharray="10 12" />
-      <circle cx={cx} cy={64.7} r="4" fill="white" opacity="0.85" />
-      <circle cx={cx} cy={H - 64.7} r="4" fill="white" opacity="0.85" />
-      <rect x={cx - goalW / 2} y={-12} width={goalW} height="12" fill="white" opacity="0.9" />
-      <rect x={cx - goalW / 2} y={H} width={goalW} height="12" fill="white" opacity="0.9" />
+      <rect width="1000" height="1000" fill="#1f8a4c" />
+      {stripes.map((st, i) => (
+        <rect key={i} y={st.y} width="1000" height={st.h} fill={st.dark ? '#1b7a43' : '#239552'} />
+      ))}
+      {/* Boards behind the goal */}
+      <rect x="40" y="0" width="920" height={goalTop - 6} rx="6" fill="url(#boards)" />
+      {/* Goal: backboard, net and posts */}
+      <rect
+        x={gl}
+        y={goalTop}
+        width={gr - gl}
+        height={back - goalTop}
+        fill="#cfd8d3"
+        opacity="0.35"
+      />
+      <rect x={gl} y={goalTop} width={gr - gl} height={back - goalTop} fill="url(#net)" />
+      <path
+        d={`M${gl} ${back} V${goalTop} H${gr} V${back}`}
+        {...line}
+        strokeWidth={4}
+        opacity={1}
+      />
+      {/* Lines */}
+      <path d={straight(0, 0, PW, 0)} {...line} />
+      <path d={straight(0, 0, 0, PL)} {...line} />
+      <path d={straight(PW, 0, PW, PL)} {...line} />
+      <path d={straight(0, 22.9, PW, 22.9)} {...line} />
+      <path d={straight(0, PL, PW, PL)} {...line} />
+      <path d={circleD(14.63)} {...line} />
+      <path d={circleD(19.63)} {...line} strokeDasharray="7 9" />
+      <ellipse cx={spotX} cy={spotY} rx="5" ry="4" fill="white" opacity="0.9" />
     </svg>
+  );
+}
+
+/** Text on the boards behind the goal (HTML, so it isn't stretched). */
+function Boards() {
+  return (
+    <div className="pointer-events-none absolute inset-x-[4%] top-0 flex h-[7%] items-center justify-between px-[3%] font-display text-[0.6rem] font-extrabold uppercase tracking-[0.2em] text-white/90 sm:text-xs">
+      {/* Short on phones, where the keepers' price tags sit over the boards. */}
+      <span>
+        <span className="sm:hidden">FHC</span>
+        <span className="hidden sm:inline">Felixstowe HC</span>
+      </span>
+      <span>
+        <span className="sm:hidden">FHC</span>
+        <span className="hidden sm:inline">Felixstowe HC</span>
+      </span>
+    </div>
   );
 }
 
@@ -243,7 +324,7 @@ function PlayerSpot({ slot, compact = false }: { slot: PitchSlot; compact?: bool
 }
 
 /**
- * Players on the pitch: forwards at the top, keeper at the bottom.
+ * Players on the pitch: keeper at the top by the goal, forwards nearest you.
  * Sponsor boards (components/SponsorBoards.tsx) are parked for now; to bring
  * them back, render them above and below PitchField.
  */
@@ -261,7 +342,8 @@ export function Pitch({
   /** Subs in order (sub keeper first), shown in a strip under the pitch. */
   bench?: PitchSlot[];
 }) {
-  const order: Position[] = ['FWD', 'MID', 'DEF', 'GK'];
+  // As FPL: keeper by the goal at the top, forwards furthest up the pitch.
+  const order: Position[] = ['GK', 'DEF', 'MID', 'FWD'];
   return (
     <div
       className={
@@ -325,7 +407,8 @@ function PitchField({
       className={`relative w-full overflow-hidden ${compact ? COMPACT_FIELD[hasBench ? 'withBench' : 'noBench'] : ''}`}
       style={fit ? { height: '100%' } : compact ? undefined : { aspectRatio: '590 / 954' }}
     >
-      <PitchMarkings stretch={fit || compact} />
+      <PitchMarkings stretch />
+      <Boards />
       <div
         className={`relative flex h-full flex-col justify-around px-1 ${fit ? 'py-3' : compact ? 'py-1.5 sm:py-6' : 'py-6'}`}
       >
