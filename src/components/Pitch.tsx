@@ -199,7 +199,7 @@ function PlayerSpot({ slot, compact = false }: { slot: PitchSlot; compact?: bool
         <span className={`relative ${compact ? 'mt-1' : 'mt-1.5'} flex w-full flex-1 flex-col`}>
           {/* Side tag sits on the plate's top-right corner, leaving the name the full width. */}
           {slot.tag && (
-            <span className="absolute -top-2 right-0.5 z-10 rounded bg-[#16181d] px-1 font-display text-[0.62rem] font-bold leading-[1.15rem] text-white shadow sm:text-[0.7rem]">
+            <span className="absolute -top-[0.95rem] right-0.5 z-10 rounded bg-[#16181d] px-1 font-display text-[0.62rem] font-bold leading-[1.15rem] text-white shadow sm:text-[0.7rem]">
               {slot.tag}
             </span>
           )}
