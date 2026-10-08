@@ -6,6 +6,7 @@ import { CalendarIcon, HomeIcon, MenuIcon, PitchIcon, SwapIcon, TrophyIcon } fro
 import { Sheet } from './Sheet';
 import { BUILD_COMMIT, BUILD_LABEL } from '@/lib/version';
 import { VersionSwitch } from './VersionSwitch';
+import { useUiVersion } from '@/lib/uiVersion';
 
 function Crest({ className = '' }: { className?: string }) {
   // The crest is red on transparent; shown white on the red header.
@@ -22,6 +23,7 @@ function TopLink({ to, children }: { to: string; children: string }) {
   const also = useAlsoActive(to);
   return (
     <NavLink
+      end={to === '/'}
       to={to}
       className={({ isActive }) =>
         `rounded-full px-3 py-1.5 font-display text-[0.95rem] font-bold uppercase tracking-wide text-white no-underline hover:bg-white/15 hover:no-underline ${isActive || also ? 'bg-white/20' : ''}`
@@ -50,6 +52,7 @@ function Tab({ to, icon, children }: { to: string; icon: ReactNode; children: st
 
 export function Layout({ children }: { children?: ReactNode } = {}) {
   const { session, profile } = useAuth();
+  const v2 = useUiVersion() === 'v2';
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
   const go = (to: string) => {
@@ -95,8 +98,9 @@ export function Layout({ children }: { children?: ReactNode } = {}) {
             <VersionSwitch />
           </div>
           <nav className="hidden flex-wrap items-center gap-1 sm:flex">
-            {session && <TopLink to="/dashboard">My team</TopLink>}
-            {session && <TopLink to="/squad">Pick</TopLink>}
+            {session && v2 && <TopLink to="/">Home</TopLink>}
+            {session && <TopLink to="/dashboard">{v2 ? 'Points' : 'My team'}</TopLink>}
+            {session && !v2 && <TopLink to="/squad">Pick</TopLink>}
             <TopLink to="/table">Table</TopLink>
             <TopLink to="/team-of-the-week">TOTW</TopLink>
             <TopLink to="/players">Players</TopLink>
@@ -138,7 +142,17 @@ export function Layout({ children }: { children?: ReactNode } = {}) {
 
       {/* Phone tab bar, as on the Premier League app. */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_12px_rgb(0_0_0/0.06)] sm:hidden">
-        {session ? (
+        {session && v2 ? (
+          // V2, as FPL: Home holds Pick Team and Transfers; My Team becomes Points.
+          <>
+            <Tab to="/" icon={<HomeIcon />}>
+              Home
+            </Tab>
+            <Tab to="/dashboard" icon={<PitchIcon />}>
+              Points
+            </Tab>
+          </>
+        ) : session ? (
           <>
             <Tab to="/dashboard" icon={<PitchIcon />}>
               My team

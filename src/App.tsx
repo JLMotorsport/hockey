@@ -26,6 +26,7 @@ import { TeamScreen } from './features/squad/TeamScreen';
 import { TeamOfWeekScreen } from './features/totw/TeamOfWeekScreen';
 import { useAuth } from './lib/auth/AuthProvider';
 import { useUiVersion } from './lib/uiVersion';
+import { HomeScreen as FantasyHome } from './features/home/HomeScreen';
 import { PlayersScreenV1 } from './features/v1/PlayersScreenV1';
 import { SquadScreenV1 } from './features/v1/SquadScreenV1';
 import { isSupabaseConfigured } from './lib/env';
@@ -45,7 +46,10 @@ function SetupScreen() {
 
 function Home() {
   const { session } = useAuth();
-  return session ? <Navigate to="/dashboard" replace /> : <HomeScreen />;
+  const version = useUiVersion();
+  if (!session) return <HomeScreen />;
+  // V2: FPL's Home is where you land; V1 went straight to My Team.
+  return version === 'v2' ? <FantasyHome /> : <Navigate to="/dashboard" replace />;
 }
 
 // Testing: V1 is this morning's design (6 Oct), inside the usual header and tabs.

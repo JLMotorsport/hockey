@@ -12,6 +12,7 @@ import {
   type Player,
 } from '@/lib/queries';
 import { formatPrice } from '@/lib/squad';
+import { priceChange } from '@/lib/pickDisplay';
 
 const card = (colour: string) => (
   <span
@@ -58,6 +59,13 @@ export function usePlayerColumns<T extends Pick<Player, 'id' | 'price'>>(): {
           <PriceTrend change={trend.data?.get(p.id)} />
         </>
       ),
+    },
+    {
+      key: 'change',
+      label: '+/-',
+      title: 'Price change this week',
+      value: (p) => trend.data?.get(p.id) ?? 0,
+      render: (p) => priceChange(trend.data?.get(p.id)),
     },
     {
       key: 'form',

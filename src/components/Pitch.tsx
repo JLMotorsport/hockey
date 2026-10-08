@@ -232,6 +232,8 @@ export interface PitchSlot {
   sub?: ReactNode;
   /** Grey strip instead of red, e.g. "No game". */
   subMuted?: boolean;
+  /** Card style: the data strip dark, as FPL's points. */
+  subDark?: boolean;
   captain?: boolean;
   /** Small badge on the shirt; defaults to "C" for the captain. */
   badge?: string;
@@ -368,7 +370,7 @@ function CardSpot({ slot, label }: { slot: PitchSlot; label: string }) {
               {slot.name}
             </span>
             <span
-              className={`block w-full truncate bg-[#eef0f2] px-0.5 pb-0.5 text-center text-[0.68rem] font-semibold leading-tight sm:text-xs ${slot.subMuted ? 'text-[#6b7280]' : 'text-[#14181f]'}`}
+              className={`block w-full truncate px-0.5 pb-0.5 text-center text-[0.68rem] leading-tight sm:text-xs ${slot.subDark && !slot.subMuted ? 'bg-[#14181f] pt-px font-extrabold text-white' : `bg-[#eef0f2] font-semibold ${slot.subMuted ? 'text-[#6b7280]' : 'text-[#14181f]'}`}`}
             >
               {slot.sub ?? '\u00a0'}
             </span>

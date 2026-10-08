@@ -29,11 +29,14 @@ export function formatWeekdayTime(iso: string): string {
   return weekdayTime.format(new Date(iso));
 }
 
-/** A deadline as FPL writes it: "Sat 10 Oct at 10:00". */
-export function formatDeadline(iso: string): string {
+const longDay = new Intl.DateTimeFormat('en-GB', { timeZone: UK, weekday: 'long' });
+
+/** A deadline as FPL writes it: "Sat 10 Oct at 10:00" ("Saturday 10 Oct..." when long). */
+export function formatDeadline(iso: string, long = false): string {
   const part = Object.fromEntries(
     dayTime.formatToParts(new Date(iso)).map((x) => [x.type, x.value]),
   ) as Record<string, string>;
+  if (long) part.weekday = longDay.format(new Date(iso));
   return `${part.weekday} ${part.day} ${part.month} at ${part.hour}:${part.minute}`;
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ErrorText, FormBoxes, Loading, PosBadge } from '@/components/ui';
 import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
 import { fixtureLabel, opponentName, sideForm } from '@/lib/form';
@@ -63,7 +63,12 @@ export function TableScreen() {
   const { session, profile } = useAuth();
   const sides = useSides();
   const sideOf = useProfileSides();
-  const [league, setLeague] = useState<LeagueKey>('all');
+  // Home's league rows open the table on that league.
+  const [params] = useSearchParams();
+  const [league, setLeague] = useState<LeagueKey>(() => {
+    const asked = params.get('league') ?? '';
+    return /^(all|men|women|side:\d+)$/.test(asked) ? (asked as LeagueKey) : 'all';
+  });
   const sideList = sides.data ?? [];
   const mine = profile?.side_id ?? null;
   // Overall, Men's and Women's, then each side with your own first.
@@ -118,6 +123,9 @@ export function TableScreen() {
 }
 
 export function PlayersScreen() {
+  // Home's Price Changes link opens this sorted by the week's change.
+  const [params] = useSearchParams();
+  const sortParam = params.get('sort');
   const [open, setOpen] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [pos, setPos] = useState<Position | ''>('');
@@ -201,7 +209,7 @@ export function PlayersScreen() {
       <StatsTable
         rows={list}
         columns={columns}
-        defaultSort="pts"
+        defaultSort={sortParam === 'change' ? 'change' : 'pts'}
         tiebreak={(p) => points(p.id)}
         lead={(p) => {
           const nextLabel = next ? fixtureLabel(fixtures.data ?? [], p.side_id, next.id) : null;

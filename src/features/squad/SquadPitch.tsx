@@ -13,6 +13,8 @@ import { POSITIONS, type Position } from '@/lib/scoring';
 import { shortName } from '@/lib/format';
 import { PlayerSheet, type TeamPoints } from '@/features/player/PlayerDetail';
 import { chipName, type PlayedChip } from '@/lib/chips';
+import { awaitingResult } from '@/lib/home';
+import { cardNames } from '@/lib/pickDisplay';
 
 /** A saved squad on the pitch, with points (or side) under each player. */
 export function SquadPitch({
@@ -25,6 +27,8 @@ export function SquadPitch({
   chip,
   fixturesFor,
   compact = false,
+  card = false,
+  fieldClass,
 }: {
   rows: SquadRow[];
   players: Player[];
@@ -40,6 +44,12 @@ export function SquadPitch({
   fixturesFor?: number;
   /** Phones: sized to the screen so the whole team is in view. */
   compact?: boolean;
+  /**
+   * FPL's points cards (Home): surname and points, a dash until their game's
+   * result is in, and the subs as one line under the pitch.
+   */
+  card?: boolean;
+  fieldClass?: string;
 }) {
   const fixtures = useFixtures();
   // For a past gameweek, tag each player with the side they actually played for.
@@ -72,6 +82,26 @@ export function SquadPitch({
       : showPoints
         ? `${r.points} pts`
         : `${seasonPoints?.get(r.player_id) ?? 0} pts`;
+  const names = cardNames(withPlayer.map((r) => ({ id: r.player_id, name: r.player.name })));
+  const waiting = (r: (typeof withPlayer)[number]) =>
+    awaitingResult(
+      fixtures.data ?? [],
+      r.player.side_id,
+      gameweekId ?? 0,
+      played.data?.has(r.player_id) ?? false,
+    );
+  const cardSlot = (r: (typeof withPlayer)[number]): PitchSlot => ({
+    key: `p${r.player_id}`,
+    position: r.position,
+    name: names.get(r.player_id) ?? shortName(r.player.name),
+    sub: waiting(r) ? '–' : String(r.points),
+    subMuted: waiting(r),
+    subDark: true,
+    captain: r.is_captain,
+    badge: r.is_vice ? 'V' : undefined,
+    faded: r.sub === 'off',
+    onClick: () => setOpen({ id: r.player_id, teamPoints: { points: r.points, reasons: [] } }),
+  });
   const slotFor = (r: (typeof withPlayer)[number]): PitchSlot => ({
     key: `p${r.player_id}`,
     position: r.position,
@@ -112,7 +142,7 @@ export function SquadPitch({
     POSITIONS.map((pos) => [
       pos,
       laid[pos].map((r, i): PitchSlot =>
-        r ? slotFor(r) : { key: `${pos}${i}`, position: pos, name: null },
+        r ? (card ? cardSlot(r) : slotFor(r)) : { key: `${pos}${i}`, position: pos, name: null },
       ),
     ]),
   ) as Record<Position, PitchSlot[]>;
@@ -126,9 +156,19 @@ export function SquadPitch({
       )}
       <Pitch
         rows={slots}
-        bench={benched.length ? benched.map(slotFor) : undefined}
+        bench={!card && benched.length ? benched.map(slotFor) : undefined}
         compact={compact}
+        variant={card ? 'card' : 'plate'}
+        fieldClass={fieldClass}
       />
+      {card && benched.length > 0 && (
+        <p className="mb-0 mt-1.5 text-center text-xs opacity-85">
+          Subs:{' '}
+          {benched
+            .map((r) => `${names.get(r.player_id) ?? r.player.name} ${waiting(r) ? '–' : r.points}`)
+            .join(' · ')}
+        </p>
+      )}
       {open && (
         <PlayerSheet
           playerId={open.id}
