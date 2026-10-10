@@ -1457,7 +1457,7 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T12:00:00+00:00');
   });
 
-  it('runs the safety-net syncs at Saturday 20:00 and Sunday 17:00 UK, either side of the clock change', async () => {
+  it('runs the safety-net syncs at Saturday 20:00, Sunday 17:00 and Monday 09:00 UK, either side of the clock change', async () => {
     const due = async (at: string) =>
       (await service.rpc('weekend_sync_due', { p_now: at })).data as boolean;
     // British Summer Time: Saturday 20:00 UK is 19:00 UTC.
@@ -1469,6 +1469,10 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     expect(await due('2026-10-31T20:00:00Z')).toBe(true);
     expect(await due('2026-10-31T19:00:00Z')).toBe(false);
     expect(await due('2026-11-01T17:00:00Z')).toBe(true);
+    // Monday 09:00 UK, for the weekly price changes: 08:00 UTC in summer, 09:00 in winter.
+    expect(await due('2026-10-19T08:00:00Z')).toBe(true);
+    expect(await due('2026-11-02T09:00:00Z')).toBe(true);
+    expect(await due('2026-11-02T08:00:00Z')).toBe(false);
     // Not on other days.
     expect(await due('2026-10-16T19:00:00Z')).toBe(false);
   });
