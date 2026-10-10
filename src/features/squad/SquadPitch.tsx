@@ -4,6 +4,7 @@ import { formationOf, pitchRows } from '@/lib/formation';
 import {
   useFixtures,
   useGameweekSides,
+  useFixturesWithStats,
   type Player,
   type Side,
   type SquadRow,
@@ -83,14 +84,13 @@ export function SquadPitch({
         ? `${r.points} pts`
         : `${seasonPoints?.get(r.player_id) ?? 0} pts`;
   const names = cardNames(withPlayer.map((r) => ({ id: r.player_id, name: r.player.name })));
-  // Until their usual side's result is in: who that side plays, not 0 points.
+  // Until their usual side's match has synced: who that side plays, not points.
+  const withStats = useFixturesWithStats(card ? gameweekId : undefined);
   const pending = (r: (typeof withPlayer)[number]) =>
-    pendingLabel(
-      fixtures.data ?? [],
-      r.player.side_id,
-      gameweekId ?? 0,
-      played.data?.has(r.player_id) ?? false,
-    );
+    pendingLabel(fixtures.data ?? [], r.player.side_id, gameweekId ?? 0, {
+      appeared: played.data?.has(r.player_id) ?? false,
+      fixturesWithStats: withStats.data ?? new Set<number>(),
+    });
   const cardSlot = (r: (typeof withPlayer)[number]): PitchSlot => ({
     key: `p${r.player_id}`,
     position: r.position,

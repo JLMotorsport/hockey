@@ -1457,6 +1457,22 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T12:00:00+00:00');
   });
 
+  it('runs the safety-net syncs at Saturday 20:00 and Sunday 17:00 UK, either side of the clock change', async () => {
+    const due = async (at: string) =>
+      (await service.rpc('weekend_sync_due', { p_now: at })).data as boolean;
+    // British Summer Time: Saturday 20:00 UK is 19:00 UTC.
+    expect(await due('2026-10-17T19:00:00Z')).toBe(true);
+    expect(await due('2026-10-17T20:00:00Z')).toBe(false);
+    expect(await due('2026-10-18T16:05:00Z')).toBe(true); // Sunday 17:05 UK
+    expect(await due('2026-10-18T16:15:00Z')).toBe(false); // too late in the hour
+    // After the clocks go back (25 Oct): UK time is UTC.
+    expect(await due('2026-10-31T20:00:00Z')).toBe(true);
+    expect(await due('2026-10-31T19:00:00Z')).toBe(false);
+    expect(await due('2026-11-01T17:00:00Z')).toBe(true);
+    // Not on other days.
+    expect(await due('2026-10-16T19:00:00Z')).toBe(false);
+  });
+
   it('syncs two hours after each game should have finished (kick-off + 3h25)', async () => {
     const sides = (await service.from('sides').select('id').order('sort_order')).data!;
     const ago = (mins: number) => new Date(Date.now() - mins * 60_000).toISOString();

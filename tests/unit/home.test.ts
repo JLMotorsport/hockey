@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  awaitingResult,
-  countdown,
-  pendingLabel,
-  liveGameweek,
-  myPlace,
-  ordinal,
-  weekSpread,
-} from '@/lib/home';
+import { countdown, pendingLabel, liveGameweek, myPlace, ordinal, weekSpread } from '@/lib/home';
 
 const gw = (id: number, start: string) => ({
   id,
@@ -71,37 +63,53 @@ describe('myPlace and weekSpread', () => {
   });
 });
 
-describe('awaitingResult', () => {
-  const fixtures = [
-    { side_id: 1, gameweek_id: 2, goals_for: null },
-    { side_id: 2, gameweek_id: 2, goals_for: 3 },
-  ];
-  it('waits for a side whose game has no score yet', () => {
-    expect(awaitingResult(fixtures, 1, 2, false)).toBe(true);
-    expect(awaitingResult(fixtures, 1, 2, true)).toBe(false);
-    expect(awaitingResult(fixtures, 2, 2, false)).toBe(false);
-    expect(awaitingResult(fixtures, 3, 2, false)).toBe(false);
-  });
-});
-
 describe('pendingLabel', () => {
-  const f = (side_id: number, goals_for: number | null, opponent = 'Lowestoft Railway 1') => ({
+  const f = (
+    id: number,
+    side_id: number,
+    synced: Partial<{ lineup: boolean; locked: boolean }> = {},
+  ) => ({
+    id,
     side_id,
     gameweek_id: 2,
-    opponent,
+    opponent: 'Lowestoft Railway 1',
     is_home: true,
-    goals_for,
+    lineup_imported_at: synced.lineup ? '2026-10-10T18:30:00Z' : null,
+    stats_locked: synced.locked ?? false,
   });
-  const fixtures = [f(1, null), f(2, 3)];
-  it("shows the usual side's fixture until the result is in", () => {
-    expect(pendingLabel(fixtures, 1, 2, false)).toBe('LOW (H)');
-    expect(pendingLabel(fixtures, 1, 2, true)).toBeNull();
+  const none = new Set<number>();
+  it("shows the usual side's fixture until that match has synced, even with a score in", () => {
+    const fixtures = [f(1, 1)];
+    expect(pendingLabel(fixtures, 1, 2, { appeared: false, fixturesWithStats: none })).toBe(
+      'LOW (H)',
+    );
+    // Played for another side that has synced: still waits for their own side.
+    expect(pendingLabel(fixtures, 1, 2, { appeared: true, fixturesWithStats: none })).toBe(
+      'LOW (H)',
+    );
   });
-  it('shows points once the result is in, even if they did not play', () => {
-    expect(pendingLabel(fixtures, 2, 2, false)).toBeNull();
+  it('shows points (0 if they did not play) once the match has synced', () => {
+    expect(
+      pendingLabel([f(1, 1, { lineup: true })], 1, 2, { appeared: false, fixturesWithStats: none }),
+    ).toBeNull();
+    expect(
+      pendingLabel([f(1, 1, { locked: true })], 1, 2, { appeared: false, fixturesWithStats: none }),
+    ).toBeNull();
+    // Stats entered by hand count as synced.
+    expect(
+      pendingLabel([f(1, 1)], 1, 2, { appeared: false, fixturesWithStats: new Set([1]) }),
+    ).toBeNull();
   });
-  it('says No game when their side has none', () => {
-    expect(pendingLabel(fixtures, 3, 2, false)).toBe('No game');
-    expect(pendingLabel(fixtures, 3, 2, true)).toBeNull();
+  it('waits for both games when a side plays twice', () => {
+    const fixtures = [f(1, 1, { lineup: true }), f(2, 1)];
+    expect(pendingLabel(fixtures, 1, 2, { appeared: false, fixturesWithStats: none })).toBe(
+      '2 games',
+    );
+  });
+  it('says No game when their side has none, unless they played for another side', () => {
+    expect(pendingLabel([f(1, 1)], 3, 2, { appeared: false, fixturesWithStats: none })).toBe(
+      'No game',
+    );
+    expect(pendingLabel([f(1, 1)], 3, 2, { appeared: true, fixturesWithStats: none })).toBeNull();
   });
 });

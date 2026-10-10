@@ -671,6 +671,7 @@ export type Database = {
       apply_due_price_changes: { Args: Record<PropertyKey, never>; Returns: Json };
       apply_price_changes: { Args: { p_gameweek: number }; Returns: number };
       bank_before_next: { Args: Record<PropertyKey, never>; Returns: number };
+      call_eh_sync: { Args: Record<PropertyKey, never>; Returns: boolean };
       cancel_chip: { Args: Record<PropertyKey, never>; Returns: undefined };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
       fixtures_due_for_sync: { Args: { p_now?: string }; Returns: number[] };
@@ -736,6 +737,7 @@ export type Database = {
       refresh_deadline: { Args: { p_gameweek_id: number }; Returns: undefined };
       require_admin: { Args: Record<PropertyKey, never>; Returns: undefined };
       run_due_sync: { Args: Record<PropertyKey, never>; Returns: number };
+      run_weekend_sync: { Args: Record<PropertyKey, never>; Returns: boolean };
       save_match_stats: {
         Args: {
           p_complete: boolean;
@@ -788,6 +790,7 @@ export type Database = {
         }[];
       };
       squad_source_gameweek: { Args: { p_gameweek: number; p_user: string }; Returns: number };
+      weekend_sync_due: { Args: { p_now?: string }; Returns: boolean };
     };
     Enums: {
       [_ in never]: never;

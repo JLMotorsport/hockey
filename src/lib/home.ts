@@ -60,35 +60,30 @@ export function weekSpread(rows: TableRow[]): { average: number; highest: number
   };
 }
 
-/**
- * A player's points aren't in yet: no appearance recorded and one of their
- * side's games this gameweek has no score.
- */
-export function awaitingResult(
-  fixtures: { side_id: number; gameweek_id: number; goals_for: number | null }[],
-  sideId: number,
-  gameweekId: number,
-  appeared: boolean,
-): boolean {
-  if (appeared) return false;
-  return fixtures.some(
-    (f) => f.side_id === sideId && f.gameweek_id === gameweekId && f.goals_for === null,
-  );
+/** A fixture with what tells us its stats are in. */
+export interface SyncState extends FixtureLike {
+  id: number;
+  lineup_imported_at: string | null;
+  stats_locked: boolean;
 }
 
 /**
- * What a live card shows instead of points while they aren't in: who the
- * player's usual side plays ("LOW (H)", "No game"), until a result or an
- * appearance is recorded. Null once there are points to show.
+ * What a live card shows instead of points: who the player's usual side
+ * plays ("LOW (H)"), until that side's match has synced (line-up imported,
+ * stats entered by hand, or locked by a manager). Then null: show their
+ * points, 0 if the sync says they didn't play. A side with no game shows
+ * "No game", unless the player turned out for another side.
  */
 export function pendingLabel(
-  fixtures: (FixtureLike & { goals_for: number | null })[],
+  fixtures: SyncState[],
   sideId: number,
   gameweekId: number,
-  appeared: boolean,
+  opts: { appeared: boolean; fixturesWithStats: Set<number> },
 ): string | null {
-  if (appeared) return null;
   const games = fixtures.filter((f) => f.side_id === sideId && f.gameweek_id === gameweekId);
-  if (games.length && !awaitingResult(fixtures, sideId, gameweekId, appeared)) return null;
-  return fixtureCode(fixtures, sideId, gameweekId);
+  if (!games.length) return opts.appeared ? null : 'No game';
+  const synced = games.every(
+    (f) => f.lineup_imported_at !== null || f.stats_locked || opts.fixturesWithStats.has(f.id),
+  );
+  return synced ? null : fixtureCode(fixtures, sideId, gameweekId);
 }

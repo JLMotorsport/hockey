@@ -310,6 +310,25 @@ export function useGameweekSides(gameweekId: number | undefined) {
   });
 }
 
+/** Ids of a gameweek's fixtures that have any player stats (synced or entered by hand). */
+export function useFixturesWithStats(gameweekId: number | undefined) {
+  return useQuery({
+    queryKey: ['fixtures-with-stats', gameweekId ?? 0],
+    enabled: Boolean(gameweekId),
+    queryFn: async () => {
+      const rows = (await fetchAll((from, to) =>
+        requireSupabase()
+          .from('performances')
+          .select('fixture_id, fixture:fixtures!inner(gameweek_id)')
+          .eq('fixture.gameweek_id', gameweekId as number)
+          .order('id')
+          .range(from, to),
+      )) as unknown as { fixture_id: number }[];
+      return new Set(rows.map((r) => r.fixture_id));
+    },
+  });
+}
+
 /** Ids of gameweeks that have any points recorded. */
 export function useScoredGameweeks() {
   const all = useAllGameweekPoints();
