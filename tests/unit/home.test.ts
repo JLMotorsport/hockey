@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { awaitingResult, countdown, liveGameweek, myPlace, ordinal, weekSpread } from '@/lib/home';
+import {
+  awaitingResult,
+  countdown,
+  pendingLabel,
+  liveGameweek,
+  myPlace,
+  ordinal,
+  weekSpread,
+} from '@/lib/home';
 
 const gw = (id: number, start: string) => ({
   id,
@@ -73,5 +81,27 @@ describe('awaitingResult', () => {
     expect(awaitingResult(fixtures, 1, 2, true)).toBe(false);
     expect(awaitingResult(fixtures, 2, 2, false)).toBe(false);
     expect(awaitingResult(fixtures, 3, 2, false)).toBe(false);
+  });
+});
+
+describe('pendingLabel', () => {
+  const f = (side_id: number, goals_for: number | null, opponent = 'Lowestoft Railway 1') => ({
+    side_id,
+    gameweek_id: 2,
+    opponent,
+    is_home: true,
+    goals_for,
+  });
+  const fixtures = [f(1, null), f(2, 3)];
+  it("shows the usual side's fixture until the result is in", () => {
+    expect(pendingLabel(fixtures, 1, 2, false)).toBe('LOW (H)');
+    expect(pendingLabel(fixtures, 1, 2, true)).toBeNull();
+  });
+  it('shows points once the result is in, even if they did not play', () => {
+    expect(pendingLabel(fixtures, 2, 2, false)).toBeNull();
+  });
+  it('says No game when their side has none', () => {
+    expect(pendingLabel(fixtures, 3, 2, false)).toBe('No game');
+    expect(pendingLabel(fixtures, 3, 2, true)).toBeNull();
   });
 });

@@ -1437,24 +1437,55 @@ describe.skipIf(!configured)('fixes from the code review', () => {
   const deadlineOf = async (gw: number) =>
     (await anon.from('gameweeks').select('deadline').eq('id', gw).single()).data!.deadline;
 
-  it('locks a gameweek an hour before a midweek game, and only then', async () => {
+  it('locks a gameweek an hour before its first game', async () => {
     const sides = (await service.from('sides').select('id').order('sort_order')).data!;
-    // Saturday 15 May 2027 (BST): the usual deadline is 10:00 UK, 09:00 UTC.
+    // Saturday 15 May 2027 (BST). First game 14:00 UK: deadline 13:00 UK, 12:00 UTC.
     const sat = await fixture(sides[0]!.id, '2027-05-15T13:00:00+00:00', 'Saturday Opp');
-    expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T09:00:00+00:00');
-    // A Saturday game with no time yet (00:00) changes nothing.
+    expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T12:00:00+00:00');
+    // A game with no time yet (00:00) changes nothing.
     await fixture(sides[1]!.id, '2027-05-14T23:00:00+00:00', 'Time TBC'); // 00:00 UK on the 15th
-    expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T09:00:00+00:00');
+    expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T12:00:00+00:00');
     // A Wednesday evening game brings it forward to an hour before.
     const wed = await fixture(sides[2]!.id, '2027-05-12T18:30:00+00:00', 'Midweek Opp');
     expect(wed.gameweek_id).toBe(sat.gameweek_id);
     expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-12T17:30:00+00:00');
-    // Moved to the Sunday, the Saturday deadline comes back.
+    // Moved to the Sunday, it goes back to an hour before the Saturday game.
     await service
       .from('fixtures')
       .update({ kickoff: '2027-05-16T13:00:00+00:00' })
       .eq('id', wed.id);
-    expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T09:00:00+00:00');
+    expect(await deadlineOf(sat.gameweek_id)).toBe('2027-05-15T12:00:00+00:00');
+  });
+
+  it('syncs two hours after each game should have finished (kick-off + 3h25)', async () => {
+    const sides = (await service.from('sides').select('id').order('sort_order')).data!;
+    const ago = (mins: number) => new Date(Date.now() - mins * 60_000).toISOString();
+    const due = await fixture(sides[0]!.id, ago(206), 'Sync Due');
+    const early = await fixture(sides[1]!.id, ago(200), 'Sync Not Yet');
+    const old = await fixture(sides[2]!.id, ago(4 * 24 * 60), 'Sync Too Old');
+    const dueIds = async () =>
+      ((await service.rpc('fixtures_due_for_sync')).data ?? []) as number[];
+    let ids = await dueIds();
+    expect(ids).toContain(due.id);
+    expect(ids).not.toContain(early.id);
+    expect(ids).not.toContain(old.id);
+    // No Vault secrets locally: nothing is sent, and the game stays due.
+    expect((await service.rpc('run_due_sync')).data).toBe(0);
+    expect(await dueIds()).toContain(due.id);
+    // Once synced it isn't due again, until its kick-off moves.
+    await service
+      .from('fixtures')
+      .update({ auto_synced_at: new Date().toISOString() })
+      .eq('id', due.id);
+    expect(await dueIds()).not.toContain(due.id);
+    await service
+      .from('fixtures')
+      .update({ kickoff: ago(210) })
+      .eq('id', due.id);
+    ids = await dueIds();
+    expect(ids).toContain(due.id);
+    // Not cluttering later tests.
+    await service.from('fixtures').delete().in('id', [due.id, early.id, old.id]);
   });
 
   it('gives player of the match only to a clear name match', async () => {

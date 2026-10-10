@@ -404,8 +404,8 @@ export function RulesScreen() {
                 gameweek.
               </li>
               <li>
-                Squads lock at each gameweek&apos;s deadline: Saturday 10:00, or an hour before a
-                midweek game that week. Your squad carries over each week until you change it.
+                Squads lock at each gameweek&apos;s deadline: an hour before its first game. Your
+                squad carries over each week until you change it.
               </li>
               <li>
                 If your player turns out for another Felixstowe side that weekend, those points

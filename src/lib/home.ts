@@ -3,6 +3,8 @@
 
 import { defaultGameweek, type GameweekLike } from './gameweek';
 import { leagueRows, movement, type TableRow } from './table';
+import { fixtureCode } from './pickDisplay';
+import type { FixtureLike } from './form';
 
 /**
  * The gameweek being played, from its deadline until the Monday after (the
@@ -72,4 +74,21 @@ export function awaitingResult(
   return fixtures.some(
     (f) => f.side_id === sideId && f.gameweek_id === gameweekId && f.goals_for === null,
   );
+}
+
+/**
+ * What a live card shows instead of points while they aren't in: who the
+ * player's usual side plays ("LOW (H)", "No game"), until a result or an
+ * appearance is recorded. Null once there are points to show.
+ */
+export function pendingLabel(
+  fixtures: (FixtureLike & { goals_for: number | null })[],
+  sideId: number,
+  gameweekId: number,
+  appeared: boolean,
+): string | null {
+  if (appeared) return null;
+  const games = fixtures.filter((f) => f.side_id === sideId && f.gameweek_id === gameweekId);
+  if (games.length && !awaitingResult(fixtures, sideId, gameweekId, appeared)) return null;
+  return fixtureCode(fixtures, sideId, gameweekId);
 }

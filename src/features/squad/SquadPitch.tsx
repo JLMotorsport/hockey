@@ -13,7 +13,7 @@ import { POSITIONS, type Position } from '@/lib/scoring';
 import { shortName } from '@/lib/format';
 import { PlayerSheet, type TeamPoints } from '@/features/player/PlayerDetail';
 import { chipName, type PlayedChip } from '@/lib/chips';
-import { awaitingResult } from '@/lib/home';
+import { pendingLabel } from '@/lib/home';
 import { cardNames } from '@/lib/pickDisplay';
 
 /** A saved squad on the pitch, with points (or side) under each player. */
@@ -83,8 +83,9 @@ export function SquadPitch({
         ? `${r.points} pts`
         : `${seasonPoints?.get(r.player_id) ?? 0} pts`;
   const names = cardNames(withPlayer.map((r) => ({ id: r.player_id, name: r.player.name })));
-  const waiting = (r: (typeof withPlayer)[number]) =>
-    awaitingResult(
+  // Until their usual side's result is in: who that side plays, not 0 points.
+  const pending = (r: (typeof withPlayer)[number]) =>
+    pendingLabel(
       fixtures.data ?? [],
       r.player.side_id,
       gameweekId ?? 0,
@@ -94,8 +95,8 @@ export function SquadPitch({
     key: `p${r.player_id}`,
     position: r.position,
     name: names.get(r.player_id) ?? shortName(r.player.name),
-    sub: waiting(r) ? '–' : String(r.points),
-    subMuted: waiting(r),
+    sub: pending(r) ?? String(r.points),
+    subMuted: pending(r) !== null,
     subDark: true,
     captain: r.is_captain,
     badge: r.is_vice ? 'V' : undefined,
@@ -165,7 +166,7 @@ export function SquadPitch({
         <p className="mb-0 mt-1.5 text-center text-xs opacity-85">
           Subs:{' '}
           {benched
-            .map((r) => `${names.get(r.player_id) ?? r.player.name} ${waiting(r) ? '–' : r.points}`)
+            .map((r) => `${names.get(r.player_id) ?? r.player.name} ${pending(r) ?? r.points}`)
             .join(' · ')}
         </p>
       )}

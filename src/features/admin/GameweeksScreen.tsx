@@ -63,7 +63,7 @@ export function GameweeksScreen() {
     <>
       <PageHead
         title="Gameweeks"
-        sub="Made automatically, one per weekend. Deadlines lock squads: Saturday 10:00, or an hour before a midweek game. A deadline you set can only be brought earlier by a midweek game."
+        sub="Made automatically, one per weekend. Deadlines lock squads an hour before the gameweek's first game (Saturday 10:00 until kick-off times are known). A deadline you set can only be brought earlier by a game."
       />
       <Notices items={notices} />
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">

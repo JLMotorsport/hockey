@@ -71,6 +71,7 @@ export type Database = {
       };
       fixtures: {
         Row: {
+          auto_synced_at: string | null;
           competition: string | null;
           eh_fixture_id: string | null;
           gameweek_id: number;
@@ -89,6 +90,7 @@ export type Database = {
           withheld_count: number;
         };
         Insert: {
+          auto_synced_at?: string | null;
           competition?: string | null;
           eh_fixture_id?: string | null;
           gameweek_id: number;
@@ -107,6 +109,7 @@ export type Database = {
           withheld_count?: number;
         };
         Update: {
+          auto_synced_at?: string | null;
           competition?: string | null;
           eh_fixture_id?: string | null;
           gameweek_id?: number;
@@ -670,6 +673,7 @@ export type Database = {
       bank_before_next: { Args: Record<PropertyKey, never>; Returns: number };
       cancel_chip: { Args: Record<PropertyKey, never>; Returns: undefined };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
+      fixtures_due_for_sync: { Args: { p_now?: string }; Returns: number[] };
       import_fixtures: {
         Args: { p_competition: string; p_rows: Json; p_side_id: number };
         Returns: Json;
@@ -731,6 +735,7 @@ export type Database = {
       price_floor: { Args: Record<PropertyKey, never>; Returns: number };
       refresh_deadline: { Args: { p_gameweek_id: number }; Returns: undefined };
       require_admin: { Args: Record<PropertyKey, never>; Returns: undefined };
+      run_due_sync: { Args: Record<PropertyKey, never>; Returns: number };
       save_match_stats: {
         Args: {
           p_complete: boolean;
