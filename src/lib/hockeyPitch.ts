@@ -216,6 +216,8 @@ export const ROW_Y: Record<Position, number> = {
 export interface TeamPitchDrawing extends PitchDrawing {
   /** Screen y of the line each row stands on. */
   rows: Record<Position, number>;
+  /** Mowing stripes: screen y bands, every 1/16 of the pitch's length from the goal line. */
+  bands: { y0: number; y1: number }[];
 }
 
 /**
@@ -228,13 +230,15 @@ export function teamPitch(o: {
   height: number;
   labelRoom: number;
   pad?: number;
+  /** Screen y of the goal line (default: just inside the padding). */
+  top?: number;
   depth?: number;
 }): TeamPitchDrawing {
   const pad = o.pad ?? 6;
   const p = projection({
     width: o.width - 2 * pad,
     cx: o.width / 2,
-    top: pad + 10,
+    top: o.top ?? pad + 10,
     bottom: o.height - o.labelRoom,
     y0: 0,
     y1: ROW_Y.FWD,
@@ -286,5 +290,9 @@ export function teamPitch(o: {
       MID: p.at(W / 2, ROW_Y.MID)[1],
       FWD: p.at(W / 2, ROW_Y.FWD)[1],
     },
+    bands: Array.from({ length: Math.ceil((yEnd / L) * 16) }, (_, i) => ({
+      y0: p.at(0, (L / 16) * i)[1],
+      y1: Math.min(o.height, p.at(0, (L / 16) * (i + 1))[1]),
+    })),
   };
 }

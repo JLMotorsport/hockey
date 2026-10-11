@@ -157,27 +157,48 @@ export function V3Home() {
           </span>
         </div>
         <div className="px-3">
-          <TeamPitch rows={badges.pitch} height={336} size={36} />
+          <TeamPitch rows={badges.pitch} height={360} size={36} />
         </div>
-        {badges.scored.length > 0 && (
-          <section className="v3-glass mx-3.5 mt-3 rounded-[18px] px-3.5 py-2.5">
-            <span className="v3-cap">Points in</span>
-            {badges.scored.slice(0, 3).map((s, i) => (
-              <div
-                key={s.id}
-                className="v3-in mt-2 flex items-center gap-2.5 text-[13px]"
-                style={{ animationDelay: `${i * 80}ms` }}
-              >
-                <span className="v3-num w-7 text-[rgb(var(--v3-mut))]">{s.side}</span>
-                <span className="flex-1 truncate">
-                  {s.name}
-                  {s.captain && ' · captain'}
-                </span>
-                <span className="v3-num text-[15px] text-[rgb(var(--v3-mint))]">+{s.points}</span>
-              </div>
-            ))}
-          </section>
-        )}
+        {/* Where you stand right now in each of your leagues, as points come in. */}
+        <section className="v3-glass mx-3.5 mt-3 rounded-[18px] px-3.5 pb-1 pt-2.5">
+          <span className="flex items-center gap-2">
+            <span className="v3-dot" />
+            <span className="v3-cap">Live positions</span>
+          </span>
+          <ul className="divide-y divide-white/10">
+            {leagues.map(([key, label], i) => {
+              const place = myPlace(rows, inLeague(key, sideMap, sideList), session.user.id);
+              return (
+                <li key={key} className="v3-in" style={{ animationDelay: `${i * 80}ms` }}>
+                  <Link
+                    to={`/table?league=${encodeURIComponent(key)}`}
+                    onClick={transitionClick(`/table?league=${encodeURIComponent(key)}`, 'swap')}
+                    className="flex min-h-[48px] items-center gap-2.5 text-[13px] text-white no-underline hover:no-underline"
+                  >
+                    <span className="flex-1">{label}</span>
+                    <span className="v3-num w-9 text-right text-xs">
+                      {place ? moved(place.moved) : null}
+                    </span>
+                    <span className="min-w-[76px] text-right">
+                      <span className="v3-disp v3-num text-[22px]">
+                        {place ? ordinal(place.rank) : '-'}
+                      </span>
+                      <span className="text-[11px] text-[rgb(var(--v3-mut))]">
+                        {place ? ` of ${place.of}` : ''}
+                      </span>
+                    </span>
+                    <span className="text-[rgb(var(--v3-mut))]">›</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          {!mySide && (
+            <p className="mb-2 text-xs text-[rgb(var(--v3-mut))]">
+              <Link to="/account">Set the side you play for</Link> to see your side&apos;s league.
+            </p>
+          )}
+        </section>
         {next && (
           <div className="mx-3.5 mt-2.5 flex items-center gap-2.5 text-[13px] text-[rgb(var(--v3-mut))]">
             <span className="flex-1">

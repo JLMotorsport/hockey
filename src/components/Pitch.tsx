@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ComponentProps, type ReactNode } from 'react';
 import type { Position } from '@/lib/scoring';
 import { useUiVersion } from '@/lib/uiVersion';
 import { Pitch as PitchV1 } from '@/features/v1/PitchV1';
@@ -247,11 +247,53 @@ export interface PitchSlot {
   highlight?: boolean;
   /** Greyed out, e.g. a starter who was subbed off. */
   faded?: boolean;
+  /** The whole name on one line, its text shrunk to fit (never cut off or wrapped). */
+  fitName?: boolean;
   onClick?: () => void;
 }
 
+/** One line of text, its font shrunk until it fits (down to `min` px). */
+export function FitText({
+  children,
+  max,
+  min = 7,
+  className = '',
+}: {
+  children: string;
+  max: number;
+  min?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      let size = max;
+      el.style.fontSize = `${size}px`;
+      while (el.scrollWidth > el.clientWidth + 0.5 && size > min) {
+        size -= 0.5;
+        el.style.fontSize = `${size}px`;
+      }
+    };
+    fit();
+    const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
+    watch?.observe(el);
+    return () => watch?.disconnect();
+  }, [children, max, min]);
+  return (
+    <span
+      ref={ref}
+      className={`block w-full overflow-hidden whitespace-nowrap ${className}`}
+      style={{ fontSize: max }}
+    >
+      {children}
+    </span>
+  );
+}
+
 /** Shirt plus name plate, as on the Premier League app. */
-function PlayerSpot({
+export function PlayerSpot({
   slot,
   compact = false,
   card = false,
@@ -302,10 +344,16 @@ function PlayerSpot({
             <span
               className={`flex flex-1 items-center justify-center bg-white px-0.5 pb-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] [overflow-wrap:break-word] sm:text-xs ${slot.tag ? (compact ? 'pt-1.5 sm:pt-2' : 'pt-2') : 'pt-0.5'}`}
             >
-              <span className="max-w-full [font-stretch:85%]">
-                {/* Keep "J." with the surname when the plate wraps. */}
-                {slot.name.replace(/^(\S+\.) /, '$1\u00a0')}
-              </span>
+              {slot.fitName ? (
+                <FitText max={11} className="[font-stretch:85%]">
+                  {slot.name}
+                </FitText>
+              ) : (
+                <span className="max-w-full [font-stretch:85%]">
+                  {/* Keep "J." with the surname when the plate wraps. */}
+                  {slot.name.replace(/^(\S+\.) /, '$1\u00a0')}
+                </span>
+              )}
             </span>
             {slot.sub !== undefined && (
               <span
@@ -353,6 +401,11 @@ function CardSpot({ slot, label }: { slot: PitchSlot; label: string }) {
             {slot.badge ?? 'C'}
           </span>
         )}
+        {slot.name && slot.tag && (
+          <span className="absolute right-0.5 top-0.5 z-10 rounded bg-[#0e1014] px-1 font-display text-[0.62rem] font-extrabold leading-4 text-white sm:text-xs">
+            {slot.tag}
+          </span>
+        )}
         {/* A price (Transfers) goes on the tile, above the shirt, as FPL's. */}
         {slot.headingPill && (
           <span className="pt-0.5 text-[0.66rem] font-extrabold leading-tight text-white sm:text-xs">
@@ -366,9 +419,15 @@ function CardSpot({ slot, label }: { slot: PitchSlot; label: string }) {
         />
         {slot.name ? (
           <>
-            <span className="block w-full truncate bg-white px-0.5 pt-0.5 text-center text-[0.72rem] font-bold leading-tight text-[#14181f] sm:text-xs">
-              {slot.name}
-            </span>
+            {slot.fitName ? (
+              <span className="block w-full bg-white px-0.5 pt-0.5 text-center font-bold leading-tight text-[#14181f]">
+                <FitText max={11.5}>{slot.name}</FitText>
+              </span>
+            ) : (
+              <span className="block w-full truncate bg-white px-0.5 pt-0.5 text-center text-[0.72rem] font-bold leading-tight text-[#14181f] sm:text-xs">
+                {slot.name}
+              </span>
+            )}
             <span
               className={`block w-full truncate px-0.5 pb-0.5 text-center text-[0.68rem] leading-tight sm:text-xs ${slot.subDark && !slot.subMuted ? 'bg-[#14181f] pt-px font-extrabold text-white' : `bg-[#eef0f2] font-semibold ${slot.subMuted ? 'text-[#6b7280]' : 'text-[#14181f]'}`}`}
             >
