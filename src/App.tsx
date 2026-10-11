@@ -30,6 +30,8 @@ import { HomeScreen as FantasyHome } from './features/home/HomeScreen';
 import { PlayersScreenV1 } from './features/v1/PlayersScreenV1';
 import { SquadScreenV1 } from './features/v1/SquadScreenV1';
 import { isSupabaseConfigured } from './lib/env';
+import { V3Routes } from './v3/V3Routes';
+import { V3Splash } from './v3/V3Splash';
 
 function SetupScreen() {
   return (
@@ -67,12 +69,40 @@ function Players() {
   return useUiVersion() === 'v1' ? <PlayersScreenV1 /> : <PlayersScreen />;
 }
 
+/** The managers' area: the same in every design version. */
+function managerRoutes() {
+  return (
+    <Route path="managers" element={<AdminLayout />}>
+      <Route index element={<OverviewScreen />} />
+      <Route path="matches" element={<MatchesScreen />} />
+      <Route path="matches/:id" element={<MatchScreen />} />
+      <Route path="players" element={<ManagerPlayersScreen />} />
+      <Route path="identify" element={<IdentifyScreen />} />
+      <Route path="gameweeks" element={<GameweeksScreen />} />
+      <Route path="users" element={<UsersScreen />} />
+      <Route path="settings" element={<SettingsScreen />} />
+      <Route path="fixtures/*" element={<ManageRedirect />} />
+      <Route path="deadlines" element={<ManageRedirect />} />
+      <Route path="sides" element={<ManageRedirect />} />
+    </Route>
+  );
+}
+
 export function App() {
   const { loading } = useAuth();
+  const version = useUiVersion();
   // The opening screen, once per visit: until the app is ready and the pitch is drawn.
   const [splash, setSplash] = useState(true);
   const hideSplash = useCallback(() => setSplash(false), []);
   if (!isSupabaseConfigured) return <SetupScreen />;
+  if (version === 'v3') {
+    return (
+      <BrowserRouter>
+        {splash && <V3Splash done={!loading} onGone={hideSplash} />}
+        <V3Routes loading={loading} managers={managerRoutes()} />
+      </BrowserRouter>
+    );
+  }
   return (
     <BrowserRouter>
       {splash && <Splash done={!loading} onGone={hideSplash} />}
@@ -102,19 +132,7 @@ export function App() {
         {/* Pick team and Transfers are full screens of their own, as in FPL: their own title bar, no tabs. */}
         {!loading && <Route path="squad" element={<Squad mode="pick" />} />}
         {!loading && <Route path="transfers" element={<Squad mode="transfers" />} />}
-        <Route path="managers" element={<AdminLayout />}>
-          <Route index element={<OverviewScreen />} />
-          <Route path="matches" element={<MatchesScreen />} />
-          <Route path="matches/:id" element={<MatchScreen />} />
-          <Route path="players" element={<ManagerPlayersScreen />} />
-          <Route path="identify" element={<IdentifyScreen />} />
-          <Route path="gameweeks" element={<GameweeksScreen />} />
-          <Route path="users" element={<UsersScreen />} />
-          <Route path="settings" element={<SettingsScreen />} />
-          <Route path="fixtures/*" element={<ManageRedirect />} />
-          <Route path="deadlines" element={<ManageRedirect />} />
-          <Route path="sides" element={<ManageRedirect />} />
-        </Route>
+        {managerRoutes()}
       </Routes>
     </BrowserRouter>
   );

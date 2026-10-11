@@ -1,0 +1,207 @@
+/* V3: the night-pitch look. Everything is scoped under .v3 so V1 and V2 are
+   untouched. Fonts: Saira for headings and numbers, Inter for text. */
+.v3 {
+  --v3-bg: 5 7 12;
+  --v3-ice: 238 243 255;
+  --v3-mut: 139 148 167;
+  --v3-red: 255 51 71;
+  --v3-mint: 63 242 168;
+  --v3-amber: 255 181 71;
+  --v3-cyan: 127 231 255;
+  /* V2 screens shown inside V3 (not rebuilt yet) take the dark palette. */
+  --ink: 238 243 255;
+  --ink-soft: 139 148 167;
+  --paper: 5 7 12;
+  --surface: 17 20 28;
+  --line: 40 45 56;
+  --brand: 255 51 71;
+  --brand-dark: 190 24 24;
+  color-scheme: dark;
+  min-height: 100dvh;
+  color: rgb(var(--v3-ice));
+  font-family: 'Inter', system-ui, sans-serif;
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgb(255 51 71 / 0.2), transparent 55%),
+    radial-gradient(90% 50% at 100% 100%, rgb(70 110 255 / 0.12), transparent 60%),
+    rgb(var(--v3-bg));
+  background-attachment: fixed;
+}
+.v3 h1,
+.v3 h2,
+.v3 .font-display {
+  font-family: 'Saira', system-ui, sans-serif;
+  font-stretch: 75%;
+}
+.v3-disp {
+  font-family: 'Saira', system-ui, sans-serif;
+  font-stretch: 75%;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  line-height: 0.92;
+}
+.v3-num {
+  font-family: 'Saira', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.v3-cap {
+  font-family: 'Saira', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+/* Low specificity, so a text colour class on the element wins. */
+:where(.v3-cap) {
+  color: rgb(var(--v3-mut));
+}
+.v3-glass {
+  background: rgb(255 255 255 / 0.045);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+.v3-glow {
+  box-shadow:
+    0 0 0 1px rgb(255 51 71 / 0.6),
+    0 10px 40px -8px rgb(255 51 71 / 0.55);
+}
+.v3-red {
+  background: linear-gradient(140deg, #ff5a6b, #d9142a);
+}
+.v3-btn {
+  min-height: 50px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Saira', system-ui, sans-serif;
+  font-stretch: 85%;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.v3-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.07);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.v3-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  background: rgb(var(--v3-mint));
+  box-shadow: 0 0 10px rgb(var(--v3-mint));
+  animation: v3-pulse 1.6s ease-in-out infinite;
+}
+.v3-in {
+  animation: v3-rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes v3-pulse {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+@keyframes v3-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+@keyframes v3-sweep {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .v3 *,
+  .v3 *::before,
+  .v3 *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Opening (V3Splash). Done by 0.95s. */
+.v3s-beam {
+  position: absolute;
+  top: -40px;
+  width: 140px;
+  height: 560px;
+  transform-origin: 50% 0;
+  background: linear-gradient(
+    180deg,
+    rgb(220 240 255 / 0.55),
+    rgb(127 231 255 / 0.06) 70%,
+    transparent
+  );
+  filter: blur(6px);
+  animation: v3s-beam 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.v3s-line {
+  stroke-dasharray: 1;
+  animation: v3s-line 0.55s 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.v3s-fade {
+  animation: v3s-fade 0.25s 0.45s ease-out both;
+}
+.v3s-crest {
+  animation: v3s-crest 0.45s 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.v3s-word {
+  animation: v3s-word 0.4s 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes v3s-beam {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--r)) scaleY(0.2);
+  }
+  40% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0.35;
+    transform: rotate(var(--r)) scaleY(1);
+  }
+}
+@keyframes v3s-line {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes v3s-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes v3s-crest {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+    filter: blur(8px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06);
+    filter: blur(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes v3s-word {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}

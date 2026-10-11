@@ -87,3 +87,25 @@ export function pendingLabel(
   );
   return synced ? null : fixtureCode(fixtures, sideId, gameweekId);
 }
+
+/** The countdown in a few characters: "1d 22h", "3h 5m", "12m"; "" once passed. */
+export function shortCountdown(deadline: string, now = new Date()): string {
+  const mins = Math.floor((new Date(deadline).getTime() - now.getTime()) / 60_000);
+  if (mins < 0) return '';
+  const days = Math.floor(mins / 1440);
+  const hrs = Math.floor((mins % 1440) / 60);
+  if (days > 0) return `${days}d ${hrs}h`;
+  if (hrs > 0) return `${hrs}h ${mins % 60}m`;
+  return `${mins}m`;
+}
+
+const ukTime = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/London',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/** A kick-off at 00:00 UK time has no time set yet. */
+export function timeUnknown(kickoff: string): boolean {
+  return ukTime.format(new Date(kickoff)) === '00:00';
+}

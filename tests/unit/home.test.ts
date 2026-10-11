@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { countdown, pendingLabel, liveGameweek, myPlace, ordinal, weekSpread } from '@/lib/home';
+import {
+  countdown,
+  liveGameweek,
+  myPlace,
+  ordinal,
+  pendingLabel,
+  shortCountdown,
+  timeUnknown,
+  weekSpread,
+} from '@/lib/home';
 
 const gw = (id: number, start: string) => ({
   id,
@@ -111,5 +120,20 @@ describe('pendingLabel', () => {
       'No game',
     );
     expect(pendingLabel([f(1, 1)], 3, 2, { appeared: true, fixturesWithStats: none })).toBeNull();
+  });
+});
+
+describe('shortCountdown and timeUnknown', () => {
+  const now = new Date('2026-10-08T11:00:00Z');
+  it('fits the countdown ring', () => {
+    expect(shortCountdown('2026-10-10T09:00:00Z', now)).toBe('1d 22h');
+    expect(shortCountdown('2026-10-08T14:05:00Z', now)).toBe('3h 5m');
+    expect(shortCountdown('2026-10-08T11:12:00Z', now)).toBe('12m');
+    expect(shortCountdown('2026-10-08T10:00:00Z', now)).toBe('');
+  });
+  it('spots a kick-off with no time yet, in either clock', () => {
+    expect(timeUnknown('2026-10-10T23:00:00Z')).toBe(true); // 00:00 BST
+    expect(timeUnknown('2026-11-07T00:00:00Z')).toBe(true); // 00:00 GMT
+    expect(timeUnknown('2026-10-10T13:30:00Z')).toBe(false);
   });
 });
