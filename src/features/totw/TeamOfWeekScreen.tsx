@@ -19,6 +19,8 @@ import {
 import { POSITIONS, type Position } from '@/lib/scoring';
 import { teamOfTheWeek, type Scorer } from '@/lib/teamOfWeek';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
+import { TeamPitch, type Badge } from '@/v3/TeamPitch';
+import { BackBar } from '@/v3/V3Bits';
 
 /** Facebook's best portrait size: 1080 x 1350 (4:5), drawn at 540 x 675 and doubled. */
 const SOCIAL = { width: 540, height: 675 };
@@ -45,7 +47,8 @@ function canShareFiles(): boolean {
   }
 }
 
-export function TeamOfWeekScreen() {
+/** `v3`: the V3 layout on screen (the shared image stays the club's red card). */
+export function TeamOfWeekScreen({ v3 = false }: { v3?: boolean } = {}) {
   const [params, setParams] = useSearchParams();
   const gameweeks = useGameweeks();
   const players = usePlayers();
@@ -97,7 +100,16 @@ export function TeamOfWeekScreen() {
     return <Loading />;
   }
   if (!gameweek) {
-    return (
+    return v3 ? (
+      <div className="mx-auto max-w-[26rem]">
+        <BackBar>
+          <span className="v3-disp text-[26px]">Team of the week</span>
+        </BackBar>
+        <p className="v3-glass mx-3.5 rounded-[20px] p-4 text-sm">
+          The first team of the week appears once a gameweek has been played.
+        </p>
+      </div>
+    ) : (
       <>
         <h1>Team of the week</h1>
         <p className="muted">The first team of the week appears once a gameweek has been played.</p>
@@ -175,6 +187,185 @@ export function TeamOfWeekScreen() {
     }
   }
 
+  const v3Rows = Object.fromEntries(
+    POSITIONS.map((pos) => [
+      pos,
+      (best?.picks ?? [])
+        .filter((p) => p.position === pos)
+        .map((p): Badge => ({
+          key: `p${p.player_id}`,
+          position: pos,
+          name: shortName(p.name),
+          side: sideFor(p.player_id),
+          data: String(p.points),
+          tone: 'points',
+          mark: p.player_id === star?.player_id ? '★' : undefined,
+          onClick: () => setOpen(p.player_id),
+        })),
+    ]),
+  ) as Record<Position, Badge[]>;
+  const at = locked.findIndex((g) => g.id === gameweek.id);
+  const step = (d: number) => {
+    const g = locked[at + d];
+    if (g) setParams({ gw: String(g.id) }, { replace: true });
+  };
+  const arrow = (d: number, text: string, label: string) => (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={!locked[at + d]}
+      onClick={() => step(d)}
+      className="v3-icon text-lg disabled:opacity-30"
+    >
+      {text}
+    </button>
+  );
+
+  const socialCard = best && (
+    <>
+      {/* The image for socials: 4:5, no shadows (they ghost on iPhones). Off screen. */}
+      <div aria-hidden="true" className="pointer-events-none fixed left-[-10000px] top-0">
+        <div
+          ref={social}
+          className="no-shadow flex flex-col overflow-hidden bg-[#d91414] text-white"
+          style={SOCIAL}
+        >
+          <div className="flex items-center gap-3 px-5 py-3">
+            <img src="/crest.png" alt="" className="h-14 w-14 brightness-0 invert" />
+            <div className="min-w-0 flex-1 font-display uppercase leading-none">
+              <p className="text-xs font-bold tracking-widest text-white/80">
+                Felixstowe HC Fantasy
+              </p>
+              <p className="text-[2.1rem] font-extrabold">Team of the week</p>
+              <p className="mt-1 text-sm font-bold text-white/90">
+                {label.split(' ')[0]} · w/e {formatShortDate(gameweek.start_date)}
+              </p>
+            </div>
+            <div className="text-right font-display uppercase leading-none">
+              <p className="display-num text-5xl">{best.total}</p>
+              <p className="text-xs font-bold text-white/80">pts · {best.formation}</p>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1">
+            <Pitch rows={slots} fit />
+          </div>
+          {star && (
+            <div className="flex items-center justify-between gap-2 bg-[#16181d] px-5 py-3 font-display uppercase">
+              <span className="text-xs font-bold tracking-widest text-white/70">
+                ★ Player of the week
+              </span>
+              <span className="text-right text-xl font-extrabold">
+                {star.name} <span className="text-[#ff6b6b]">{sideFor(star.player_id)}</span> ·{' '}
+                {star.points} pts
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+
+  const shareButton = (
+    <button
+      type="button"
+      className={v3 ? 'v3-btn v3-red v3-glow w-full' : 'btn'}
+      disabled={busy}
+      onClick={() => void saveOrShare()}
+    >
+      {busy ? 'Making image' : shareable ? 'Save or share image' : 'Download image'}
+    </button>
+  );
+
+  const extras = (
+    <>
+      {fallback && (
+        <Sheet
+          title="Save the picture"
+          onClose={() => {
+            URL.revokeObjectURL(fallback);
+            setFallback(null);
+          }}
+        >
+          <p className="mb-3 text-sm">
+            Press and hold the picture, then tap Save to Photos (or Save image).
+          </p>
+          <img
+            src={fallback}
+            alt={`FHC Team of the Week, ${label}`}
+            className="w-full rounded-xl"
+          />
+        </Sheet>
+      )}
+      {open && (
+        <PlayerSheet playerId={open} gameweekId={gameweek.id} onClose={() => setOpen(null)} />
+      )}
+    </>
+  );
+
+  if (v3) {
+    return (
+      <div className="mx-auto max-w-[26rem] pb-4">
+        <header className="flex items-center justify-between gap-2 px-3.5 pb-2 pt-1">
+          {arrow(-1, '‹', 'Previous gameweek')}
+          <span className="min-w-0 text-center">
+            <span className="v3-cap block">Team of the week</span>
+            <span className="v3-disp text-[26px]">
+              Gameweek {label.split(' ')[0]?.replace('GW', '')}
+            </span>
+          </span>
+          {arrow(1, '›', 'Next gameweek')}
+        </header>
+        <Notices items={notices} />
+        {scores.isLoading ? (
+          <Loading />
+        ) : !best ? (
+          <p className="v3-glass mx-3.5 rounded-[20px] p-4 text-sm">
+            No points recorded for {label} yet.
+          </p>
+        ) : (
+          <>
+            {star && (
+              <button
+                type="button"
+                onClick={() => setOpen(star.player_id)}
+                className="v3-glass mx-3.5 mb-2.5 flex w-[calc(100%-1.75rem)] items-center gap-3 rounded-[20px] px-3.5 py-3 text-left"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="v3-cap block text-[rgb(var(--v3-amber))]">
+                    ★ Star of the week
+                  </span>
+                  <span className="block truncate text-[15px] font-bold">
+                    {star.name} · {sideFor(star.player_id)}
+                  </span>
+                </span>
+                <span className="v3-disp v3-num text-4xl text-[rgb(var(--v3-mint))]">
+                  {star.points}
+                </span>
+              </button>
+            )}
+            <div className="px-3">
+              <TeamPitch rows={v3Rows} height={380} size={40} />
+            </div>
+            <div className="mx-[18px] mt-2 flex justify-between text-[11px] text-[rgb(var(--v3-mut))]">
+              <span>
+                {best.formation} · w/e {formatShortDate(gameweek.start_date)}
+              </span>
+              <span className="v3-num">{best.total} pts</span>
+            </div>
+            <div className="mx-3.5 mt-3">{shareButton}</div>
+            <p className="mx-[18px] mt-2 text-center text-xs leading-relaxed text-[rgb(var(--v3-mut))]">
+              The best 11 from every Felixstowe side this gameweek, in whichever allowed formation
+              scores most.
+              {shareable && ' The image is the club card, ready for WhatsApp or Instagram.'}
+            </p>
+            {socialCard}
+          </>
+        )}
+        {extras}
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="mb-3 mt-5 flex flex-wrap items-end justify-between gap-3">
@@ -237,55 +428,10 @@ export function TeamOfWeekScreen() {
             )}
           </div>
 
-          {/* The image for socials: 4:5, no shadows (they ghost on iPhones). Off screen. */}
-          <div aria-hidden="true" className="pointer-events-none fixed left-[-10000px] top-0">
-            <div
-              ref={social}
-              className="no-shadow flex flex-col overflow-hidden bg-[#d91414] text-white"
-              style={SOCIAL}
-            >
-              <div className="flex items-center gap-3 px-5 py-3">
-                <img src="/crest.png" alt="" className="h-14 w-14 brightness-0 invert" />
-                <div className="min-w-0 flex-1 font-display uppercase leading-none">
-                  <p className="text-xs font-bold tracking-widest text-white/80">
-                    Felixstowe HC Fantasy
-                  </p>
-                  <p className="text-[2.1rem] font-extrabold">Team of the week</p>
-                  <p className="mt-1 text-sm font-bold text-white/90">
-                    {label.split(' ')[0]} · w/e {formatShortDate(gameweek.start_date)}
-                  </p>
-                </div>
-                <div className="text-right font-display uppercase leading-none">
-                  <p className="display-num text-5xl">{best.total}</p>
-                  <p className="text-xs font-bold text-white/80">pts · {best.formation}</p>
-                </div>
-              </div>
-              <div className="min-h-0 flex-1">
-                <Pitch rows={slots} fit />
-              </div>
-              {star && (
-                <div className="flex items-center justify-between gap-2 bg-[#16181d] px-5 py-3 font-display uppercase">
-                  <span className="text-xs font-bold tracking-widest text-white/70">
-                    ★ Player of the week
-                  </span>
-                  <span className="text-right text-xl font-extrabold">
-                    {star.name} <span className="text-[#ff6b6b]">{sideFor(star.player_id)}</span> ·{' '}
-                    {star.points} pts
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
+          {socialCard}
 
           <div className="mx-auto mt-4 flex max-w-[26rem] flex-wrap justify-center gap-2">
-            <button
-              type="button"
-              className="btn"
-              disabled={busy}
-              onClick={() => void saveOrShare()}
-            >
-              {busy ? 'Making image' : shareable ? 'Save or share image' : 'Download image'}
-            </button>
+            {shareButton}
           </div>
           {shareable && (
             <p className="muted mx-auto mt-2 max-w-[26rem] text-center text-xs">
@@ -293,27 +439,7 @@ export function TeamOfWeekScreen() {
               roll, or pick WhatsApp, Instagram and so on.
             </p>
           )}
-          {fallback && (
-            <Sheet
-              title="Save the picture"
-              onClose={() => {
-                URL.revokeObjectURL(fallback);
-                setFallback(null);
-              }}
-            >
-              <p className="mb-3 text-sm">
-                Press and hold the picture, then tap Save to Photos (or Save image).
-              </p>
-              <img
-                src={fallback}
-                alt={`FHC Team of the Week, ${label}`}
-                className="w-full rounded-xl"
-              />
-            </Sheet>
-          )}
-          {open && (
-            <PlayerSheet playerId={open} gameweekId={gameweek.id} onClose={() => setOpen(null)} />
-          )}
+          {extras}
           <p className="muted mx-auto mt-3 max-w-[26rem] text-center text-sm">
             The best possible 11 from every Felixstowe side this gameweek, in whichever allowed
             formation scores most.

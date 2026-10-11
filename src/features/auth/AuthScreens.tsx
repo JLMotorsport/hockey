@@ -6,7 +6,8 @@ import { useAuth } from '@/lib/auth/AuthProvider';
 import { useSides } from '@/lib/queries';
 import { requireSupabase } from '@/lib/supabase';
 
-export function LoginScreen() {
+/** `v3`: the V3 layout (board "Log in"), landing on Home. */
+export function LoginScreen({ v3 = false }: { v3?: boolean } = {}) {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -14,7 +15,8 @@ export function LoginScreen() {
   const [busy, setBusy] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
 
-  if (session) return <Navigate to="/dashboard" replace />;
+  const home = v3 ? '/' : '/dashboard';
+  if (session) return <Navigate to={home} replace />;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -25,7 +27,7 @@ export function LoginScreen() {
     });
     setBusy(false);
     if (error) setNotices([{ kind: 'error', text: 'Wrong email or password.' }]);
-    else navigate('/dashboard');
+    else navigate(home);
   }
 
   async function forgot() {
@@ -37,6 +39,77 @@ export function LoginScreen() {
       redirectTo: `${window.location.origin}/account`,
     });
     setNotices([{ kind: 'info', text: 'If that account exists, a reset link is on its way.' }]);
+  }
+
+  if (v3) {
+    const field =
+      'v3-glass flex min-h-[56px] flex-col justify-center rounded-2xl px-4 focus-within:border-[rgb(var(--v3-red))]';
+    const input = 'bg-transparent text-[15px] text-white outline-none';
+    return (
+      <div className="mx-auto max-w-[26rem] px-[22px] pb-8">
+        <div className="pt-8">
+          <span className="v3-disp v3-red v3-glow flex h-[58px] w-[58px] items-center justify-center rounded-[18px] text-xl">
+            FHC
+          </span>
+          <h1 className="v3-disp mb-0 mt-5 text-[54px] leading-[0.95]">
+            Pick.
+            <br />
+            Captain.
+            <br />
+            <span className="text-[rgb(var(--v3-red))] [text-shadow:0_0_30px_rgb(255_51_71/.6)]">
+              Win.
+            </span>
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-[rgb(var(--v3-mut))]">
+            The club&apos;s fantasy league. Build a squad from Felixstowe players and score from
+            their real matches.
+          </p>
+        </div>
+        <div className="mt-4">
+          <Notices items={notices} />
+        </div>
+        <form onSubmit={(e) => void submit(e)} className="mt-3 flex flex-col gap-2.5">
+          <label className={field}>
+            <span className="v3-cap text-[9px]">Email</span>
+            <input
+              className={input}
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <label className={field}>
+            <span className="v3-cap text-[9px]">Password</span>
+            <input
+              className={input}
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+          <button className="v3-btn v3-red v3-glow mt-1.5" disabled={busy}>
+            {busy ? 'Logging in' : 'Log in'}
+          </button>
+          <Link
+            to="/register"
+            className="v3-btn border border-white/15 bg-white/[0.05] text-white no-underline hover:no-underline"
+          >
+            Join the league
+          </Link>
+          <button
+            type="button"
+            onClick={() => void forgot()}
+            className="min-h-[44px] text-center text-xs text-[rgb(var(--v3-mut))]"
+          >
+            Forgot password?
+          </button>
+        </form>
+      </div>
+    );
   }
 
   return (

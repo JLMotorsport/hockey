@@ -1,12 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, type ReactNode } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { HomeIcon, MenuIcon, PitchIcon, TrophyIcon } from '@/components/icons';
-import { Sheet } from '@/components/Sheet';
-import { VersionSwitch } from '@/components/VersionSwitch';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useTransitionClick } from '@/lib/navTransition';
-import { supabase } from '@/lib/supabase';
-import { BUILD_LABEL } from '@/lib/version';
 
 /** The V3 frame: night background, and the floating dock on pages that have it. */
 export function V3Shell({ children, dock = true }: { children: ReactNode; dock?: boolean }) {
@@ -38,10 +34,8 @@ export function V3Fallback({ children }: { children: ReactNode }) {
 }
 
 function Dock() {
-  const { session, profile } = useAuth();
-  const [more, setMore] = useState(false);
+  const { session } = useAuth();
   const transitionClick = useTransitionClick();
-  const navigate = useNavigate();
   const { pathname } = useLocation();
   const tab = (to: string, label: string, icon: ReactNode) => (
     <NavLink
@@ -63,10 +57,6 @@ function Dock() {
       )}
     </NavLink>
   );
-  const go = (to: string) => {
-    setMore(false);
-    navigate(to);
-  };
   return (
     <>
       <nav
@@ -86,59 +76,8 @@ function Dock() {
           </Link>
         )}
         {tab('/table', 'Table', <TrophyIcon />)}
-        <button
-          type="button"
-          onClick={() => setMore(true)}
-          className="flex min-h-[48px] min-w-[52px] flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-[#7d8698] [&>svg]:h-[22px] [&>svg]:w-[22px]"
-        >
-          <MenuIcon />
-          More
-          <span className="h-1 w-1" />
-        </button>
+        {tab('/more', 'More', <MenuIcon />)}
       </nav>
-      {more && (
-        <Sheet title="More" onClose={() => setMore(false)}>
-          <div>
-            <ul className="divide-y divide-white/10">
-              {[
-                ['/fixtures', 'Fixtures and results'],
-                ['/team-of-the-week', 'Team of the week'],
-                ['/players', 'Players'],
-                ['/rules', 'How it works'],
-                ...(session ? [['/account', 'Account']] : [['/login', 'Log in']]),
-                ...(profile?.is_admin ? [['/managers', 'Managers area']] : []),
-              ].map(([to, label]) => (
-                <li key={to}>
-                  <button
-                    type="button"
-                    onClick={() => go(to!)}
-                    className="flex min-h-[52px] w-full items-center justify-between text-left text-[15px]"
-                  >
-                    {label}
-                    <span className="text-[rgb(var(--v3-mut))]">›</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 flex items-center justify-between">
-              <span className="v3-cap">Design · BETA {BUILD_LABEL}</span>
-              <VersionSwitch tone="v3" />
-            </div>
-            {session && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMore(false);
-                  void supabase?.auth.signOut();
-                }}
-                className="mt-4 min-h-[44px] w-full text-center text-sm font-semibold text-[#ff8a97]"
-              >
-                Log out
-              </button>
-            )}
-          </div>
-        </Sheet>
-      )}
     </>
   );
 }
