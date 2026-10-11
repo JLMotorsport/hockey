@@ -582,6 +582,41 @@ export type Database = {
           },
         ];
       };
+      sync_status: {
+        Row: {
+          last_ok_at: string | null;
+          message: string;
+          ok: boolean;
+          side_id: number | null;
+          source: string;
+          synced_at: string;
+        };
+        Insert: {
+          last_ok_at?: string | null;
+          message?: string;
+          ok: boolean;
+          side_id?: number | null;
+          source: string;
+          synced_at?: string;
+        };
+        Update: {
+          last_ok_at?: string | null;
+          message?: string;
+          ok?: boolean;
+          side_id?: number | null;
+          source?: string;
+          synced_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sync_status_side_id_fkey';
+            columns: ['side_id'];
+            isOneToOne: false;
+            referencedRelation: 'sides';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       player_gameweek_points: {
@@ -734,6 +769,7 @@ export type Database = {
       play_chip: { Args: { p_chip: string; p_side_id?: number }; Returns: number };
       price_ceiling: { Args: Record<PropertyKey, never>; Returns: number };
       price_floor: { Args: Record<PropertyKey, never>; Returns: number };
+      record_sync_results: { Args: { p_results: Json }; Returns: undefined };
       refresh_deadline: { Args: { p_gameweek_id: number }; Returns: undefined };
       require_admin: { Args: Record<PropertyKey, never>; Returns: undefined };
       run_due_sync: { Args: Record<PropertyKey, never>; Returns: number };

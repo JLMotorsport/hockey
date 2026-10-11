@@ -20,6 +20,11 @@ export interface MatchFacts {
   stats_complete: boolean;
 }
 
+/** Played, still open (not complete or locked), and nobody is player of the match. */
+export function needsPotm(f: MatchFacts, hasPotm: boolean): boolean {
+  return isPlayed(f) && !f.stats_complete && !f.stats_locked && !hasPotm;
+}
+
 export interface MatchEvidence {
   /** Pitchero published a team sheet for it. */
   pitchero: boolean;

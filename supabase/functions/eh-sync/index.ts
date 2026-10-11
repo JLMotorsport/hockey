@@ -212,7 +212,7 @@ Deno.serve(async (req: Request) => {
     .order('sort_order');
   if (error) return json({ error: error.message }, 500);
 
-  const results: { side: string; ok: boolean; message: string }[] = [];
+  const results: { side: string; side_id: number | null; ok: boolean; message: string }[] = [];
   for (const side of sides ?? []) {
     try {
       const { feed, payload } = await fetchFeed(side.eh_slug);
@@ -236,12 +236,18 @@ Deno.serve(async (req: Request) => {
       }
       results.push({
         side: side.name,
+        side_id: side.id,
         ok: true,
         message: `${counts.created} new, ${counts.updated} updated fixtures; ${lineups}${pitchero}`,
       });
     } catch (err) {
       // One side failing (a renamed page, a timeout) shouldn't stop the rest.
-      results.push({ side: side.name, ok: false, message: (err as Error).message });
+      results.push({
+        side: side.name,
+        side_id: side.id,
+        ok: false,
+        message: (err as Error).message,
+      });
     }
   }
   // Weekly price changes for any gameweek whose weekend is now over.
@@ -249,6 +255,7 @@ Deno.serve(async (req: Request) => {
   const priceInfo = prices as { weeks?: number; changes?: number } | null;
   results.push({
     side: 'Prices',
+    side_id: null,
     ok: !priceError,
     message: priceError
       ? priceError.message
@@ -256,5 +263,16 @@ Deno.serve(async (req: Request) => {
         ? `${priceInfo.changes} price changes over ${priceInfo.weeks} gameweek(s)`
         : 'no price changes due',
   });
+  // Keep each side's latest result for the managers' overview (0020). A
+  // failure here (migration not run yet) mustn't spoil the sync itself.
+  const { error: recordError } = await admin.rpc('record_sync_results', {
+    p_results: results.map((r) => ({
+      source: r.side,
+      side_id: r.side_id,
+      ok: r.ok,
+      message: r.message,
+    })),
+  });
+  if (recordError) console.warn(`record_sync_results: ${recordError.message}`);
   return json({ results });
 });

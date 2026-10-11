@@ -1417,6 +1417,26 @@ describe.skipIf(!configured)('league database', () => {
       expect(res.data).toBe(open);
     });
   });
+
+  it("keeps each side's latest sync result, for managers only", async () => {
+    const side = sides[0]!;
+    const record = (ok: boolean, message: string) =>
+      service.rpc('record_sync_results', {
+        p_results: [{ source: side.name, side_id: side.id, ok, message }],
+      });
+    expect((await record(true, 'fine')).error).toBeNull();
+    expect((await record(false, 'page moved')).error).toBeNull();
+    // Only eh-sync (service role) can record.
+    expect((await alice.db.rpc('record_sync_results', { p_results: [] })).error).not.toBeNull();
+
+    const { data } = await boss.db.from('sync_status').select('*').eq('source', side.name);
+    expect(data).toHaveLength(1);
+    expect(data![0]).toMatchObject({ ok: false, message: 'page moved', side_id: side.id });
+    expect(data![0]!.last_ok_at).not.toBeNull(); // kept from the run that worked
+    expect((await alice.db.from('sync_status').select('*')).data).toEqual([]);
+    expect((await anon.from('sync_status').select('*')).data ?? []).toEqual([]);
+    await service.from('sync_status').delete().eq('source', side.name);
+  });
 });
 
 describe.skipIf(!configured)('fixes from the code review', () => {

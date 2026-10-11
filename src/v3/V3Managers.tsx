@@ -16,7 +16,8 @@ interface Tile {
   title: string;
   /** Under the count: who or what, or "All OK". */
   detail: string;
-  to: string;
+  /** Where it opens; none for sync errors (listed in the sync card). */
+  to?: string;
   urgent?: boolean;
 }
 
@@ -58,7 +59,21 @@ export function V3Managers() {
     ...new Set(status.withheld.map((p) => sideShort.get(p.side_id)).filter(Boolean)),
   ].join(', ');
 
+  const sidesOf = (list: { side_id: number }[]) =>
+    [...new Set(list.map((f) => sideShort.get(f.side_id)).filter(Boolean))].join(', ');
   const tiles: Tile[] = [
+    {
+      count: status.toCheck.length,
+      title: status.toCheck.length === 1 ? 'Match to check' : 'Matches to check',
+      detail: status.toCheck.length ? sidesOf(status.toCheck) : 'All checked',
+      to: '/managers/matches',
+    },
+    {
+      count: status.needPotm.length,
+      title: 'Need a POTM',
+      detail: status.needPotm.length ? sidesOf(status.needPotm) : 'All have one',
+      to: '/managers/matches',
+    },
     {
       count: status.withheld.length,
       title: 'Withheld names',
@@ -67,18 +82,18 @@ export function V3Managers() {
       urgent: true,
     },
     {
+      count: status.syncErrors.length,
+      title: status.syncErrors.length === 1 ? 'Sync error' : 'Sync errors',
+      detail: status.syncErrors.length
+        ? status.syncErrors.map((r) => sideShort.get(r.side_id ?? 0) ?? r.source).join(', ')
+        : 'All sides OK',
+      urgent: true,
+    },
+    {
       count: status.toPosition.length,
       title: 'Need a position',
       detail: status.toPosition.length ? 'Set positions' : 'All set',
       to: '/managers/players',
-    },
-    {
-      count: status.toCheck.length,
-      title: status.toCheck.length === 1 ? 'Match to check' : 'Matches to check',
-      detail: status.toCheck.length
-        ? [...new Set(status.toCheck.map((f) => sideShort.get(f.side_id)))].join(', ')
-        : 'All checked',
-      to: '/managers/matches',
     },
     {
       count: status.noKeeper.length,
@@ -89,6 +104,7 @@ export function V3Managers() {
   ];
   const todo = tiles.filter((t) => t.count > 0).length + (status.positionSuggestions.size ? 1 : 0);
   const due = nextAfterGameSync(fixtures.data ?? []);
+  const lastSync = status.lastSync ?? status.lastImport;
 
   const pages: [string, string][] = [
     ['/managers/matches', 'Matches'],
@@ -113,14 +129,8 @@ export function V3Managers() {
       <div className="grid grid-cols-2 gap-2.5 px-3.5">
         {tiles.map((t) => {
           const colour = t.count ? (t.urgent ? '--v3-red' : '--v3-amber') : '--v3-mint';
-          return (
-            <Link
-              key={t.title}
-              to={t.to}
-              onClick={click(t.to, 'forward')}
-              className="v3-glass flex min-h-[112px] flex-col rounded-[20px] p-3.5 text-white no-underline hover:no-underline"
-              style={t.count ? { borderColor: `rgb(var(${colour}) / .35)` } : undefined}
-            >
+          const body = (
+            <>
               <span
                 className="v3-disp v3-num text-[44px] leading-none"
                 style={{ color: `rgb(var(${colour}))` }}
@@ -131,7 +141,25 @@ export function V3Managers() {
               <span className="mt-auto truncate pt-1 text-[11px] text-[rgb(var(--v3-mut))]">
                 {t.detail}
               </span>
+            </>
+          );
+          const box =
+            'v3-glass flex min-h-[112px] flex-col rounded-[20px] p-3.5 text-white no-underline hover:no-underline';
+          const edge = t.count ? { borderColor: `rgb(var(${colour}) / .35)` } : undefined;
+          return t.to ? (
+            <Link
+              key={t.title}
+              to={t.to}
+              onClick={click(t.to, 'forward')}
+              className={box}
+              style={edge}
+            >
+              {body}
             </Link>
+          ) : (
+            <div key={t.title} className={box} style={edge}>
+              {body}
+            </div>
           );
         })}
       </div>
@@ -157,7 +185,7 @@ export function V3Managers() {
         <span className="min-w-0 flex-1">
           <span className="v3-cap block">England Hockey sync</span>
           <span className="block text-sm font-bold">
-            {status.lastImport ? `Last: ${formatDayTime(status.lastImport)}` : 'Nothing synced yet'}
+            {lastSync ? `Last: ${formatDayTime(lastSync)}` : 'Nothing synced yet'}
           </span>
           <span className="block text-[11px] leading-snug text-[rgb(var(--v3-mut))]">
             {due
@@ -174,6 +202,21 @@ export function V3Managers() {
           {syncing ? 'Syncing' : 'Sync now'}
         </button>
       </div>
+
+      {status.syncErrors.length > 0 && (
+        <ul className="mx-3.5 mt-2 flex flex-col gap-1.5">
+          {status.syncErrors.map((r) => (
+            <li
+              key={r.source}
+              className="rounded-[14px] border border-[rgb(255_51_71/.35)] bg-[rgb(255_51_71/.1)] px-3 py-2 text-xs leading-snug"
+            >
+              <b>{r.source}</b> failed {formatDayTime(r.synced_at)}
+              {r.last_ok_at ? ` (last worked ${formatDayTime(r.last_ok_at)})` : ''}:{' '}
+              <span className="text-[#ffb3bb]">{r.message}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="v3-cap mx-[18px] mb-2 mt-4">Jump to</div>
       <div className="v3-glass mx-3.5 divide-y divide-white/10 rounded-[20px] px-3.5">

@@ -417,6 +417,15 @@ export function usePlayerHistory(playerId: number | undefined) {
   });
 }
 
+/** Each side's latest England Hockey sync result (managers only; empty for anyone else). */
+export function useSyncStatus() {
+  return useQuery({
+    queryKey: ['sync-status'],
+    queryFn: async () =>
+      unwrap(await requireSupabase().from('sync_status').select('*').order('source')),
+  });
+}
+
 /** Ids of matches with a player of the match, for the managers' checks. */
 export function usePotmFixtures() {
   return useQuery({

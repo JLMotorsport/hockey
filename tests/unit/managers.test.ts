@@ -1,4 +1,5 @@
 import {
+  needsPotm,
   nextAfterGameSync,
   matchChecks,
   matchesFilter,
@@ -140,5 +141,24 @@ describe('nextAfterGameSync', () => {
 
   it('is null when nothing is due', () => {
     expect(nextAfterGameSync([], now)).toBeNull();
+  });
+});
+
+describe('needsPotm', () => {
+  const match = {
+    goals_for: 2,
+    goals_against: 1,
+    eh_fixture_id: '1',
+    lineup_imported_at: null,
+    withheld_count: 0,
+    stats_locked: false,
+    stats_complete: false,
+  };
+  it('is a played, open match with nobody as player of the match', () => {
+    expect(needsPotm(match, false)).toBe(true);
+    expect(needsPotm(match, true)).toBe(false);
+    expect(needsPotm({ ...match, goals_for: null }, false)).toBe(false);
+    expect(needsPotm({ ...match, stats_complete: true }, false)).toBe(false);
+    expect(needsPotm({ ...match, stats_locked: true }, false)).toBe(false);
   });
 });

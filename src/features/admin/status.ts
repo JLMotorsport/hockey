@@ -1,6 +1,7 @@
 import {
   needsChecking,
   needsPosition,
+  needsPotm,
   sidesWithoutKeeper,
   type MatchEvidence,
 } from '@/lib/managers';
@@ -15,6 +16,7 @@ import {
   usePitcheroEvidence,
   usePlayers,
   usePotmFixtures,
+  useSyncStatus,
   useSides,
 } from '@/lib/queries';
 
@@ -29,6 +31,7 @@ export function useManagerStatus() {
   const sides = useSides();
   const evidence = usePitcheroEvidence();
   const potm = usePotmFixtures();
+  const syncStatus = useSyncStatus();
 
   const all = players.data ?? [];
   const byId = new Map(all.map((p) => [p.id, p]));
@@ -65,6 +68,15 @@ export function useManagerStatus() {
   const toPosition = all.filter(needsPosition);
   const toCheck = (fixtures.data ?? []).filter(needsChecking);
   const noKeeper = sidesWithoutKeeper(sides.data ?? [], all);
+  const needPotm = potm.data
+    ? (fixtures.data ?? []).filter((f) => needsPotm(f, potm.data.has(f.id)))
+    : [];
+  const syncRows = syncStatus.data ?? [];
+  const syncErrors = syncRows.filter((r) => !r.ok);
+  const lastSync = syncRows
+    .map((r) => r.synced_at)
+    .sort()
+    .at(-1);
 
   // The latest time anything came in from England Hockey or Pitchero.
   const lastImport = (fixtures.data ?? [])
@@ -84,5 +96,8 @@ export function useManagerStatus() {
     nameSuggestions,
     evidenceFor,
     lastImport,
+    needPotm,
+    syncErrors,
+    lastSync,
   };
 }
