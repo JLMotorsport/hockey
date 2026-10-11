@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { ErrorText, Loading, Notices, type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { formatDeadline, shortName } from '@/lib/format';
@@ -32,6 +32,7 @@ import { ChipsCard } from './ChipsCard';
 import { PlayerPicker } from './PlayerPicker';
 import { StatsTable } from '@/components/StatsTable';
 import { VersionSwitch } from '@/components/VersionSwitch';
+import { useTransitionClick, useTransitionNavigate } from '@/lib/navTransition';
 import { usePlayerColumns } from '@/features/player/statColumns';
 import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
 import { DEFAULT_FORMATIONS, formationOf, pitchRows } from '@/lib/formation';
@@ -59,7 +60,8 @@ import { errorLines, requireSupabase } from '@/lib/supabase';
  */
 export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) {
   const { session } = useAuth();
-  const navigate = useNavigate();
+  const go = useTransitionNavigate();
+  const transitionClick = useTransitionClick();
   const queryClient = useQueryClient();
   const gameweeks = useGameweeks();
   const players = usePlayers();
@@ -126,10 +128,16 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     gameweek && chips.data?.some((c) => c.chip === 'wildcard' && c.gameweek_id === gameweek.id),
   );
 
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [captainId, setCaptainId] = useState<number | null>(null);
-  const [viceId, setViceId] = useState<number | null>(null);
-  const [loadedFrom, setLoadedFrom] = useState<number | null>(null);
+  // Start from the saved squad straight away when it's already loaded (it
+  // usually is, from Home or the other squad page), so the pitch never
+  // flashes empty on the way in.
+  const saved = gameweek && current.data ? fromSaved(current.data) : null;
+  const [selected, setSelected] = useState<Set<number>>(() => saved?.selected ?? new Set());
+  const [captainId, setCaptainId] = useState<number | null>(() => saved?.captain ?? null);
+  const [viceId, setViceId] = useState<number | null>(() => saved?.vice ?? null);
+  const [loadedFrom, setLoadedFrom] = useState<number | null>(() =>
+    saved && gameweek ? gameweek.id : null,
+  );
   const [notices, setNotices] = useState<Notice[]>([]);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<'pitch' | 'list'>('pitch');
@@ -138,23 +146,22 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   // Choosing a player: for a pitch position, or for a bench slot (0 = sub keeper).
   const [picker, setPicker] = useState<{ positions: Position[]; slot?: number } | null>(null);
   // Subs bench: [sub keeper, sub 1, sub 2, sub 3].
-  const [bench, setBench] = useState<(number | null)[]>([null, null, null, null]);
+  const [bench, setBench] = useState<(number | null)[]>(
+    () => saved?.bench ?? [null, null, null, null],
+  );
   // A player tapped for "swap with": the next player tapped trades places.
   const [swapFrom, setSwapFrom] = useState<number | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const [statsFor, setStatsFor] = useState<number | null>(null);
 
-  // Start from the saved squad once it arrives.
+  // Otherwise from the saved squad once it arrives (or after a reset).
   useEffect(() => {
     if (!gameweek || !current.data || loadedFrom === gameweek.id) return;
-    setSelected(
-      new Set(current.data.filter((r) => r.bench_order === null).map((r) => r.player_id)),
-    );
-    const subs: (number | null)[] = [null, null, null, null];
-    for (const r of current.data) if (r.bench_order) subs[r.bench_order - 1] = r.player_id;
-    setBench(subs);
-    setCaptainId(current.data.find((r) => r.is_captain)?.player_id ?? null);
-    setViceId(current.data.find((r) => r.is_vice)?.player_id ?? null);
+    const s = fromSaved(current.data);
+    setSelected(s.selected);
+    setBench(s.bench);
+    setCaptainId(s.captain);
+    setViceId(s.vice);
     setLoadedFrom(gameweek.id);
   }, [gameweek, current.data, loadedFrom]);
 
@@ -295,7 +302,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   /** To Transfers, checking first if there are unsaved changes here. */
   function goTransfers() {
     if (!dirty || window.confirm('You have unsaved changes. Leave without saving?'))
-      navigate('/transfers');
+      go('/transfers', 'swap');
   }
 
   function remove(id: number) {
@@ -415,8 +422,8 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     // After transfers, on to picking the team, as in FPL.
     if (mode === 'transfers') {
       setLoadedFrom(null);
-      navigate('/squad');
-    } else navigate('/dashboard');
+      go('/squad', 'swap');
+    } else go('/dashboard', 'back');
   }
 
   const squadPlayers = [...picked, ...benchPlayers.filter((p): p is SquadPlayer => p !== null)];
@@ -744,7 +751,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
                   </button>
                   <Link
                     to="/transfers"
-                    onClick={leave('/transfers')}
+                    onClick={transitionClick('/transfers', 'swap', leave('/transfers'))}
                     className="btn btn-quiet no-underline hover:no-underline"
                   >
                     Transfer
@@ -808,7 +815,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
       {/* Title bar, as FPL's: back, the page, and Transfers where FPL has its assistant. */}
-      <header className="flex h-[46px] shrink-0 items-center gap-1">
+      <header className="vt-squad-head flex h-[46px] shrink-0 items-center gap-1 bg-paper">
         <button
           type="button"
           aria-label="Back"
@@ -816,7 +823,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
             if (dirty && !window.confirm('You have unsaved changes. Leave without saving?')) return;
             // Always back to My Team, as FPL, wherever you came from.
             setLoadedFrom(null);
-            navigate('/dashboard');
+            go('/dashboard', 'back');
           }}
           className="flex h-11 w-11 items-center justify-center"
         >
@@ -833,7 +840,11 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
         </h1>
         <Link
           to={isPick ? '/transfers' : '/squad'}
-          onClick={leave(isPick ? '/transfers' : '/squad')}
+          onClick={transitionClick(
+            isPick ? '/transfers' : '/squad',
+            'swap',
+            leave(isPick ? '/transfers' : '/squad'),
+          )}
           className="flex min-h-tap items-center text-ink no-underline hover:no-underline"
         >
           <span className={`flex h-8 items-center rounded-full px-2.5 text-xs font-bold ${chrome}`}>
@@ -939,15 +950,17 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           </div>
 
           {view === 'pitch' && isPick ? (
-            <Pitch
-              rows={slots}
-              bench={benchSlots}
-              compact
-              variant="card"
-              fieldClass={dirty ? PICK_FIELD.saving : PICK_FIELD.idle}
-            />
+            <div className="vt-squad-pitch">
+              <Pitch
+                rows={slots}
+                bench={benchSlots}
+                compact
+                variant="card"
+                fieldClass={dirty ? PICK_FIELD.saving : PICK_FIELD.idle}
+              />
+            </div>
           ) : view === 'pitch' ? (
-            <div className="relative">
+            <div className="vt-squad-pitch relative">
               <Pitch rows={transferRows} compact variant="card" fieldClass={TRANSFER_FIELD} />
               {squadPlayers.length < STARTERS + BENCH && (
                 <button
@@ -1252,4 +1265,18 @@ function MoveCell({ player, side }: { player: MovePlayer | null; side?: string }
       </span>
     </span>
   );
+}
+
+/** A saved squad as the page's state: starters, bench order and armbands. */
+function fromSaved(
+  rows: { player_id: number; bench_order: number | null; is_captain: boolean; is_vice: boolean }[],
+) {
+  const bench: (number | null)[] = [null, null, null, null];
+  for (const r of rows) if (r.bench_order) bench[r.bench_order - 1] = r.player_id;
+  return {
+    selected: new Set(rows.filter((r) => r.bench_order === null).map((r) => r.player_id)),
+    bench,
+    captain: rows.find((r) => r.is_captain)?.player_id ?? null,
+    vice: rows.find((r) => r.is_vice)?.player_id ?? null,
+  };
 }

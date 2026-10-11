@@ -12,9 +12,11 @@ import {
   useLeagueTable,
   usePlayers,
   useProfileSides,
+  useSettings,
   useSides,
   useSquad,
 } from '@/lib/queries';
+import { useTransitionClick } from '@/lib/navTransition';
 import { inLeague, type LeagueKey } from '@/lib/table';
 import { SquadPitch } from '@/features/squad/SquadPitch';
 
@@ -47,6 +49,10 @@ export function HomeScreen() {
   const userId = session?.user.id;
   const liveSquad = useSquad(userId, live?.id);
   const nextSquad = useSquad(userId, next?.id);
+  const transitionClick = useTransitionClick();
+  // Loaded now so Pick Team and Transfers open straight away.
+  useSettings();
+  usePreviousSquadWarm(userId, all, next?.id);
 
   if (!session) return <Navigate to="/login" replace />;
   if (gameweeks.isLoading || players.isLoading || sides.isLoading) return <Loading />;
@@ -181,6 +187,7 @@ export function HomeScreen() {
               <Link
                 key={label}
                 to={to}
+                onClick={transitionClick(to, 'forward')}
                 className="flex min-h-[46px] flex-1 items-center justify-center rounded-full bg-black/[0.06] font-bold text-ink no-underline hover:no-underline dark:bg-[#1f232c]"
               >
                 {label}
@@ -265,13 +272,28 @@ function Stat({ value, label }: { value: number; label: string }) {
 }
 
 function CardButton({ to, icon, children }: { to: string; icon: ReactNode; children: ReactNode }) {
+  const transitionClick = useTransitionClick();
   return (
     <Link
       to={to}
+      onClick={transitionClick(to, 'forward')}
       className="flex min-h-[46px] items-center justify-center gap-2 rounded-full bg-black/20 text-base font-bold text-white no-underline hover:no-underline [&>svg]:h-5 [&>svg]:w-5"
     >
       {icon}
       {children}
     </Link>
   );
+}
+
+/** The squad before the next gameweek, which Transfers counts transfers against. */
+function usePreviousSquadWarm(
+  userId: string | undefined,
+  all: { id: number; start_date: string }[],
+  nextId: number | undefined,
+) {
+  const next = all.find((g) => g.id === nextId);
+  const previous = next
+    ? [...all].reverse().find((g) => g.start_date < next.start_date)
+    : undefined;
+  useSquad(userId, previous?.id);
 }

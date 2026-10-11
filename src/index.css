@@ -129,3 +129,86 @@
 .no-shadow *:not(img) {
   filter: none !important;
 }
+
+/* Page transitions (src/lib/navTransition.ts). Quick: under a fifth of a second. */
+@keyframes nav-in-right {
+  from {
+    transform: translateX(28%);
+    opacity: 0;
+  }
+}
+@keyframes nav-out-left {
+  to {
+    transform: translateX(-12%);
+    opacity: 0;
+  }
+}
+@keyframes nav-in-left {
+  from {
+    transform: translateX(-12%);
+    opacity: 0;
+  }
+}
+@keyframes nav-out-right {
+  to {
+    transform: translateX(28%);
+    opacity: 0;
+  }
+}
+@keyframes nav-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes nav-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+html[data-nav='forward']::view-transition-old(root) {
+  animation-name: nav-out-left;
+}
+html[data-nav='forward']::view-transition-new(root) {
+  animation-name: nav-in-right;
+}
+html[data-nav='back']::view-transition-old(root) {
+  animation-name: nav-out-right;
+}
+html[data-nav='back']::view-transition-new(root) {
+  animation-name: nav-in-left;
+}
+html[data-nav='swap']::view-transition-old(root) {
+  animation-name: nav-fade-out;
+  animation-duration: 120ms;
+}
+html[data-nav='swap']::view-transition-new(root) {
+  animation-name: nav-fade-in;
+  animation-duration: 160ms;
+}
+
+/* Pick team and Transfers share a title bar and a pitch: they stay put and morph. */
+html[data-nav='swap'] .vt-squad-head {
+  view-transition-name: squad-head;
+}
+html[data-nav='swap'] .vt-squad-pitch {
+  view-transition-name: squad-pitch;
+}
+::view-transition-group(squad-head),
+::view-transition-group(squad-pitch) {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

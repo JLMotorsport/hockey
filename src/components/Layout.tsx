@@ -6,6 +6,7 @@ import { CalendarIcon, HomeIcon, MenuIcon, PitchIcon, SwapIcon, TrophyIcon } fro
 import { Sheet } from './Sheet';
 import { BUILD_COMMIT, BUILD_LABEL } from '@/lib/version';
 import { VersionSwitch } from './VersionSwitch';
+import { useTransitionClick } from '@/lib/navTransition';
 import { useUiVersion } from '@/lib/uiVersion';
 
 function Crest({ className = '' }: { className?: string }) {
@@ -20,9 +21,11 @@ function useAlsoActive(to: string) {
 }
 
 function TopLink({ to, children }: { to: string; children: string }) {
+  const transitionClick = useTransitionClick();
   const also = useAlsoActive(to);
   return (
     <NavLink
+      onClick={transitionClick(to, 'swap')}
       end={to === '/'}
       to={to}
       className={({ isActive }) =>
@@ -35,9 +38,11 @@ function TopLink({ to, children }: { to: string; children: string }) {
 }
 
 function Tab({ to, icon, children }: { to: string; icon: ReactNode; children: string }) {
+  const transitionClick = useTransitionClick();
   const also = useAlsoActive(to);
   return (
     <NavLink
+      onClick={transitionClick(to, 'swap')}
       to={to}
       end={to === '/'}
       className={({ isActive }) =>

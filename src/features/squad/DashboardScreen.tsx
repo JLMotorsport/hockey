@@ -16,8 +16,10 @@ import {
   useSeasonPoints,
   squadTotal,
   useChips,
+  useSettings,
   useSquad,
 } from '@/lib/queries';
+import { useTransitionClick } from '@/lib/navTransition';
 import { requireSupabase } from '@/lib/supabase';
 import { SquadPitch } from './SquadPitch';
 
@@ -34,6 +36,8 @@ export function DashboardScreen() {
   const last = locked.at(-1);
   const userId = session?.user.id;
   const [params, setParams] = useSearchParams();
+  const transitionClick = useTransitionClick();
+  useSettings(); // loaded now so Pick Team opens straight away
   // Past gameweeks plus the one being picked for, oldest first.
   const browsable = next ? [...locked, next] : locked;
   const viewing =
@@ -243,6 +247,7 @@ export function DashboardScreen() {
             </span>
             <Link
               to={upcoming.data?.length ? '/squad' : '/transfers'}
+              onClick={transitionClick(upcoming.data?.length ? '/squad' : '/transfers', 'forward')}
               className="btn shrink-0 px-5"
             >
               {upcoming.data?.length ? 'Make changes' : 'Pick squad'}
