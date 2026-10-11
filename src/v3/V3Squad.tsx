@@ -331,7 +331,7 @@ export function V3Squad({ mode }: { mode: 'pick' | 'transfers' }) {
             </p>
           )}
           <div className="vt-squad-pitch relative mt-2.5 px-3">
-            <TeamPitch rows={transferRows} height={392} size={40} card />
+            <TeamPitch rows={transferRows} height={392} card />
             {squadPlayers.length < STARTERS + BENCH && (
               <button
                 type="button"

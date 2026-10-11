@@ -344,7 +344,7 @@ export function TeamOfWeekScreen({ v3 = false }: { v3?: boolean } = {}) {
               </button>
             )}
             <div className="px-3">
-              <TeamPitch rows={v3Rows} height={380} size={40} />
+              <TeamPitch rows={v3Rows} height={380} />
             </div>
             <div className="mx-[18px] mt-2 flex justify-between text-[11px] text-[rgb(var(--v3-mut))]">
               <span>

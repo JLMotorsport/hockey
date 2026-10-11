@@ -41,4 +41,15 @@ describe('hockey pitch geometry', () => {
     expect(d.rows.MID).toBeLessThan(d.rows.FWD);
     expect(d.rows.FWD).toBeCloseTo(372 - 66, 5); // forwards on the opposition 23
   });
+
+  it('puts the goal line where asked and stripes the grass to the bottom', () => {
+    const d = teamPitch({ width: 366, height: 372, labelRoom: 64, pad: 10, top: 46 });
+    expect(d.rows.GK).toBeGreaterThanOrEqual(46); // keeper at the goal, under the boards
+    expect(d.bands[0]!.y0).toBeCloseTo(46, 5);
+    for (let i = 1; i < d.bands.length; i++) {
+      expect(d.bands[i]!.y0).toBeCloseTo(d.bands[i - 1]!.y1, 5); // no gaps
+      expect(d.bands[i]!.y1).toBeGreaterThan(d.bands[i]!.y0 - 1e-9);
+    }
+    expect(d.bands.at(-1)!.y1).toBeCloseTo(372, 5);
+  });
 });

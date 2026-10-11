@@ -157,7 +157,7 @@ export function V3Home() {
           </span>
         </div>
         <div className="px-3">
-          <TeamPitch rows={badges.pitch} height={360} size={36} />
+          <TeamPitch rows={badges.pitch} height={360} />
         </div>
         {/* Where you stand right now in each of your leagues, as points come in. */}
         <section className="v3-glass mx-3.5 mt-3 rounded-[18px] px-3.5 pb-1 pt-2.5">

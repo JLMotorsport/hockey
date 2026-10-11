@@ -181,7 +181,7 @@ export function V3Points() {
           )}
           {rows?.length ? (
             <div className="px-3">
-              <TeamPitch rows={badges.pitch} bench={badges.bench} height={372} size={34} />
+              <TeamPitch rows={badges.pitch} bench={badges.bench} height={372} />
               <div className="h-[92px]" />
             </div>
           ) : (
