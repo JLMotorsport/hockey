@@ -22,6 +22,8 @@ export interface Badge {
   mark?: string;
   dim?: boolean;
   highlight?: boolean;
+  /** An empty place: a dashed outline to tap and fill. */
+  empty?: boolean;
   onClick?: () => void;
 }
 
@@ -34,13 +36,13 @@ export function PlayerBadge({ b, size = 44 }: { b: Badge; size?: number }) {
         style={{
           width: size,
           height: size,
-          border: `1.5px solid ${ring}`,
+          border: `1.5px ${b.empty ? 'dashed' : 'solid'} ${ring}`,
           background:
             'radial-gradient(circle at 35% 30%, rgb(255 255 255 / .22), rgb(255 255 255 / .04) 60%), #0d1118',
           boxShadow: `0 0 18px -2px ${ring}88, inset 0 0 12px rgb(255 255 255 / .06)${b.highlight ? ', 0 0 0 3px #ffd400' : ''}`,
         }}
       >
-        <Shirt keeper={b.position === 'GK'} className="h-[74%] w-[74%]" />
+        <Shirt keeper={b.position === 'GK'} empty={b.empty} className="h-[74%] w-[74%]" />
         {b.mark && (
           <span className="absolute -right-1 -top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white text-[10px] font-black text-[#05070c] shadow-[0_0_12px_rgb(255_255_255/.6)]">
             {b.mark}
@@ -165,8 +167,10 @@ export function TeamPitch({
         </div>
       ))}
       {bench && (
-        <div className="v3-glass absolute inset-x-0 top-[calc(100%+8px)] flex justify-center gap-0.5 rounded-[20px] pb-1.5 pt-2">
-          <span className="v3-cap absolute left-3.5 top-2">Bench</span>
+        <div className="v3-glass absolute inset-x-0 top-[calc(100%+8px)] flex justify-center gap-0.5 rounded-[20px] pb-1.5 pl-9 pr-1 pt-2">
+          <span className="v3-cap absolute left-3 top-1/2 -translate-y-1/2 -rotate-90 text-[10px]">
+            Bench
+          </span>
           {bench.map((b) => (
             <PlayerBadge key={b.key} b={{ ...b, dim: b.dim ?? true }} size={34} />
           ))}

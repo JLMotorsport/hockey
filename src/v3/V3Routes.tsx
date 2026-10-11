@@ -10,11 +10,11 @@ import {
   TableScreen,
 } from '@/features/league/PublicScreens';
 import { DashboardScreen } from '@/features/squad/DashboardScreen';
-import { SquadScreen } from '@/features/squad/SquadScreen';
 import { TeamScreen } from '@/features/squad/TeamScreen';
 import { TeamOfWeekScreen } from '@/features/totw/TeamOfWeekScreen';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { V3Home } from './V3Home';
+import { V3Squad } from './V3Squad';
 import { V3Fallback, V3Shell } from './V3Shell';
 
 // V3 (being built). Screens already rebuilt use the V3 design; the rest show
@@ -59,7 +59,7 @@ export function V3Routes({ loading, managers }: { loading: boolean; managers: Re
         path="squad"
         element={
           <V3Shell dock={false}>
-            <SquadScreen mode="pick" />
+            <V3Squad mode="pick" />
           </V3Shell>
         }
       />
@@ -67,7 +67,7 @@ export function V3Routes({ loading, managers }: { loading: boolean; managers: Re
         path="transfers"
         element={
           <V3Shell dock={false}>
-            <SquadScreen mode="transfers" />
+            <V3Squad mode="transfers" />
           </V3Shell>
         }
       />
