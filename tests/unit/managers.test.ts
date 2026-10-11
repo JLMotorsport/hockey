@@ -1,4 +1,5 @@
 import {
+  nextAfterGameSync,
   matchChecks,
   matchesFilter,
   needsChecking,
@@ -103,5 +104,41 @@ describe('players', () => {
       false,
     );
     expect(playersFilter(player, 'all', false)).toBe(true);
+  });
+});
+
+describe('nextAfterGameSync', () => {
+  const now = new Date('2026-10-17T12:00:00Z');
+  const f = (id: number, kickoff: string, auto_synced_at: string | null = null) => ({
+    id,
+    side_id: id,
+    kickoff,
+    auto_synced_at,
+  });
+
+  it('is kick-off + 3h25 of the earliest game still to sync', () => {
+    const next = nextAfterGameSync(
+      [f(1, '2026-10-17T14:00:00Z'), f(2, '2026-10-17T12:30:00Z'), f(3, '2026-10-18T10:00:00Z')],
+      now,
+    );
+    expect(next?.fixture.id).toBe(2);
+    expect(next?.at.toISOString()).toBe('2026-10-17T15:55:00.000Z');
+  });
+
+  it('skips games already synced, past their sync, or with no time (00:00 UK)', () => {
+    const next = nextAfterGameSync(
+      [
+        f(1, '2026-10-17T13:00:00Z', '2026-10-17T13:05:00Z'),
+        f(2, '2026-10-17T08:00:00Z'),
+        f(3, '2026-10-17T23:00:00Z'), // 00:00 on the 18th, UK summer time
+        f(4, '2026-10-18T13:00:00Z'),
+      ],
+      now,
+    );
+    expect(next?.fixture.id).toBe(4);
+  });
+
+  it('is null when nothing is due', () => {
+    expect(nextAfterGameSync([], now)).toBeNull();
   });
 });

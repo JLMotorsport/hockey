@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Splash } from './components/Splash';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -30,6 +30,7 @@ import { HomeScreen as FantasyHome } from './features/home/HomeScreen';
 import { PlayersScreenV1 } from './features/v1/PlayersScreenV1';
 import { SquadScreenV1 } from './features/v1/SquadScreenV1';
 import { isSupabaseConfigured } from './lib/env';
+import { V3Managers } from './v3/V3Managers';
 import { V3Routes } from './v3/V3Routes';
 import { V3Splash } from './v3/V3Splash';
 
@@ -70,10 +71,10 @@ function Players() {
 }
 
 /** The managers' area: the same in every design version. */
-function managerRoutes() {
-  return (
-    <Route path="managers" element={<AdminLayout />}>
-      <Route index element={<OverviewScreen />} />
+/** The managers' area. `overview`: V3's own overview page, outside the managers' header. */
+function managerRoutes(overview?: ReactNode) {
+  const pages = (
+    <>
       <Route path="matches" element={<MatchesScreen />} />
       <Route path="matches/:id" element={<MatchScreen />} />
       <Route path="players" element={<ManagerPlayersScreen />} />
@@ -84,6 +85,17 @@ function managerRoutes() {
       <Route path="fixtures/*" element={<ManageRedirect />} />
       <Route path="deadlines" element={<ManageRedirect />} />
       <Route path="sides" element={<ManageRedirect />} />
+    </>
+  );
+  return overview ? (
+    <Route path="managers">
+      <Route index element={overview} />
+      <Route element={<AdminLayout />}>{pages}</Route>
+    </Route>
+  ) : (
+    <Route path="managers" element={<AdminLayout />}>
+      <Route index element={<OverviewScreen />} />
+      {pages}
     </Route>
   );
 }
@@ -99,7 +111,7 @@ export function App() {
     return (
       <BrowserRouter>
         {splash && <V3Splash done={!loading} onGone={hideSplash} />}
-        <V3Routes loading={loading} managers={managerRoutes()} />
+        <V3Routes loading={loading} managers={managerRoutes(<V3Managers />)} />
       </BrowserRouter>
     );
   }

@@ -16,8 +16,8 @@ import { V3Squad } from './V3Squad';
 import { V3Fallback, V3Shell } from './V3Shell';
 
 // V3. Every player-facing screen has its V3 design; Join, Account and the
-// public home page show their V2 version inside the V3 frame, and the
-// managers' area keeps its layout in the V3 colours.
+// public home page show their V2 version inside the V3 frame. The managers'
+// overview is V3; the other managers' pages keep their layout in V3 colours.
 
 function Home() {
   const { session } = useAuth();
@@ -90,7 +90,7 @@ export function V3Routes({ loading, managers }: { loading: boolean; managers: Re
       <Route path="team-of-the-week" element={v3(<TeamOfWeekScreen v3 />)} />
       <Route path="fixtures" element={v3(<V3Fixtures />)} />
       <Route path="rules" element={v3(<V3Rules />)} />
-      {/* The managers' area keeps its own layout, in the V3 colours. */}
+      {/* Managers: the V3 overview, then the other pages in their own layout. */}
       <Route
         element={
           <V3Shell dock={false}>

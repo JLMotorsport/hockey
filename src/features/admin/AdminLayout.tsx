@@ -1,18 +1,10 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Notices, type Notice } from '@/components/ui';
+import { Notices } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { formatDayTime } from '@/lib/format';
-import { requireSupabase } from '@/lib/supabase';
 import { BUILD_COMMIT, BUILD_LABEL } from '@/lib/version';
 import { useManagerStatus } from './status';
-
-interface SyncResult {
-  side: string;
-  ok: boolean;
-  message: string;
-}
+import { useEhSync } from './useEhSync';
 
 interface NavItem {
   to: string;
@@ -29,29 +21,8 @@ interface NavItem {
  */
 export function AdminLayout() {
   const { profile, loading } = useAuth();
-  const queryClient = useQueryClient();
   const status = useManagerStatus();
-  const [syncing, setSyncing] = useState(false);
-  const [notices, setNotices] = useState<Notice[]>([]);
-
-  async function sync() {
-    setSyncing(true);
-    const result = await requireSupabase().functions.invoke<{ results: SyncResult[] }>('eh-sync');
-    setSyncing(false);
-    if (result.error) {
-      const message = result.error instanceof Error ? result.error.message : 'unknown error';
-      setNotices([{ kind: 'error', text: `Sync failed: ${message}` }]);
-      return;
-    }
-    const results = result.data?.results ?? [];
-    const failed = results.filter((r) => !r.ok);
-    setNotices(
-      failed.length
-        ? failed.map((r) => ({ kind: 'error', text: `${r.side}: sync failed (${r.message})` }))
-        : [{ kind: 'success', text: `Synced ${results.length} sides from England Hockey.` }],
-    );
-    await queryClient.invalidateQueries();
-  }
+  const { syncing, notices, sync } = useEhSync();
 
   const nav: NavItem[] = [
     { to: '/managers', label: 'Overview', short: 'Overview' },

@@ -120,3 +120,42 @@ export function playersFilter(
       return true;
   }
 }
+
+/** Kick-off to the after-game sync: 70 minutes, 15 for half time, then 2 hours. */
+export const SYNC_AFTER_KICKOFF_MS = (85 + 120) * 60_000;
+
+export interface SyncableFixture {
+  id: number;
+  side_id: number;
+  kickoff: string;
+  auto_synced_at: string | null;
+}
+
+/** Is the kick-off a real time? (00:00 UK time means none is set yet.) */
+function timeKnown(kickoff: string): boolean {
+  const hm = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(kickoff));
+  return hm !== '00:00';
+}
+
+/**
+ * The next after-game sync, as migration 0017 schedules it: the earliest game
+ * with a known time, not synced yet, whose kick-off + 3h25 is still to come.
+ */
+export function nextAfterGameSync<F extends SyncableFixture>(
+  fixtures: F[],
+  now = new Date(),
+): { at: Date; fixture: F } | null {
+  let best: { at: Date; fixture: F } | null = null;
+  for (const f of fixtures) {
+    if (f.auto_synced_at || !timeKnown(f.kickoff)) continue;
+    const at = new Date(new Date(f.kickoff).getTime() + SYNC_AFTER_KICKOFF_MS);
+    if (at <= now) continue;
+    if (!best || at < best.at) best = { at, fixture: f };
+  }
+  return best;
+}
