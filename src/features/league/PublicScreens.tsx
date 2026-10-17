@@ -20,6 +20,7 @@ import { formatPrice } from '@/lib/squad';
 import { LeagueTable } from './LeagueTable';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
 import { MatchSheet } from './MatchSheet';
+import { NoTeamPrompt } from '@/components/NoTeamPrompt';
 import { StatsTable } from '@/components/StatsTable';
 import { usePlayerColumns } from '@/features/player/statColumns';
 
@@ -92,6 +93,7 @@ export function TableScreen() {
   return (
     <>
       <h1>League table</h1>
+      <NoTeamPrompt />
       <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Leagues">
         {leagues.map(([key, label]) => (
           <button

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { gameweekLabel } from '@/lib/format';
-import { lockedGameweeks, useGameweeks, useLeagueTable } from '@/lib/queries';
+import { lockedGameweeks, useGameweeks, useLeagueTable, useTeamsWithoutSquad } from '@/lib/queries';
 import { ErrorText, Loading } from '@/components/ui';
 import { leagueRows, movement } from '@/lib/table';
 
@@ -16,6 +16,7 @@ export function LeagueTable({
   const { session } = useAuth();
   const table = useLeagueTable();
   const gameweeks = useGameweeks();
+  const noTeam = useTeamsWithoutSquad();
   if (table.isLoading || gameweeks.isLoading) return <Loading />;
   if (table.error) return <ErrorText error={table.error} />;
   const all = include ? leagueRows(table.data ?? [], include) : (table.data ?? []);
@@ -64,6 +65,11 @@ export function LeagueTable({
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate font-bold">{row.team_name}</span>
                   <span className="muted truncate text-sm">{row.display_name}</span>
+                  {noTeam.data?.has(row.user_id) && (
+                    <span className="truncate text-xs font-semibold text-[#b26a00] dark:text-[#ffb547]">
+                      No team saved yet
+                    </span>
+                  )}
                 </span>
                 <span className="text-right tabular-nums text-ink-soft">{row.latest}</span>
                 <span className="display-num text-right text-2xl">{row.total}</span>

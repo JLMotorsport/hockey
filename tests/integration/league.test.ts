@@ -1678,6 +1678,14 @@ describe.skipIf(!configured)('league database', () => {
       ).toBeNull();
     });
 
+    it('says which teams have never saved a squad, and nothing more', async () => {
+      const fresh = await signUp('no.squad@example.com', 'No Squad XI');
+      const without = (await anon.rpc('teams_without_squad')).data!;
+      expect(without).toContain(fresh.id);
+      expect((await save(fresh)).error).toBeNull();
+      expect((await anon.rpc('teams_without_squad')).data!).not.toContain(fresh.id);
+    });
+
     it('counts points from the gameweek scoring restarted', async () => {
       const gw = await live();
       await settings({ scoring_from: gw.start_date });

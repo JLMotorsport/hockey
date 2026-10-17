@@ -19,6 +19,7 @@ import {
 import { useTransitionClick } from '@/lib/navTransition';
 import { inLeague, type LeagueKey } from '@/lib/table';
 import { SquadPitch } from '@/features/squad/SquadPitch';
+import { NoTeamPrompt } from '@/components/NoTeamPrompt';
 
 /** The minute, so the countdown keeps up. */
 function useNow(ms = 60_000) {
@@ -106,6 +107,7 @@ export function HomeScreen() {
 
   return (
     <div className="-mx-2 pt-2.5 sm:mx-auto sm:max-w-[26rem]">
+      <NoTeamPrompt />
       {live ? (
         <section className="rounded-[1.1rem] bg-[#b5222a] px-3 pb-3 pt-4 text-white">
           {teamHead}

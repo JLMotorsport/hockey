@@ -909,6 +909,7 @@ export type Database = {
         }[];
       };
       squad_source_gameweek: { Args: { p_gameweek: number; p_user: string }; Returns: number };
+      teams_without_squad: { Args: Record<PropertyKey, never>; Returns: string[] };
       undo_change: { Args: { p_id: number }; Returns: number };
       weekend_sync_due: { Args: { p_now?: string }; Returns: boolean };
     };

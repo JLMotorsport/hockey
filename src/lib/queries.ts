@@ -100,6 +100,18 @@ export function useFixtureDetail(id: number) {
   });
 }
 
+/** Teams that have never saved a squad (migration 0023); empty before it's run. */
+export function useTeamsWithoutSquad() {
+  return useQuery({
+    queryKey: ['teams-without-squad'],
+    queryFn: async () => {
+      const { data, error } = await requireSupabase().rpc('teams_without_squad');
+      if (error) return new Set<string>();
+      return new Set<string>(data ?? []);
+    },
+  });
+}
+
 export function useLeagueTable() {
   return useQuery({
     queryKey: keys.table,
