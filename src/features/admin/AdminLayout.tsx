@@ -43,6 +43,10 @@ export function AdminLayout() {
     { to: '/managers/gameweeks', label: 'Gameweeks', short: 'Gameweeks' },
     { to: '/managers/users', label: 'Users', short: 'Users' },
     { to: '/managers/settings', label: 'Settings', short: 'Settings' },
+    // The super user's own page (migration 0021).
+    ...(profile?.is_super
+      ? [{ to: '/managers/log', label: 'Change log', short: 'Change log' }]
+      : []),
   ];
   const synced = status.lastImport ? `Last import ${formatDayTime(status.lastImport)}` : '';
   const isAdmin = Boolean(profile?.is_admin);

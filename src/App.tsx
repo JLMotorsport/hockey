@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
 import { AdminLayout, ManageRedirect } from './features/admin/AdminLayout';
+import { ChangeLogScreen } from './features/admin/ChangeLogScreen';
 import { GameweeksScreen } from './features/admin/GameweeksScreen';
 import { IdentifyScreen } from './features/admin/IdentifyScreen';
 import { MatchScreen } from './features/admin/MatchScreen';
@@ -83,6 +84,7 @@ function managerRoutes(overview?: ReactNode) {
       <Route path="gameweeks" element={<GameweeksScreen />} />
       <Route path="users" element={<UsersScreen />} />
       <Route path="settings" element={<SettingsScreen />} />
+      <Route path="log" element={<ChangeLogScreen />} />
       <Route path="fixtures/*" element={<ManageRedirect />} />
       <Route path="deadlines" element={<ManageRedirect />} />
       <Route path="sides" element={<ManageRedirect />} />
