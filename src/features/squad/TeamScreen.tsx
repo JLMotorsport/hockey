@@ -11,7 +11,10 @@ import {
   squadTotal,
   useChips,
   useSquad,
+  transferSummaryQuery,
 } from '@/lib/queries';
+import { useQuery } from '@tanstack/react-query';
+import { liveGameweek } from '@/lib/home';
 import { SquadPitch } from './SquadPitch';
 
 export function TeamScreen() {
@@ -28,6 +31,7 @@ export function TeamScreen() {
   const gameweek = locked.find((g) => g.id === wanted) ?? locked.at(-1);
   const squad = useSquad(userId, gameweek?.id);
   const chips = useChips(userId);
+  const hit = useQuery(transferSummaryQuery(userId, gameweek?.id)).data?.hit ?? 0;
 
   if (profile.isLoading || gameweeks.isLoading) return <Loading />;
   if (profile.error) return <ErrorText error={profile.error} />;
@@ -41,7 +45,8 @@ export function TeamScreen() {
         <h1 className="mb-0 mt-0 text-4xl">{profile.data?.team_name}</h1>
         {squad.data?.length ? (
           <p className="mt-2 font-display text-xl font-bold uppercase">
-            {squadTotal(squad.data)} points
+            {squadTotal(squad.data) - hit} points
+            {hit > 0 && <span className="ml-2 text-sm text-white/80">(-{hit} transfers)</span>}
           </p>
         ) : null}
       </section>
@@ -74,8 +79,8 @@ export function TeamScreen() {
                 players={players.data ?? []}
                 sides={sides.data ?? []}
                 showPoints
-                // The latest gameweek: each player's fixture until their match has synced.
-                live={gameweek.id === locked.at(-1)?.id}
+                // The live weekend: each player's fixture until their match has synced.
+                live={gameweek.id === liveGameweek(all)?.id}
               />
             ) : (
               <p className="muted">No squad for this gameweek.</p>

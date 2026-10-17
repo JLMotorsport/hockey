@@ -30,6 +30,8 @@ export function SettingsScreen() {
     budget: string;
     max: string;
     transfers: string;
+    maxFree: string;
+    hit: string;
     formations: string[];
   } | null>(null);
   if (settings.isLoading || !settings.data) return <Loading />;
@@ -38,6 +40,8 @@ export function SettingsScreen() {
     budget: formatPrice(s.budget),
     max: String(s.max_per_side),
     transfers: String(s.transfers_per_gameweek),
+    maxFree: String(s.max_free_transfers),
+    hit: String(s.transfer_hit),
     formations: s.formations,
   };
 
@@ -57,6 +61,8 @@ export function SettingsScreen() {
         budget,
         max_per_side: Math.max(1, Number(f.max) || 1),
         transfers_per_gameweek: Math.max(0, Number(f.transfers) || 0),
+        max_free_transfers: Math.max(0, Number(f.maxFree) || 0),
+        transfer_hit: Math.max(0, Number(f.hit) || 0),
         formations: ALL_FORMATIONS.filter((x) => f.formations.includes(x)),
       })
       .eq('id', 1);
@@ -73,7 +79,9 @@ export function SettingsScreen() {
     ['Budget (m)', 'Per squad', 'budget', f.budget],
     ['Squad size', quota, null, String(s.squad_size)],
     ['Max from one side', 'Stops a squad being all one side', 'max', f.max],
-    ['Free transfers a week', 'Extra ones cost points', 'transfers', f.transfers],
+    ['Free transfers a week', 'Unused ones carry over', 'transfers', f.transfers],
+    ['Most free transfers banked', 'As FPL: 5', 'maxFree', f.maxFree],
+    ['Points per extra transfer', 'As FPL: 4', 'hit', f.hit],
   ];
 
   return (

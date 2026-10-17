@@ -28,6 +28,9 @@ import { Chip, ChipRow, PageHead, panel } from './adminUi';
  * makes, newest first, each with Undo. The database (undo_change) checks
  * again and refuses if something has been changed since.
  */
+/** Newest log rows loaded (plus the rest of the oldest action). */
+const PAGE = 1000;
+
 export function ChangeLogScreen() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -35,13 +38,28 @@ export function ChangeLogScreen() {
     queryKey: ['manager-log'],
     enabled: Boolean(profile?.is_super),
     queryFn: async () => {
-      const { data, error } = await requireSupabase()
+      const db = requireSupabase();
+      const { data, error } = await db
         .from('manager_log')
         .select('*')
         .order('id', { ascending: false })
-        .limit(1000);
+        .limit(PAGE);
       if (error) throw new Error(error.message);
-      return data as unknown as LogRow[];
+      let rows = data as unknown as LogRow[];
+      // The oldest action may be cut in two by the limit: load the rest of it,
+      // so undo's preview and blockers see the whole action.
+      const oldest = rows.at(-1);
+      if (rows.length === PAGE && oldest) {
+        const rest = await db
+          .from('manager_log')
+          .select('*')
+          .eq('tx', oldest.tx)
+          .lt('id', oldest.id)
+          .order('id', { ascending: false });
+        if (rest.error) throw new Error(rest.error.message);
+        rows = [...rows, ...(rest.data as unknown as LogRow[])];
+      }
+      return rows;
     },
   });
   const players = usePlayers();

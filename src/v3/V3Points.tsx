@@ -13,6 +13,7 @@ import {
   scoringGameweeks,
   nextOpenGameweek,
   squadTotal,
+  useTransferHits,
   useChips,
   useGameweeks,
   useLeagueTable,
@@ -73,6 +74,10 @@ export function V3Points() {
   const rows = index >= 0 ? (history[index]?.data ?? undefined) : undefined;
   const badges = useSquadBadges(rows, players.data ?? [], sides.data ?? [], viewing?.id, onOpen);
   const touch = useRef<number | null>(null);
+  const hits = useTransferHits(
+    userId,
+    locked.map((g) => g.id),
+  );
 
   if (!userId) return <Navigate to="/login" replace />;
   if (gameweeks.isLoading || players.isLoading || sides.isLoading) return <Loading />;
@@ -94,8 +99,10 @@ export function V3Points() {
   const chip = chips.data?.find((c) => c.gameweek_id === viewing?.id);
   const weeks = locked.map((g) => ({
     g,
-    pts: squadTotal(history[browsable.findIndex((b) => b.id === g.id)]?.data),
+    pts:
+      squadTotal(history[browsable.findIndex((b) => b.id === g.id)]?.data) - (hits.get(g.id) ?? 0),
   }));
+  const hit = viewing && !upcoming ? (hits.get(viewing.id) ?? 0) : 0;
   const best = Math.max(1, ...weeks.map((w) => w.pts));
   const season = weeks.reduce((n, w) => n + w.pts, 0);
 
@@ -160,11 +167,11 @@ export function V3Points() {
                 </span>
               ) : (
                 <span className="v3-disp v3-num block text-[60px] [text-shadow:0_0_26px_rgb(255_51_71/.5)]">
-                  {squadTotal(rows)}
+                  {squadTotal(rows) - hit}
                 </span>
               )}
               <span className="v3-cap text-[rgb(var(--v3-ice))]">
-                {upcoming ? 'Deadline' : 'Points'}
+                {upcoming ? 'Deadline' : hit ? `Points · -${hit} transfers` : 'Points'}
               </span>
             </span>
             <span className="text-center">

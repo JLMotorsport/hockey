@@ -375,7 +375,10 @@ export function AccountScreen() {
       </form>
       {!profile.is_super && (
         <p className="mb-0 mt-5 text-center text-sm">
-          <Link to="/account/delete" className="muted underline">
+          <Link
+            to="/account/delete"
+            className="muted inline-flex min-h-[44px] items-center px-3 underline"
+          >
             Delete account
           </Link>
         </p>

@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { ErrorText, Loading } from '@/components/ui';
@@ -18,6 +19,7 @@ import { opponentCode } from '@/lib/pickDisplay';
 import {
   nextOpenGameweek,
   squadTotal,
+  transferSummaryQuery,
   useFixtures,
   useFixturesWithStats,
   useGameweeks,
@@ -58,6 +60,7 @@ export function V3Home() {
   const live = liveGameweek(all, now);
   const userId = session?.user.id;
   const liveSquad = useSquad(userId, live?.id);
+  const liveHit = useQuery(transferSummaryQuery(userId, live?.id)).data?.hit ?? 0;
   const nextSquad = useSquad(userId, next?.id);
   const withStats = useFixturesWithStats(live?.id);
   const transitionClick = useTransitionClick();
@@ -145,9 +148,11 @@ export function V3Home() {
           </span>
           <span>
             <span className="v3-disp v3-num block text-[80px] [text-shadow:0_0_30px_rgb(255_51_71/.55)]">
-              {squadTotal(liveSquad.data)}
+              {squadTotal(liveSquad.data) - liveHit}
             </span>
-            <span className="v3-cap text-[rgb(var(--v3-ice))]">Your points</span>
+            <span className="v3-cap text-[rgb(var(--v3-ice))]">
+              {liveHit ? `Your points · -${liveHit}` : 'Your points'}
+            </span>
           </span>
           <span>
             <span className="v3-disp v3-num block text-[34px] text-[rgb(var(--v3-mut))]">

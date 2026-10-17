@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ErrorText, Loading } from '@/components/ui';
 import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
-import { opponentName, sideForm } from '@/lib/form';
+import { opponentName, resultOf, sideForm } from '@/lib/form';
 import { MatchSheet } from '@/features/league/MatchSheet';
 import { useFixtures, useGameweeks, useSides } from '@/lib/queries';
 
@@ -102,14 +102,7 @@ export function V3Fixtures() {
             </div>
             <ul className="px-3.5">
               {games.map((f, i) => {
-                const res =
-                  f.goals_for === null || f.goals_against === null
-                    ? null
-                    : f.goals_for > f.goals_against
-                      ? 'W'
-                      : f.goals_for < f.goals_against
-                        ? 'L'
-                        : 'D';
+                const res = resultOf(f);
                 return (
                   <li
                     key={f.id}

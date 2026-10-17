@@ -130,12 +130,36 @@ export function summariseSquad(
     problems.push('Choose a captain from your starting 11.');
   if (viceId === null || !starterIds.includes(viceId) || viceId === captainId)
     problems.push('Choose a vice-captain from your starting 11 (not the captain).');
-  if (transfers !== null && transfers > settings.transfers_per_gameweek) {
-    problems.push(
-      `That's ${transfers} transfers; only ${settings.transfers_per_gameweek} allowed per gameweek.`,
-    );
-  }
+  // Extra transfers aren't a problem: each costs points (transferCost).
   return { count: picked.length, cost, bank, byPosition, transfers, problems };
+}
+
+/**
+ * Transfers past the free ones, and the points they'll cost off the
+ * gameweek's score (as transfer_hit() in the database). Unlimited free
+ * transfers (a wildcard, a first squad) cost nothing.
+ */
+export function transferCost(
+  transfers: number | null,
+  free: number,
+  hit: number,
+): { extra: number; points: number } {
+  const extra = Number.isFinite(free) ? Math.max(0, (transfers ?? 0) - free) : 0;
+  return { extra, points: extra * hit };
+}
+
+/** The transfer rules in one line, for How it works. */
+export function transferRule(s: {
+  transfers_per_gameweek: number;
+  max_free_transfers?: number | null;
+  transfer_hit?: number | null;
+}): string {
+  const n = s.transfers_per_gameweek;
+  return (
+    `Your first squad is free. After that, ${n} free transfer${n === 1 ? '' : 's'} a gameweek; ` +
+    `unused ones carry over, up to ${s.max_free_transfers ?? 5}. ` +
+    `Each extra transfer costs ${s.transfer_hit ?? 4} points. A wildcard makes them all free.`
+  );
 }
 
 /** 85 -> "8.5" */

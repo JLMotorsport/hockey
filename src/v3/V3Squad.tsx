@@ -41,6 +41,7 @@ export function V3Squad({ mode }: { mode: 'pick' | 'transfers' }) {
     summary,
     wildcard,
     freeFix,
+    transfers,
     problems,
     showProblems,
     dirty,
@@ -199,8 +200,7 @@ export function V3Squad({ mode }: { mode: 'pick' | 'transfers' }) {
       ];
     }),
   ) as Record<Position, Badge[]>;
-  const unlimited = wildcard || freeFix || summary.transfers === null;
-  const left = unlimited ? null : Math.max(0, s.transfers_per_gameweek - (summary.transfers ?? 0));
+  const { unlimited } = transfers;
   const firstGap = POSITIONS.find(
     (pos) => squadPlayers.filter((p) => p.position === pos).length < SQUAD_QUOTA[pos],
   );
@@ -293,10 +293,14 @@ export function V3Squad({ mode }: { mode: 'pick' | 'transfers' }) {
       ) : (
         <>
           <section className="v3-glass mx-3.5 grid grid-cols-3 rounded-[20px] px-3.5 py-3 text-center">
-            <Stat
-              value={unlimited ? '∞' : `${left}/${s.transfers_per_gameweek}`}
-              label={unlimited ? 'Transfers' : 'Free left'}
-            />
+            {transfers.extra > 0 ? (
+              <Stat value={`-${transfers.cost}`} label="Pts cost" tone="text-[#ff8a97]" />
+            ) : (
+              <Stat
+                value={unlimited ? '∞' : `${transfers.left}/${transfers.free}`}
+                label={unlimited ? 'Transfers' : 'Free left'}
+              />
+            )}
             <Stat value={`${summary.count}`} label={`Squad of ${STARTERS + BENCH}`} />
             <Stat
               value={`${formatPrice(bank)}m`}
@@ -498,9 +502,10 @@ export function V3Squad({ mode }: { mode: 'pick' | 'transfers' }) {
                   ? wildcard
                     ? 'Unlimited (wildcard)'
                     : 'Unlimited'
-                  : `${summary.transfers ?? 0} of ${s.transfers_per_gameweek}`
+                  : `${transfers.used} (${transfers.free} free)`
               }
             />
+            {transfers.extra > 0 && <Row label="Points cost" value={`-${transfers.cost} pts`} />}
             <Row label="Bank after" value={`${formatPrice(bank)}m`} />
             <Row label="Then" value="On to Pick team" />
           </dl>

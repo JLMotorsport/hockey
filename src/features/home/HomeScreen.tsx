@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { CalendarIcon, PitchIcon, SwapIcon } from '@/components/icons';
@@ -8,6 +9,7 @@ import { countdown, liveGameweek, myPlace, ordinal, weekSpread } from '@/lib/hom
 import {
   nextOpenGameweek,
   squadTotal,
+  transferSummaryQuery,
   useGameweeks,
   useLeagueTable,
   usePlayers,
@@ -49,6 +51,7 @@ export function HomeScreen() {
   const live = liveGameweek(all, now);
   const userId = session?.user.id;
   const liveSquad = useSquad(userId, live?.id);
+  const liveHit = useQuery(transferSummaryQuery(userId, live?.id)).data?.hit ?? 0;
   const nextSquad = useSquad(userId, next?.id);
   const transitionClick = useTransitionClick();
   // Loaded now so Pick Team and Transfers open straight away.
@@ -119,9 +122,11 @@ export function HomeScreen() {
             <Stat value={spread.average} label="Average" />
             <span className="flex flex-col">
               <span className="display-num text-[3.5rem] leading-[0.9]">
-                {squadTotal(liveSquad.data)}
+                {squadTotal(liveSquad.data) - liveHit}
               </span>
-              <span className="text-xs text-white/90">Your points</span>
+              <span className="text-xs text-white/90">
+                {liveHit ? `Your points (-${liveHit} transfers)` : 'Your points'}
+              </span>
             </span>
             <Stat value={spread.highest} label="Highest" />
           </div>

@@ -3,7 +3,7 @@ import { Sheet } from '@/components/Sheet';
 import { Loading, PosBadge } from '@/components/ui';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
 import { formatWeekdayTime } from '@/lib/format';
-import { opponentName } from '@/lib/form';
+import { opponentName, resultOf } from '@/lib/form';
 import { useFixtureDetail, usePlayers, useSides } from '@/lib/queries';
 import { breakdown, points } from '@/lib/scoring';
 
@@ -56,14 +56,7 @@ export function MatchSheet({ fixtureId, onClose }: { fixtureId: number; onClose:
     })
     .filter((r): r is NonNullable<typeof r> => r !== null)
     .sort((a, b) => b.points - a.points || a.player.name.localeCompare(b.player.name));
-  const result =
-    fixture && fixture.goals_for !== null && fixture.goals_against !== null
-      ? fixture.goals_for > fixture.goals_against
-        ? 'W'
-        : fixture.goals_for < fixture.goals_against
-          ? 'L'
-          : 'D'
-      : null;
+  const result = fixture ? resultOf(fixture) : null;
 
   return (
     <Sheet title={title} onClose={onClose}>

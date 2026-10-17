@@ -49,7 +49,7 @@ export function AdminLayout() {
       : []),
   ];
   const synced = status.lastImport ? `Last import ${formatDayTime(status.lastImport)}` : '';
-  const isAdmin = Boolean(profile?.is_admin);
+  const isAdmin = Boolean(profile?.is_admin || profile?.is_super);
 
   return (
     <div className="min-h-screen bg-paper">

@@ -102,6 +102,55 @@ describe('change log', () => {
     ]);
   });
 
+  it('says "updated stats" when only existing stats changed', () => {
+    const [a] = groupActions([
+      row({
+        tx: 6,
+        table_name: 'performances',
+        op: 'update',
+        row_id: '101',
+        old_data: { fixture_id: 50, player_id: 1, goals: 0 },
+        new_data: { fixture_id: 50, player_id: 1, goals: 1 },
+      }),
+    ]);
+    expect(describeAction(a!, names)).toEqual({
+      what: 'updated stats for M2 v Ely 2',
+      detail: '1 player',
+    });
+  });
+
+  it('reads a deleted fixture as a delete, not a save, and hides what it kept', () => {
+    const fixture = {
+      id: 50,
+      side_id: 7,
+      opponent: 'Ely 2',
+      kickoff: '2026-10-17T13:00:00Z',
+    };
+    const [a] = groupActions([
+      row({
+        tx: 7,
+        table_name: 'pitchero_lineups',
+        op: 'delete',
+        row_id: '50',
+        old_data: { rows: [{ fixture_id: 50, name: 'H. Garrod' }] },
+      }),
+      row({
+        tx: 7,
+        table_name: 'performances',
+        op: 'delete',
+        row_id: '101',
+        old_data: { fixture_id: 50, player_id: 1 },
+      }),
+      row({ tx: 7, table_name: 'fixtures', op: 'delete', row_id: '50', old_data: fixture }),
+    ]);
+    const said = describeAction(a!, names);
+    expect(said.what).toBe('deleted a fixture');
+    expect(said.detail).toMatch(/^M2 v Ely 2, .* · stats for 1 player$/);
+    expect(undoLines(a!, names)).toEqual([
+      { label: expect.stringMatching(/^M2 v Ely 2/) as string, now: 'Deleted', back: 'Put back' },
+    ]);
+  });
+
   it('knows when a later change is in the way, until that one is undone', () => {
     const rows = [
       row({ tx: 1, table_name: 'players', op: 'update', row_id: '1' }),

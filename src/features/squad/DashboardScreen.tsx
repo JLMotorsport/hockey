@@ -2,6 +2,7 @@ import { chipName } from '@/lib/chips';
 import { useQueries } from '@tanstack/react-query';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { defaultGameweek } from '@/lib/gameweek';
+import { liveGameweek } from '@/lib/home';
 import { ErrorText, Loading } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { formatWeekdayTime, gameweekLabel } from '@/lib/format';
@@ -18,6 +19,7 @@ import {
   useChips,
   useSettings,
   useSquad,
+  useTransferHits,
 } from '@/lib/queries';
 import { useTransitionClick } from '@/lib/navTransition';
 import { requireSupabase } from '@/lib/supabase';
@@ -62,6 +64,13 @@ export function DashboardScreen() {
     })),
   });
 
+  const hits = useTransferHits(
+    userId,
+    locked.map((g) => g.id),
+  );
+  // Live cards (fixture until synced) only over the live weekend, as Home.
+  const liveGw = liveGameweek(all);
+
   if (!session) return <Navigate to="/login" replace />;
   if (gameweeks.isLoading || players.isLoading || sides.isLoading) return <Loading />;
   if (gameweeks.error) return <ErrorText error={gameweeks.error} />;
@@ -76,7 +85,12 @@ export function DashboardScreen() {
     if (gw) setParams({ gw: String(gw.id) }, { replace: true });
   };
 
-  const weekTotals = locked.map((gw, i) => ({ gw, i, pts: squadTotal(history[i]?.data) }));
+  const weekTotals = locked.map((gw, i) => ({
+    gw,
+    i,
+    pts: squadTotal(history[i]?.data) - (hits.get(gw.id) ?? 0),
+  }));
+  const viewedHit = viewing && !viewingUpcoming ? (hits.get(viewing.id) ?? 0) : 0;
   const bestWeek = Math.max(1, ...weekTotals.map((w) => w.pts));
   const chipWeeks = weekTotals.filter((w) => chipFor(w.gw.id));
   const daysLeft = next
@@ -105,10 +119,14 @@ export function DashboardScreen() {
                         .replace(/[()]/g, '')}`}
                 </span>
                 <span className="display-num text-[2.9rem] leading-[0.95]">
-                  {viewingUpcoming ? viewedLabel : squadTotal(viewedRows)}
+                  {viewingUpcoming ? viewedLabel : squadTotal(viewedRows) - viewedHit}
                 </span>
                 <span className="text-[0.7rem] text-white/85">
-                  {viewingUpcoming ? 'next up' : 'points'}
+                  {viewingUpcoming
+                    ? 'next up'
+                    : viewedHit
+                      ? `points (-${viewedHit} transfers)`
+                      : 'points'}
                 </span>
               </div>
               <div className="flex min-w-0 flex-col gap-1 border-l border-white/30 pl-3 text-xs">
@@ -154,8 +172,8 @@ export function DashboardScreen() {
               seasonPoints={seasonPoints.data}
               chip={chipFor(viewing.id)}
               fixturesFor={viewingUpcoming ? viewing.id : undefined}
-              // The latest gameweek: each player's fixture until their match has synced.
-              live={!viewingUpcoming && viewing.id === last?.id}
+              // The live weekend: each player's fixture until their match has synced.
+              live={!viewingUpcoming && viewing.id === liveGw?.id}
               compact
             />
           ) : (

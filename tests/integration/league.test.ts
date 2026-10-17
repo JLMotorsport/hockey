@@ -402,7 +402,7 @@ describe.skipIf(!configured)('league database', () => {
       expect(data).toEqual([]);
     });
 
-    it('limits transfers once the first squad has locked', async () => {
+    it('charges for transfers past the free ones once the first squad has locked', async () => {
       // Lock the gameweek Alice picked for, as if Saturday 10:00 has passed.
       lockedGw = openGw;
       await service
@@ -410,14 +410,23 @@ describe.skipIf(!configured)('league database', () => {
         .update({ deadline: days(-1) })
         .eq('id', lockedGw);
 
-      const three = [playerIds[11]!, ...xi().slice(1, 9), playerIds[12]!, playerIds[13]!];
-      const res = await save(alice, three, three[1]!);
-      expect(res.error!.message).toMatch(/3 transfers; only 2 allowed/);
+      const three = [11, 1, 2, 3, 13, 5, 6, 7, 8, 9, 12].map((i) => playerIds[i]!);
+      // Three transfers with two free: allowed, at -4.
+      expect((await save(alice, three, three[1]!)).error).toBeNull();
+      const summary = () =>
+        alice.db.rpc('transfer_summary', { p_user: alice.id, p_gameweek: laterGw });
+      expect((await summary()).data).toEqual([{ used: 3, free: 2, hit: 4 }]);
+      // Hidden from others until the deadline, like the squad.
+      expect(
+        (await bob.db.rpc('transfer_summary', { p_user: alice.id, p_gameweek: laterGw })).error!
+          .message,
+      ).toMatch(/hidden until the deadline/);
 
       const two = [playerIds[11]!, ...xi().slice(1, 10), playerIds[12]!];
       const ok = await save(alice, two, two[1]!);
       expect(ok.error).toBeNull();
       expect(ok.data).toBe(laterGw);
+      expect((await summary()).data).toEqual([{ used: 2, free: 2, hit: 0 }]);
       // Saving again before the same deadline doesn't use more transfers.
       expect((await save(alice, two, two[2]!)).error).toBeNull();
     });
@@ -1231,17 +1240,22 @@ describe.skipIf(!configured)('league database', () => {
       ).toEqual([{ chip: 'triple_captain' }]);
     });
 
-    it('uses each chip once, and the wildcard lifts the transfer limit for good', async () => {
+    it('uses each chip once, and the wildcard makes transfers free for good', async () => {
       expect(
         (await carol.db.rpc('play_chip', { p_chip: 'triple_captain' })).error!.message,
       ).toMatch(/already used that chip/);
 
-      // Three transfers: over the limit of 2...
+      // Three transfers: more than the free ones, so they cost points...
       const changed = [11, 13, 2, 3, 4, 5, 6, 7, 8, 12, 10].map(id);
-      expect((await save(carol, changed)).error!.message).toMatch(/3 transfers; only 2 allowed/);
+      expect((await save(carol, changed)).error).toBeNull();
+      const gw = await openGameweek();
+      const cost = async () =>
+        (await carol.db.rpc('transfer_summary', { p_user: carol.id, p_gameweek: gw })).data![0]!;
+      expect((await cost()).used).toBe(3);
+      expect((await cost()).hit).toBeGreaterThan(0);
       // ...until the wildcard is played, which can't then be taken back.
       expect((await carol.db.rpc('play_chip', { p_chip: 'wildcard' })).error).toBeNull();
-      expect((await save(carol, changed)).error).toBeNull();
+      expect(await cost()).toMatchObject({ used: 0, hit: 0 });
       expect((await carol.db.rpc('cancel_chip')).error!.message).toMatch(/can't be taken back/);
       expect((await carol.db.rpc('play_chip', { p_chip: 'rolling_subs' })).error!.message).toMatch(
         /can't be taken back/,
@@ -1684,6 +1698,93 @@ describe.skipIf(!configured)('league database', () => {
       expect(without).toContain(fresh.id);
       expect((await save(fresh)).error).toBeNull();
       expect((await anon.rpc('teams_without_squad')).data!).not.toContain(fresh.id);
+    });
+
+    it('banks unused free transfers, up to the cap, and takes -4 for each extra', async () => {
+      const banker = await signUp('banker@example.com', 'Bank XI');
+      const gws = (await anon.from('gameweeks').select('id, deadline').order('start_date')).data!;
+      const [g0, g1, g2, g3] = gws;
+      const squadA = [...xi(), ...subs()];
+      const others = (await service.from('players').select('id').order('id'))
+        .data!.map((p) => p.id)
+        .filter((p) => !squadA.includes(p))
+        .slice(0, 5);
+      const put = (gw: number, players: number[]) =>
+        service.from('picks').insert(
+          players.map((p, n) => ({
+            user_id: banker.id,
+            gameweek_id: gw,
+            player_id: p,
+            is_captain: n === 0,
+            is_vice: n === 1,
+            bench_order: n < 11 ? null : n - 10,
+          })),
+        );
+      await put(g0!.id, squadA); // first squad
+      await put(g1!.id, squadA); // no transfers: two banked
+      await put(g2!.id, [...others, ...squadA.slice(5)]); // five transfers, four free
+      const summary = async (gw: number) =>
+        (await banker.db.rpc('transfer_summary', { p_user: banker.id, p_gameweek: gw })).data![0];
+      expect(await summary(g1!.id)).toEqual({ used: 0, free: 2, hit: 0 });
+      expect(await summary(g2!.id)).toEqual({ used: 5, free: 4, hit: 4 });
+      // Spent past the bank: back to the weekly two. No save that week: no transfers.
+      expect(await summary(g3!.id)).toEqual({ used: 0, free: 2, hit: 0 });
+
+      // The cap: a long run of no transfers banks five at most.
+      await service.from('league_settings').update({ max_free_transfers: 3 }).eq('id', 1);
+      expect((await summary(g2!.id))!.free).toBe(3);
+      await service.from('league_settings').update({ max_free_transfers: 5 }).eq('id', 1);
+
+      // The league table takes the hit off that gameweek, once it's locked.
+      const total = async () =>
+        (await anon.rpc('league_table')).data!.find((r) => r.user_id === banker.id)!.total;
+      const withHit = await total();
+      await service.from('league_settings').update({ transfer_hit: 0 }).eq('id', 1);
+      const noHit = await total();
+      await service.from('league_settings').update({ transfer_hit: 4 }).eq('id', 1);
+      expect(noHit - withHit).toBe(new Date(g2!.deadline) <= new Date() ? 4 : 0);
+      expect(new Date(g2!.deadline) <= new Date()).toBe(true);
+      await service.from('picks').delete().eq('user_id', banker.id);
+    });
+
+    it("won't undo adding something that's since been used, and undoes a delete in full", async () => {
+      const side = sides[0]!;
+      const added = await alice.db
+        .from('players')
+        .insert({ name: 'Undo Test', position: 'MID', side_id: side.id, price: 50 })
+        .select('id')
+        .single();
+      expect(added.error).toBeNull();
+      const pid = added.data!.id;
+      await service
+        .from('price_changes')
+        .insert({ player_id: pid, old_price: 50, new_price: 55, reason: 'weekly' });
+      const entry = await lastLog(pid);
+      const refused = await boss.db.rpc('undo_change', { p_id: entry.id });
+      expect(refused.error!.message).toMatch(/now used in its price history/);
+
+      // Deleting the player takes its price history; undo puts both back.
+      expect((await alice.db.from('players').delete().eq('id', pid)).error).toBeNull();
+      expect((await service.from('price_changes').select('id').eq('player_id', pid)).data).toEqual(
+        [],
+      );
+      const deleted = (
+        await boss.db
+          .from('manager_log')
+          .select('id')
+          .eq('table_name', 'players')
+          .eq('row_id', String(pid))
+          .eq('op', 'delete')
+          .single()
+      ).data!;
+      expect((await boss.db.rpc('undo_change', { p_id: deleted.id })).error).toBeNull();
+      expect((await service.from('players').select('name').eq('id', pid)).data).toEqual([
+        { name: 'Undo Test' },
+      ]);
+      expect(
+        (await service.from('price_changes').select('new_price').eq('player_id', pid)).data,
+      ).toEqual([{ new_price: 55 }]);
+      await service.from('players').delete().eq('id', pid);
     });
 
     it('counts points from the gameweek scoring restarted', async () => {

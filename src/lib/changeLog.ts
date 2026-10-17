@@ -185,10 +185,34 @@ export interface Described {
   detail: string;
 }
 
+/**
+ * What a deleted player or fixture took with it (its price history, its
+ * Pitchero line-up), kept so undo can put it back (0024). Not shown.
+ */
+const KEPT_WITH_PARENT = new Set(['pitchero_lineups', 'price_changes']);
+const shown = (action: Action) => action.rows.filter((r) => !KEPT_WITH_PARENT.has(r.table_name));
+
 export function describe(action: Action, names: Names): Described {
-  const rows = action.rows;
+  const rows = shown(action);
   const perfs = rows.filter((r) => r.table_name === 'performances');
   const fixtureRow = rows.find((r) => r.table_name === 'fixtures');
+
+  // A fixture deleted, with its stats along with it.
+  if (fixtureRow?.op === 'delete') {
+    const one = describeOne(fixtureRow, names);
+    return perfs.length
+      ? { ...one, detail: `${one.detail} · stats for ${plural(perfs.length, 'player')}` }
+      : one;
+  }
+
+  // Stats edited, no one added or taken off and no score change.
+  if (perfs.length && !fixtureRow && perfs.every((r) => r.op === 'update')) {
+    const fixture = names.fixture(Number(perfs[0]!.new_data?.fixture_id));
+    return {
+      what: `updated stats for ${fixtureName(fixture, names)}`,
+      detail: plural(perfs.length, 'player'),
+    };
+  }
 
   // A match saved: its stats (and maybe its score) in one go.
   if (perfs.length) {
@@ -298,6 +322,10 @@ function describeOne(r: LogRow, names: Names): Described {
   }
 }
 
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
 function playerLine(row: Json, names: Names): string {
   const side = names.side(Number(row.side_id));
   return [POSITION_WORD[String(row.position)], side, price(row.price)].filter(Boolean).join(' · ');
@@ -328,9 +356,12 @@ export function undoLines(action: Action, names: Names): UndoLine[] {
 }
 
 function allUndoLines(action: Action, names: Names): UndoLine[] {
-  const rows = action.rows;
+  const rows = shown(action);
   const perfs = rows.filter((r) => r.table_name === 'performances');
   const fixtureRow = rows.find((r) => r.table_name === 'fixtures');
+  if (fixtureRow?.op === 'delete') {
+    return [{ label: describeOne(fixtureRow, names).detail, now: 'Deleted', back: 'Put back' }];
+  }
   if (perfs.length) {
     const now = statsSummary(
       perfs.map((r) => r.new_data),

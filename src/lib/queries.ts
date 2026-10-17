@@ -1,5 +1,5 @@
 import { seasonStats, type StatRow } from './playerStats';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { DEFAULT_FORMATIONS } from './formation';
 import { requireSupabase } from './supabase';
 import type { Position } from './scoring';
@@ -112,6 +112,36 @@ export function useTeamsWithoutSquad() {
   });
 }
 
+export type TransferSummary = { used: number; free: number; hit: number };
+
+/**
+ * Transfers made, free transfers going in, and the points hit, for one
+ * manager and gameweek (migration 0024). Null before the migration is run,
+ * or for someone else's squad before the deadline.
+ */
+export function transferSummaryQuery(userId: string | undefined, gameweekId: number | undefined) {
+  return {
+    queryKey: ['transfer-summary', userId ?? '', gameweekId ?? 0],
+    enabled: Boolean(userId && gameweekId),
+    queryFn: async (): Promise<TransferSummary | null> => {
+      const { data, error } = await requireSupabase().rpc('transfer_summary', {
+        p_user: userId!,
+        p_gameweek: gameweekId!,
+      });
+      if (error) return null;
+      return data[0] ?? null;
+    },
+  };
+}
+
+/** Points off each gameweek for extra transfers, by gameweek id (0 when none). */
+export function useTransferHits(userId: string | undefined, gameweekIds: number[]) {
+  const results = useQueries({
+    queries: gameweekIds.map((id) => transferSummaryQuery(userId, id)),
+  });
+  return new Map(gameweekIds.map((id, i) => [id, results[i]?.data?.hit ?? 0]));
+}
+
 export function useLeagueTable() {
   return useQuery({
     queryKey: keys.table,
@@ -203,7 +233,6 @@ export function nextOpenGameweek<G extends Pick<Gameweek, 'deadline'>>(
   return gameweeks.find((g) => new Date(g.deadline) > now);
 }
 
-/** Gameweeks whose deadline has passed, oldest first. */
 /**
  * Locked gameweeks that count towards the league: from the week scoring
  * (re)started, if a manager restarted it (league_settings.scoring_from).
@@ -216,6 +245,7 @@ export function scoringGameweeks<G extends Pick<Gameweek, 'deadline' | 'start_da
   return lockedGameweeks(gameweeks, now).filter((g) => !from || g.start_date >= from);
 }
 
+/** Gameweeks whose deadline has passed, oldest first. */
 export function lockedGameweeks<G extends Pick<Gameweek, 'deadline'>>(
   gameweeks: G[],
   now = new Date(),

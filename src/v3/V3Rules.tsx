@@ -3,7 +3,7 @@ import { Loading } from '@/components/ui';
 import { CHIPS } from '@/lib/chips';
 import { useSettings } from '@/lib/queries';
 import { RULES_TABLE } from '@/lib/scoring';
-import { formatPrice } from '@/lib/squad';
+import { formatPrice, transferRule } from '@/lib/squad';
 import { BackBar, Pills } from './V3Bits';
 
 const TABS = [
@@ -57,7 +57,7 @@ export function V3Rules() {
               "Subs: a sub goalkeeper, then 3 outfield subs in order. Once the weekend is over, a starter who didn't play is replaced by the first sub who did, as long as the team still lines up in an allowed formation. Only the 11 who count score.",
               `Budget of ${formatPrice(s.budget)}m.`,
               `Max ${s.max_per_side} players from any one side.`,
-              `Your first squad is free. After that, ${s.transfers_per_gameweek} transfers per gameweek.`,
+              transferRule(s),
               'If your player turns out for another Felixstowe side that weekend, those points count too.',
             ]}
           />

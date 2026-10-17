@@ -5,6 +5,7 @@ import {
   formatPrice,
   isValidArrangement,
   parsePrice,
+  transferCost,
   summariseSquad,
   type SquadPlayer,
 } from '@/lib/squad';
@@ -90,7 +91,17 @@ describe('summariseSquad', () => {
     const previous = [1, 2, 3, 4, 5, 6, 7, 8, 50, 51, 52, 12, 13, 14, 15];
     const s = summariseSquad(xi(), subs(), 1, 2, settings, [], previous);
     expect(s.transfers).toBe(3);
-    expect(s.problems.join(' ')).toMatch(/3 transfers/);
+    // Extra transfers aren't refused; they cost points (transferCost).
+    expect(s.problems).toEqual([]);
+  });
+
+  it('charges for transfers past the free ones, as transfer_hit()', () => {
+    expect(transferCost(3, 2, 4)).toEqual({ extra: 1, points: 4 });
+    expect(transferCost(2, 4, 4)).toEqual({ extra: 0, points: 0 });
+    expect(transferCost(6, 1, 4)).toEqual({ extra: 5, points: 20 });
+    // A wildcard or first squad: unlimited, free.
+    expect(transferCost(9, Infinity, 4)).toEqual({ extra: 0, points: 0 });
+    expect(transferCost(null, 2, 4)).toEqual({ extra: 0, points: 0 });
   });
 
   it('lets an 11-player squad from before the bench add 4 subs for free', () => {

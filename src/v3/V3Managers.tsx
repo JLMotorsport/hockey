@@ -39,7 +39,7 @@ export function V3Managers() {
   );
 
   if (loading || status.loading || gameweeks.isLoading) return <Loading />;
-  if (!profile?.is_admin) {
+  if (!profile?.is_admin && !profile?.is_super) {
     return (
       <div className="mx-auto max-w-[26rem]">
         {header('Felixstowe HC')}

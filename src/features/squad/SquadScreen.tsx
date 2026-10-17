@@ -73,6 +73,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     picked,
     benchPlayers,
     freeFix,
+    transfers,
     summary,
     problems,
     nextFor,
@@ -255,17 +256,16 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
         title: pos === 'GK' ? 'Goalkeepers' : groupTitle(pos),
         rows: squadPlayers.filter((p) => p.position === pos),
       }));
-  const unlimited = wildcard || freeFix || summary.transfers === null;
-  const transfersLeft = unlimited
-    ? null
-    : Math.max(0, s.transfers_per_gameweek - (summary.transfers ?? 0));
-  // FPL's numbers row, as far as this game has them (no points hits, so no Cost).
+  const { unlimited } = transfers;
+  // FPL's numbers row: free transfers, then the points cost once past them.
   const transferStats: [string, string, string][] = [
-    [
-      unlimited ? 'Unlimited' : `${transfersLeft} / ${s.transfers_per_gameweek}`,
-      unlimited ? 'Transfers' : 'Free transfers left',
-      '',
-    ],
+    transfers.extra > 0
+      ? [`-${transfers.cost} pts`, `Cost (${transfers.extra} extra)`, 'bg-brand text-white']
+      : [
+          unlimited ? 'Unlimited' : `${transfers.left} / ${transfers.free}`,
+          unlimited ? 'Transfers' : 'Free transfers left',
+          '',
+        ],
     [`${summary.count}/${STARTERS + BENCH}`, 'Squad', ''],
     [`${formatPrice(bank)}m`, 'Bank', bank < 0 ? 'bg-brand text-white' : 'bg-[#1f7a4d] text-white'],
   ];
@@ -620,8 +620,11 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
                     ? wildcard
                       ? 'Unlimited (wildcard)'
                       : 'Unlimited'
-                    : `${summary.transfers ?? 0} of ${s.transfers_per_gameweek}`,
+                    : `${transfers.used} (${transfers.free} free)`,
                 ],
+                ...(transfers.extra > 0
+                  ? ([['Points cost', `-${transfers.cost} pts`]] as const)
+                  : []),
                 ['Bank after', `${formatPrice(bank)}m`],
                 ['Then', 'On to Pick Team'],
               ] as const
@@ -640,8 +643,9 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
             </ul>
           )}
           <p className="mb-3 mt-4 text-xs leading-snug text-ink-soft">
-            You can change your team again until the deadline. No points hits here: once your free
-            transfers are used, that&apos;s it until next gameweek (or play your wildcard).
+            You can change your team again until the deadline. Each transfer past your free ones
+            costs {s.transfer_hit ?? 4} points off this gameweek&apos;s score. Unused free transfers
+            carry over, up to {s.max_free_transfers ?? 5}.
           </p>
           <button
             type="button"

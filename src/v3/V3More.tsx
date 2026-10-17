@@ -98,7 +98,7 @@ export function V3More() {
         {link('/team-of-the-week', 'Team of the week')}
         {link('/players', 'Players')}
         {link('/rules', 'How it works')}
-        {profile?.is_admin && link('/managers', 'Managers area')}
+        {(profile?.is_admin || profile?.is_super) && link('/managers', 'Managers area')}
       </Section>
 
       {session && (

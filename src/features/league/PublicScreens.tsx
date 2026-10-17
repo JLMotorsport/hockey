@@ -16,7 +16,7 @@ import { CHIPS } from '@/lib/chips';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { inLeague, type LeagueKey } from '@/lib/table';
 import { POSITIONS, RULES_TABLE, type Position } from '@/lib/scoring';
-import { formatPrice } from '@/lib/squad';
+import { formatPrice, transferRule } from '@/lib/squad';
 import { LeagueTable } from './LeagueTable';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
 import { MatchSheet } from './MatchSheet';
@@ -412,10 +412,7 @@ export function RulesScreen() {
               </li>
               <li>Budget of {formatPrice(s.budget)}m.</li>
               <li>Max {s.max_per_side} players from any one side.</li>
-              <li>
-                Your first squad is free. After that, {s.transfers_per_gameweek} transfers per
-                gameweek.
-              </li>
+              <li>{transferRule(s)}</li>
               <li>
                 Squads lock at each gameweek&apos;s deadline: an hour before its first game. Your
                 squad carries over each week until you change it.

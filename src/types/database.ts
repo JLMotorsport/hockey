@@ -233,9 +233,11 @@ export type Database = {
           formations: string[];
           id: number;
           late_entry_until: string | null;
+          max_free_transfers: number;
           max_per_side: number;
           scoring_from: string | null;
           squad_size: number;
+          transfer_hit: number;
           transfers_per_gameweek: number;
         };
         Insert: {
@@ -243,9 +245,11 @@ export type Database = {
           formations?: string[];
           id?: number;
           late_entry_until?: string | null;
+          max_free_transfers?: number;
           max_per_side?: number;
           scoring_from?: string | null;
           squad_size?: number;
+          transfer_hit?: number;
           transfers_per_gameweek?: number;
         };
         Update: {
@@ -253,9 +257,11 @@ export type Database = {
           formations?: string[];
           id?: number;
           late_entry_until?: string | null;
+          max_free_transfers?: number;
           max_per_side?: number;
           scoring_from?: string | null;
           squad_size?: number;
+          transfer_hit?: number;
           transfers_per_gameweek?: number;
         };
         Relationships: [];
@@ -789,6 +795,7 @@ export type Database = {
       delete_my_account: { Args: { p_team_name: string }; Returns: undefined };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
       fixtures_due_for_sync: { Args: { p_now?: string }; Returns: number[] };
+      free_transfers: { Args: { p_gameweek: number; p_user: string }; Returns: number };
       import_fixtures: {
         Args: { p_competition: string; p_rows: Json; p_side_id: number };
         Returns: Json;
@@ -910,6 +917,16 @@ export type Database = {
       };
       squad_source_gameweek: { Args: { p_gameweek: number; p_user: string }; Returns: number };
       teams_without_squad: { Args: Record<PropertyKey, never>; Returns: string[] };
+      transfer_hit: { Args: { p_gameweek: number; p_user: string }; Returns: number };
+      transfer_summary: {
+        Args: { p_gameweek: number; p_user: string };
+        Returns: {
+          free: number;
+          hit: number;
+          used: number;
+        }[];
+      };
+      transfers_used: { Args: { p_gameweek: number; p_user: string }; Returns: number };
       undo_change: { Args: { p_id: number }; Returns: number };
       weekend_sync_due: { Args: { p_now?: string }; Returns: boolean };
     };

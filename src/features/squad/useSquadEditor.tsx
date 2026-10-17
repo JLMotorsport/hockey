@@ -18,6 +18,7 @@ import {
   lockedGameweeks,
   useOwnership,
   usePriceTrend,
+  transferSummaryQuery,
 } from '@/lib/queries';
 import {
   cardNames,
@@ -42,6 +43,7 @@ import {
   fitsQuota,
   STARTERS,
   summariseSquad,
+  transferCost,
   type SquadPlayer,
 } from '@/lib/squad';
 import { errorLines, requireSupabase } from '@/lib/supabase';
@@ -87,6 +89,8 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
 
   const all = gameweeks.data ?? [];
   const gameweek = nextOpenGameweek(all);
+  // Free transfers going into this gameweek, banked ones included (0024).
+  const transferSummary = useQuery(transferSummaryQuery(session?.user.id, gameweek?.id));
   // The last gameweek with points, for "how did they do" in player details.
   const lastPlayed = [...all].reverse().find((g) => new Date(g.deadline) <= new Date());
   const previousGw = gameweek
@@ -230,13 +234,31 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     benchPlayers,
     captainId,
     viceId,
-    // A wildcard or a squad that needs reshaping lifts the transfer limit (as in save_squad).
-    wildcard || freeFix ? { ...s, transfers_per_gameweek: Infinity } : s,
+    s,
     currentIds,
     previousIds,
     { base: bankBefore.data ?? s.budget, priceOf: (id) => priceById.get(id) ?? 0 },
     currentStarters,
   );
+  // Free transfers, and what any past them cost (as transfer_hit()). A
+  // wildcard, a first squad or reshaping to 2/5/5/3 is free. No hits in the
+  // gameweek scoring restarted.
+  const unlimited = wildcard || freeFix || summary.transfers === null;
+  const freeCount = unlimited ? Infinity : (transferSummary.data?.free ?? s.transfers_per_gameweek);
+  const hitApplies = !s.scoring_from || gameweek.start_date > s.scoring_from;
+  const transferHit = transferCost(
+    summary.transfers,
+    freeCount,
+    hitApplies ? (s.transfer_hit ?? 4) : 0,
+  );
+  const transfers = {
+    unlimited,
+    used: summary.transfers ?? 0,
+    free: freeCount,
+    left: Math.max(0, freeCount - (summary.transfers ?? 0)),
+    extra: transferHit.extra,
+    cost: transferHit.points,
+  };
   // Transfers is about who's in the 15: the line-up (formation, armbands,
   // subs order) is sorted out on save and on Pick team, so not listed here.
   const lineUp =
@@ -419,6 +441,8 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     await queryClient.invalidateQueries({ queryKey: ['squad'] });
     await queryClient.invalidateQueries({ queryKey: ['bank-before'] });
     await queryClient.invalidateQueries({ queryKey: ['late-entry'] });
+    await queryClient.invalidateQueries({ queryKey: ['transfer-summary'] });
+    await queryClient.invalidateQueries({ queryKey: ['teams-without-squad'] });
     await queryClient.invalidateQueries({ queryKey: keys.table });
     // After transfers, on to picking the team, as in FPL.
     if (mode === 'transfers') {
@@ -716,6 +740,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     positionById,
     previousCounts,
     freeFix,
+    transfers,
     summary,
     lineUp,
     problems,
