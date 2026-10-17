@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ErrorText, Loading } from '@/components/ui';
 import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
 import { opponentName, sideForm } from '@/lib/form';
+import { MatchSheet } from '@/features/league/MatchSheet';
 import { useFixtures, useGameweeks, useSides } from '@/lib/queries';
 
 const RESULT_COLOUR = { W: '--v3-mint', L: '--v3-red', D: '--v3-amber' } as const;
@@ -13,6 +14,7 @@ export function V3Fixtures() {
   const fixtures = useFixtures();
   const sides = useSides();
   const [tab, setTab] = useState<'upcoming' | 'results' | null>(null);
+  const [match, setMatch] = useState<number | null>(null);
   if (gameweeks.isLoading || fixtures.isLoading || sides.isLoading) return <Loading />;
   if (fixtures.error) return <ErrorText error={fixtures.error} />;
 
@@ -111,47 +113,54 @@ export function V3Fixtures() {
                 return (
                   <li
                     key={f.id}
-                    className="v3-in flex min-h-[56px] items-center gap-3 border-b border-white/10 py-2"
+                    className="v3-in border-b border-white/10"
                     style={{ animationDelay: `${i * 0.04}s` }}
                   >
-                    <span className="v3-disp flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[15px]">
-                      {sideShort.get(f.side_id)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold">
-                        {opponentName(f.opponent)}
+                    <button
+                      type="button"
+                      disabled={!res}
+                      onClick={() => setMatch(f.id)}
+                      className="flex min-h-[56px] w-full items-center gap-3 py-2 text-left disabled:cursor-default"
+                    >
+                      <span className="v3-disp flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[15px]">
+                        {sideShort.get(f.side_id)}
                       </span>
-                      <span className="block text-[11px] text-[rgb(var(--v3-mut))]">
-                        {f.is_home ? 'Home' : 'Away'}
-                        {res
-                          ? f.lineup_imported_at || f.stats_locked
-                            ? ' · Points in'
-                            : ' · Waiting for line-up'
-                          : ''}
-                      </span>
-                    </span>
-                    {res ? (
-                      <>
-                        <span className="v3-disp v3-num text-2xl">
-                          {f.goals_for}-{f.goals_against}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold">
+                          {opponentName(f.opponent)}
                         </span>
-                        <span
-                          aria-label={RESULT_WORD[res]}
-                          className="v3-disp flex h-[26px] w-[26px] items-center justify-center rounded-[9px] border text-sm"
-                          style={{
-                            color: `rgb(var(${RESULT_COLOUR[res]}))`,
-                            borderColor: `rgb(var(${RESULT_COLOUR[res]}))`,
-                            background: `rgb(var(${RESULT_COLOUR[res]}) / .13)`,
-                          }}
-                        >
-                          {res}
+                        <span className="block text-[11px] text-[rgb(var(--v3-mut))]">
+                          {f.is_home ? 'Home' : 'Away'}
+                          {res
+                            ? f.lineup_imported_at || f.stats_locked
+                              ? ' · Points in'
+                              : ' · Waiting for line-up'
+                            : ''}
                         </span>
-                      </>
-                    ) : (
-                      <span className="v3-num whitespace-nowrap text-[13px] text-[rgb(var(--v3-mut))]">
-                        {formatWeekdayTime(f.kickoff)}
                       </span>
-                    )}
+                      {res ? (
+                        <>
+                          <span className="v3-disp v3-num text-2xl">
+                            {f.goals_for}-{f.goals_against}
+                          </span>
+                          <span
+                            aria-label={RESULT_WORD[res]}
+                            className="v3-disp flex h-[26px] w-[26px] items-center justify-center rounded-[9px] border text-sm"
+                            style={{
+                              color: `rgb(var(${RESULT_COLOUR[res]}))`,
+                              borderColor: `rgb(var(${RESULT_COLOUR[res]}))`,
+                              background: `rgb(var(${RESULT_COLOUR[res]}) / .13)`,
+                            }}
+                          >
+                            {res}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="v3-num whitespace-nowrap text-[13px] text-[rgb(var(--v3-mut))]">
+                          {formatWeekdayTime(f.kickoff)}
+                        </span>
+                      )}
+                    </button>
                   </li>
                 );
               })}
@@ -169,6 +178,7 @@ export function V3Fixtures() {
           {shown === 'upcoming' ? 'No fixtures to come yet.' : 'No results yet.'}
         </p>
       )}
+      {match !== null && <MatchSheet fixtureId={match} onClose={() => setMatch(null)} />}
     </div>
   );
 }

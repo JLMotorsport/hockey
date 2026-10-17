@@ -19,6 +19,7 @@ import { POSITIONS, RULES_TABLE, type Position } from '@/lib/scoring';
 import { formatPrice } from '@/lib/squad';
 import { LeagueTable } from './LeagueTable';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
+import { MatchSheet } from './MatchSheet';
 import { StatsTable } from '@/components/StatsTable';
 import { usePlayerColumns } from '@/features/player/statColumns';
 
@@ -241,6 +242,7 @@ export function FixturesScreen() {
   const fixtures = useFixtures();
   const sides = useSides();
   const [tab, setTab] = useState<'upcoming' | 'results' | null>(null);
+  const [match, setMatch] = useState<number | null>(null);
   if (gameweeks.isLoading || fixtures.isLoading || sides.isLoading) return <Loading />;
   if (fixtures.error) return <ErrorText error={fixtures.error} />;
   const sideList = sides.data ?? [];
@@ -323,36 +325,44 @@ export function FixturesScreen() {
                         ? 'L'
                         : 'D';
                 return (
-                  <li
-                    key={f.id}
-                    className="flex min-h-[52px] items-center gap-3 border-b border-line px-4 py-2 last:border-0"
-                  >
-                    <span className="w-9 shrink-0 rounded-md bg-[#16181d] py-0.5 text-center font-display text-sm font-bold text-white">
-                      {sideShort.get(f.side_id)}
-                    </span>
-                    <span className="min-w-0 flex-1 font-semibold">
-                      {opponentName(f.opponent)}{' '}
-                      <span className="text-sm font-bold text-ink-soft">
-                        {f.is_home ? 'H' : 'A'}
+                  <li key={f.id} className="border-b border-line last:border-0">
+                    {/* A result opens the match: who played and their points. */}
+                    <button
+                      type="button"
+                      disabled={!res}
+                      onClick={() => setMatch(f.id)}
+                      className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left disabled:cursor-default"
+                    >
+                      <span className="w-9 shrink-0 rounded-md bg-[#16181d] py-0.5 text-center font-display text-sm font-bold text-white">
+                        {sideShort.get(f.side_id)}
                       </span>
-                    </span>
-                    {res ? (
-                      <>
-                        <span className="display-num text-xl">
-                          {f.goals_for}-{f.goals_against}
+                      <span className="min-w-0 flex-1 font-semibold">
+                        {opponentName(f.opponent)}{' '}
+                        <span className="text-sm font-bold text-ink-soft">
+                          {f.is_home ? 'H' : 'A'}
                         </span>
-                        <span
-                          className={`flex h-7 w-7 items-center justify-center rounded-md font-display font-bold text-white ${res === 'W' ? 'bg-[#1f7a4d]' : res === 'L' ? 'bg-[#b3261e]' : 'bg-[#6b7280]'}`}
-                          aria-label={res === 'W' ? 'Won' : res === 'L' ? 'Lost' : 'Drew'}
-                        >
-                          {res}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="muted whitespace-nowrap text-sm tabular-nums">
-                        {formatWeekdayTime(f.kickoff)}
                       </span>
-                    )}
+                      {res ? (
+                        <>
+                          <span className="display-num text-xl">
+                            {f.goals_for}-{f.goals_against}
+                          </span>
+                          <span
+                            className={`flex h-7 w-7 items-center justify-center rounded-md font-display font-bold text-white ${res === 'W' ? 'bg-[#1f7a4d]' : res === 'L' ? 'bg-[#b3261e]' : 'bg-[#6b7280]'}`}
+                            aria-label={res === 'W' ? 'Won' : res === 'L' ? 'Lost' : 'Drew'}
+                          >
+                            {res}
+                          </span>
+                          <span aria-hidden="true" className="muted -ml-1 text-lg">
+                            ›
+                          </span>
+                        </>
+                      ) : (
+                        <span className="muted whitespace-nowrap text-sm tabular-nums">
+                          {formatWeekdayTime(f.kickoff)}
+                        </span>
+                      )}
+                    </button>
                   </li>
                 );
               })}
@@ -370,6 +380,7 @@ export function FixturesScreen() {
           {shown === 'upcoming' ? 'No fixtures to come yet.' : 'No results yet.'}
         </p>
       )}
+      {match !== null && <MatchSheet fixtureId={match} onClose={() => setMatch(null)} />}
     </>
   );
 }
