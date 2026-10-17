@@ -132,8 +132,7 @@ export function HomeScreen() {
                 showPoints
                 gameweekId={live.id}
                 compact
-                card
-                fieldClass="h-[21rem] sm:h-[24rem]"
+                live
               />
             </div>
           ) : (
