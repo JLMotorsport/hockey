@@ -71,8 +71,10 @@ export interface SyncState extends FixtureLike {
  * What a live card shows instead of points: who the player's usual side
  * plays ("LOW (H)"), until that side's match has synced (line-up imported,
  * stats entered by hand, or locked by a manager). Then null: show their
- * points, 0 if the sync says they didn't play. A side with no game shows
- * "No game", unless the player turned out for another side.
+ * points, 0 if the sync says they didn't play. Someone already in a synced
+ * line-up this gameweek (say they turned out for another side) shows their
+ * points straight away; a later game adds to them. A side with no game
+ * shows "No game", unless the player has played for another side.
  */
 export function pendingLabel(
   fixtures: SyncState[],
@@ -80,8 +82,10 @@ export function pendingLabel(
   gameweekId: number,
   opts: { appeared: boolean; fixturesWithStats: Set<number> },
 ): string | null {
+  // In a line-up that's in (any side): their points are real, show them.
+  if (opts.appeared) return null;
   const games = fixtures.filter((f) => f.side_id === sideId && f.gameweek_id === gameweekId);
-  if (!games.length) return opts.appeared ? null : 'No game';
+  if (!games.length) return 'No game';
   const synced = games.every(
     (f) => f.lineup_imported_at !== null || f.stats_locked || opts.fixturesWithStats.has(f.id),
   );

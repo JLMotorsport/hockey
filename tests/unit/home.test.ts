@@ -92,10 +92,8 @@ describe('pendingLabel', () => {
     expect(pendingLabel(fixtures, 1, 2, { appeared: false, fixturesWithStats: none })).toBe(
       'LOW (H)',
     );
-    // Played for another side that has synced: still waits for their own side.
-    expect(pendingLabel(fixtures, 1, 2, { appeared: true, fixturesWithStats: none })).toBe(
-      'LOW (H)',
-    );
+    // Played for another side whose match is in (usual M1, played M2): their points show.
+    expect(pendingLabel(fixtures, 1, 2, { appeared: true, fixturesWithStats: none })).toBeNull();
   });
   it('shows points (0 if they did not play) once the match has synced', () => {
     expect(
