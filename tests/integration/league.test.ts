@@ -1349,7 +1349,11 @@ describe.skipIf(!configured)('league database', () => {
       expect([...rows.values()].every((r) => r.counts)).toBe(true);
       expect(rows.get(captain)!.points).toBe(base.get(captain)! * 2);
       const all = [...rows.values()].reduce((sum, r) => sum + r.points, 0);
-      expect(all).toBe([...base.values()].reduce((a, b) => a + b, 0) + base.get(captain)!);
+      // (Only the squad's 15: other tests' matches can fall in the same week.)
+      const squadBase = [...base.entries()]
+        .filter(([p]) => p !== null && rows.has(p))
+        .reduce((a, [, b]) => a + (b ?? 0), 0);
+      expect(all).toBe(squadBase + base.get(captain)!);
 
       // Team Bus on the 1s: their points double (the captain's on top of the
       // armband); the vice played for the 2s, so no bus bonus.
@@ -1415,6 +1419,187 @@ describe.skipIf(!configured)('league database', () => {
       const res = await rpc(fixed, [14, 15, 16, 17].map(id));
       expect(res.error).toBeNull();
       expect(res.data).toBe(open);
+    });
+  });
+
+  describe('tiers, the change log, and restarting scoring', () => {
+    const id = (i: number) => playerIds[i]!;
+    const xi = () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(id);
+    const subs = () => [14, 15, 16, 17].map(id);
+    const save = (who: { db: Db }, captain = xi()[9]!) =>
+      who.db.rpc('save_squad', {
+        p_starters: xi(),
+        p_bench: subs(),
+        p_captain_id: captain,
+        p_vice_id: xi()[10]!,
+      });
+    const settings = (row: { late_entry_until?: string | null; scoring_from?: string | null }) =>
+      service.from('league_settings').update(row).eq('id', 1);
+    const live = async () =>
+      (
+        await anon
+          .from('gameweeks')
+          .select('id, start_date')
+          .lte('deadline', new Date().toISOString())
+          .order('start_date', { ascending: false })
+          .limit(1)
+          .single()
+      ).data!;
+    const picksIn = async (user: string, gw: number) =>
+      (
+        await service
+          .from('picks')
+          .select('player_id, is_captain')
+          .eq('user_id', user)
+          .eq('gameweek_id', gw)
+          .order('player_id')
+      ).data!;
+    const lastLog = async (rowId: number) =>
+      (
+        await boss.db
+          .from('manager_log')
+          .select('*')
+          .eq('row_id', String(rowId))
+          .order('id', { ascending: false })
+          .limit(1)
+      ).data![0]!;
+    const price = async (player: number) =>
+      (await service.from('players').select('price').eq('id', player).single()).data!.price;
+
+    afterAll(async () => {
+      await settings({ late_entry_until: null, scoring_from: null });
+      await service.from('profiles').update({ is_super: false }).eq('id', boss.id);
+      await service.from('profiles').update({ is_admin: false }).eq('id', alice.id);
+    });
+
+    it('only the super user appoints managers, and the super user stays one', async () => {
+      // A manager who isn't the super user can't.
+      const notSuper = await boss.db.rpc('set_admin', { p_user: alice.id, p_value: true });
+      expect(notSuper.error!.message).toMatch(/Only the super user/);
+      await service.from('profiles').update({ is_super: true }).eq('id', boss.id);
+      expect(
+        (await boss.db.rpc('set_admin', { p_user: alice.id, p_value: true })).error,
+      ).toBeNull();
+      // Alice is a manager now, but still can't appoint, or remove the super user.
+      expect(
+        (await alice.db.rpc('set_admin', { p_user: bob.id, p_value: true })).error,
+      ).not.toBeNull();
+      expect(
+        (await alice.db.rpc('set_admin', { p_user: boss.id, p_value: false })).error,
+      ).not.toBeNull();
+      // Nobody can make themselves super.
+      await alice.db
+        .from('profiles')
+        .update({ is_super: true } as never)
+        .eq('id', alice.id);
+      const { data } = await service
+        .from('profiles')
+        .select('is_super')
+        .eq('id', alice.id)
+        .single();
+      expect(data).toEqual({ is_super: false });
+    });
+
+    it('logs what managers change, for the super user to see and undo', async () => {
+      const player = id(5);
+      const before = await price(player);
+      expect(
+        (
+          await alice.db
+            .from('players')
+            .update({ price: before + 5 })
+            .eq('id', player)
+        ).error,
+      ).toBeNull();
+
+      const entry = await lastLog(player);
+      expect(entry).toMatchObject({ actor: alice.id, op: 'update', table_name: 'players' });
+      expect(entry.undone_at).toBeNull();
+      // Only the super user can read it, or undo.
+      expect((await alice.db.from('manager_log').select('id')).data).toEqual([]);
+      expect((await alice.db.rpc('undo_change', { p_id: entry.id })).error).not.toBeNull();
+
+      expect((await boss.db.rpc('undo_change', { p_id: entry.id })).error).toBeNull();
+      expect(await price(player)).toBe(before);
+      const again = await boss.db.rpc('undo_change', { p_id: entry.id });
+      expect(again.error!.message).toMatch(/already been undone/);
+    });
+
+    it("won't undo a change that has been edited again since", async () => {
+      const player = id(6);
+      const before = await price(player);
+      await alice.db
+        .from('players')
+        .update({ price: before + 5 })
+        .eq('id', player);
+      const first = (await lastLog(player)).id;
+      await alice.db
+        .from('players')
+        .update({ price: before + 10 })
+        .eq('id', player);
+      const blocked = await boss.db.rpc('undo_change', { p_id: first });
+      expect(blocked.error!.message).toMatch(/edited again since/);
+      // Undo the later one, then the first.
+      expect(
+        (await boss.db.rpc('undo_change', { p_id: (await lastLog(player)).id })).error,
+      ).toBeNull();
+      expect((await boss.db.rpc('undo_change', { p_id: first })).error).toBeNull();
+      expect(await price(player)).toBe(before);
+    });
+
+    it('lets a team made after the deadline join the live gameweek while late entry is open', async () => {
+      const gw = await live();
+      const erin = await signUp('late.entry@example.com', 'Late XI');
+      await settings({ late_entry_until: days(1) });
+
+      expect((await save(erin)).error).toBeNull();
+      expect(await picksIn(erin.id, gw.id)).toHaveLength(15);
+      // Still their first squad today: change it freely, live gameweek too.
+      expect((await save(erin, xi()[8]!)).error).toBeNull();
+      expect((await picksIn(erin.id, gw.id)).find((p) => p.is_captain)!.player_id).toBe(xi()[8]);
+      // Three changes (over the usual 2) are fine too: it's still a first squad.
+      const three = [11, 13, 2, 3, 4, 5, 6, 7, 8, 9, 12].map(id);
+      const changed = await erin.db.rpc('save_squad', {
+        p_starters: three,
+        p_bench: [0, 15, 16, 17].map(id),
+        p_captain_id: three[9]!,
+        p_vice_id: three[10]!,
+      });
+      expect(changed.error).toBeNull();
+      expect((await erin.db.rpc('bank_before_next')).data).toBe(
+        (await service.from('league_settings').select('budget').single()).data!.budget,
+      );
+      // Back to the first squad for the checks below.
+      expect((await save(erin, xi()[8]!)).error).toBeNull();
+
+      // Someone who already had a squad this gameweek doesn't get to re-pick it.
+      const early = await signUp('early.bird@example.com', 'Early XI');
+      await service.from('picks').insert(
+        [...xi(), ...subs()].map((p, n) => ({
+          user_id: early.id,
+          gameweek_id: gw.id,
+          player_id: p,
+          is_captain: n === 9,
+          is_vice: n === 10,
+          bench_order: n < 11 ? null : n - 10,
+        })),
+      );
+      const theirs = await picksIn(early.id, gw.id);
+      expect((await save(early, xi()[7]!)).error).toBeNull();
+      expect(await picksIn(early.id, gw.id)).toEqual(theirs);
+
+      // Once late entry closes, the live gameweek is locked again.
+      await settings({ late_entry_until: days(-1) });
+      await save(erin, xi()[9]!);
+      expect((await picksIn(erin.id, gw.id)).find((p) => p.is_captain)!.player_id).toBe(xi()[8]);
+    });
+
+    it('counts points from the gameweek scoring restarted', async () => {
+      const gw = await live();
+      await settings({ scoring_from: gw.start_date });
+      const { data } = await anon.rpc('league_table');
+      for (const r of data!) expect(r.total).toBe(r.latest); // only the live gameweek counts
+      await settings({ scoring_from: null });
     });
   });
 

@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth/AuthProvider';
 import { formatWeekdayTime, gameweekLabel } from '@/lib/format';
 import {
   keys,
-  lockedGameweeks,
+  scoringGameweeks,
   nextOpenGameweek,
   useGameweeks,
   useLeagueTable,
@@ -32,12 +32,12 @@ export function DashboardScreen() {
   const seasonPoints = useSeasonPoints();
   const all = gameweeks.data ?? [];
   const next = nextOpenGameweek(all);
-  const locked = lockedGameweeks(all);
+  const settings = useSettings(); // also loaded now so Pick Team opens straight away
+  const locked = scoringGameweeks(all, settings.data?.scoring_from);
   const last = locked.at(-1);
   const userId = session?.user.id;
   const [params, setParams] = useSearchParams();
   const transitionClick = useTransitionClick();
-  useSettings(); // loaded now so Pick Team opens straight away
   // Past gameweeks plus the one being picked for, oldest first.
   const browsable = next ? [...locked, next] : locked;
   const viewing =

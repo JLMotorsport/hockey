@@ -10,7 +10,7 @@ import { formatWeekdayTime } from '@/lib/format';
 import { myPlace, ordinal, weekSpread } from '@/lib/home';
 import {
   keys,
-  lockedGameweeks,
+  scoringGameweeks,
   nextOpenGameweek,
   squadTotal,
   useChips,
@@ -18,6 +18,7 @@ import {
   useLeagueTable,
   usePlayers,
   useProfile,
+  useSettings,
   useSides,
 } from '@/lib/queries';
 import { requireSupabase } from '@/lib/supabase';
@@ -44,7 +45,8 @@ export function V3Points() {
   const [open, setOpen] = useState<number | null>(null);
   const onOpen = useCallback((id: number) => setOpen(id), []);
   const all = gameweeks.data ?? [];
-  const locked = lockedGameweeks(all);
+  const settings = useSettings();
+  const locked = scoringGameweeks(all, settings.data?.scoring_from);
   const next = nextOpenGameweek(all);
   // Your own team shows the next gameweek too; someone else's only after its deadline.
   const browsable = mine && next ? [...locked, next] : locked;

@@ -2,7 +2,8 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { ErrorText, Loading } from '@/components/ui';
 import { gameweekLabel } from '@/lib/format';
 import {
-  lockedGameweeks,
+  scoringGameweeks,
+  useSettings,
   useGameweeks,
   usePlayers,
   useProfile,
@@ -21,7 +22,8 @@ export function TeamScreen() {
   const players = usePlayers();
   const sides = useSides();
   const all = gameweeks.data ?? [];
-  const locked = lockedGameweeks(all);
+  const settings = useSettings();
+  const locked = scoringGameweeks(all, settings.data?.scoring_from);
   const wanted = Number(params.get('gw'));
   const gameweek = locked.find((g) => g.id === wanted) ?? locked.at(-1);
   const squad = useSquad(userId, gameweek?.id);

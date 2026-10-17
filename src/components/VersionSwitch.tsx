@@ -1,8 +1,10 @@
-import { setUiVersion, UI_VERSIONS, useUiVersion } from '@/lib/uiVersion';
+import { setUiVersion, UI_VERSIONS, useCanSwitchVersion, useUiVersion } from '@/lib/uiVersion';
 
-/** V1 / V2 / V3 for testing the redesigns side by side. */
+/** V1 / V2 / V3 side by side: the super user only (everyone else has V2). */
 export function VersionSwitch({ tone = 'light' }: { tone?: 'light' | 'page' | 'v3' }) {
   const version = useUiVersion();
+  const allowed = useCanSwitchVersion();
+  if (!allowed) return null;
   return (
     <div
       role="group"

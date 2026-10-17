@@ -192,6 +192,18 @@ export function nextOpenGameweek<G extends Pick<Gameweek, 'deadline'>>(
 }
 
 /** Gameweeks whose deadline has passed, oldest first. */
+/**
+ * Locked gameweeks that count towards the league: from the week scoring
+ * (re)started, if a manager restarted it (league_settings.scoring_from).
+ */
+export function scoringGameweeks<G extends Pick<Gameweek, 'deadline' | 'start_date'>>(
+  gameweeks: G[],
+  from: string | null | undefined,
+  now = new Date(),
+): G[] {
+  return lockedGameweeks(gameweeks, now).filter((g) => !from || g.start_date >= from);
+}
+
 export function lockedGameweeks<G extends Pick<Gameweek, 'deadline'>>(
   gameweeks: G[],
   now = new Date(),

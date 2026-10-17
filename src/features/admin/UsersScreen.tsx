@@ -8,7 +8,9 @@ import { errorLines, requireSupabase } from '@/lib/supabase';
 import { PageHead, SideTag, Toggle, panel } from './adminUi';
 
 export function UsersScreen() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
+  // Only the super user makes or removes managers (the database enforces it).
+  const canAppoint = Boolean(profile?.is_super);
   const users = useAdminUsers();
   const table = useLeagueTable();
   const profileSides = useProfileSides();
@@ -42,11 +44,12 @@ export function UsersScreen() {
   }
 
   const managers = all.filter((u) => u.is_admin).length;
+  const superUser = all.find((u) => u.is_super);
   return (
     <>
       <PageHead
         title="Users"
-        sub={`${all.length} signed up · ${managers} ${managers === 1 ? 'manager' : 'managers'}`}
+        sub={`${all.length} signed up · ${managers} ${managers === 1 ? 'manager' : 'managers'}${superUser ? ` · super user: ${superUser.display_name}` : ''}`}
       >
         <input
           type="search"
@@ -106,12 +109,12 @@ export function UsersScreen() {
               <span className="flex flex-col items-center lg:items-end">
                 <Toggle
                   checked={u.is_admin}
-                  disabled={me}
+                  disabled={me || !canAppoint || u.is_super}
                   label={`${u.display_name} is a manager`}
                   onChange={(v) => void toggle(u.id, v, u.display_name)}
                 />
                 <span className="-mt-2 text-[10px] font-bold uppercase text-ink-soft lg:hidden">
-                  Manager
+                  {u.is_super ? 'Super user' : 'Manager'}
                 </span>
               </span>
             </div>
@@ -119,8 +122,8 @@ export function UsersScreen() {
         })}
       </section>
       <p className="muted mt-3 text-[13px]">
-        Managers can open this area and change players, matches and settings. You can&apos;t remove
-        your own manager access.
+        Managers can open this area and change players, matches and settings. Only the super user
+        can make or remove managers, and the super user is always one.
       </p>
     </>
   );

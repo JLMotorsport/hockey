@@ -232,7 +232,9 @@ export type Database = {
           budget: number;
           formations: string[];
           id: number;
+          late_entry_until: string | null;
           max_per_side: number;
+          scoring_from: string | null;
           squad_size: number;
           transfers_per_gameweek: number;
         };
@@ -240,7 +242,9 @@ export type Database = {
           budget?: number;
           formations?: string[];
           id?: number;
+          late_entry_until?: string | null;
           max_per_side?: number;
+          scoring_from?: string | null;
           squad_size?: number;
           transfers_per_gameweek?: number;
         };
@@ -248,11 +252,70 @@ export type Database = {
           budget?: number;
           formations?: string[];
           id?: number;
+          late_entry_until?: string | null;
           max_per_side?: number;
+          scoring_from?: string | null;
           squad_size?: number;
           transfers_per_gameweek?: number;
         };
         Relationships: [];
+      };
+      manager_log: {
+        Row: {
+          actor: string | null;
+          at: string;
+          id: number;
+          new_data: Json | null;
+          old_data: Json | null;
+          op: string;
+          row_id: string;
+          table_name: string;
+          tx: number;
+          undone_at: string | null;
+          undone_by: string | null;
+        };
+        Insert: {
+          actor?: string | null;
+          at?: string;
+          id?: never;
+          new_data?: Json | null;
+          old_data?: Json | null;
+          op: string;
+          row_id: string;
+          table_name: string;
+          tx?: number;
+          undone_at?: string | null;
+          undone_by?: string | null;
+        };
+        Update: {
+          actor?: string | null;
+          at?: string;
+          id?: never;
+          new_data?: Json | null;
+          old_data?: Json | null;
+          op?: string;
+          row_id?: string;
+          table_name?: string;
+          tx?: number;
+          undone_at?: string | null;
+          undone_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'manager_log_actor_fkey';
+            columns: ['actor'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'manager_log_undone_by_fkey';
+            columns: ['undone_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       performances: {
         Row: {
@@ -490,6 +553,8 @@ export type Database = {
           display_name: string;
           id: string;
           is_admin: boolean;
+          is_super: boolean;
+          late_entry_gameweek: number | null;
           side_id: number | null;
           team_name: string;
         };
@@ -498,6 +563,8 @@ export type Database = {
           display_name: string;
           id: string;
           is_admin?: boolean;
+          is_super?: boolean;
+          late_entry_gameweek?: number | null;
           side_id?: number | null;
           team_name: string;
         };
@@ -506,10 +573,19 @@ export type Database = {
           display_name?: string;
           id?: string;
           is_admin?: boolean;
+          is_super?: boolean;
+          late_entry_gameweek?: number | null;
           side_id?: number | null;
           team_name?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'profiles_late_entry_gameweek_fkey';
+            columns: ['late_entry_gameweek'];
+            isOneToOne: false;
+            referencedRelation: 'gameweeks';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'profiles_side_id_fkey';
             columns: ['side_id'];
@@ -700,6 +776,7 @@ export type Database = {
           email: string;
           id: string;
           is_admin: boolean;
+          is_super: boolean;
           team_name: string;
         }[];
       };
@@ -708,6 +785,7 @@ export type Database = {
       bank_before_next: { Args: Record<PropertyKey, never>; Returns: number };
       call_eh_sync: { Args: Record<PropertyKey, never>; Returns: boolean };
       cancel_chip: { Args: Record<PropertyKey, never>; Returns: undefined };
+      copy_squad: { Args: { p_from: number; p_to: number; p_user: string }; Returns: undefined };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
       fixtures_due_for_sync: { Args: { p_now?: string }; Returns: number[] };
       import_fixtures: {
@@ -722,7 +800,9 @@ export type Database = {
         Args: { p_fixture_id: number; p_lineup: Json; p_potm: Json };
         Returns: Json;
       };
+      in_late_entry: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+      is_super: { Args: Record<PropertyKey, never>; Returns: boolean };
       league_table: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -826,6 +906,7 @@ export type Database = {
         }[];
       };
       squad_source_gameweek: { Args: { p_gameweek: number; p_user: string }; Returns: number };
+      undo_change: { Args: { p_id: number }; Returns: number };
       weekend_sync_due: { Args: { p_now?: string }; Returns: boolean };
     };
     Enums: {

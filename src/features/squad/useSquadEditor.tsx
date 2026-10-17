@@ -73,6 +73,18 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     },
   });
 
+  // Late entry (migration 0021): a team made after the live gameweek's
+  // deadline, while late entry is open, is a free first squad.
+  const lateEntry = useQuery({
+    queryKey: ['late-entry', session?.user.id ?? ''],
+    enabled: Boolean(session),
+    queryFn: async () => {
+      const { data, error } = await requireSupabase().rpc('in_late_entry');
+      if (error) return false; // before the migration is run
+      return Boolean(data);
+    },
+  });
+
   const all = gameweeks.data ?? [];
   const gameweek = nextOpenGameweek(all);
   // The last gameweek with points, for "how did they do" in player details.
@@ -165,7 +177,10 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     () => (current.data ?? []).filter((r) => r.bench_order === null).map((r) => r.player_id),
     [current.data],
   );
-  const previousIds = useMemo(() => (previous.data ?? []).map((r) => r.player_id), [previous.data]);
+  const previousIds = useMemo(
+    () => (lateEntry.data ? [] : (previous.data ?? []).map((r) => r.player_id)),
+    [previous.data, lateEntry.data],
+  );
 
   const pool: SquadPlayer[] = useMemo(
     () =>
@@ -403,6 +418,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     }
     await queryClient.invalidateQueries({ queryKey: ['squad'] });
     await queryClient.invalidateQueries({ queryKey: ['bank-before'] });
+    await queryClient.invalidateQueries({ queryKey: ['late-entry'] });
     await queryClient.invalidateQueries({ queryKey: keys.table });
     // After transfers, on to picking the team, as in FPL.
     if (mode === 'transfers') {
