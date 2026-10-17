@@ -74,6 +74,8 @@ export function TeamScreen() {
                 players={players.data ?? []}
                 sides={sides.data ?? []}
                 showPoints
+                // The latest gameweek: each player's fixture until their match has synced.
+                live={gameweek.id === locked.at(-1)?.id}
               />
             ) : (
               <p className="muted">No squad for this gameweek.</p>

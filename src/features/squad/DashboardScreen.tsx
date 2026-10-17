@@ -154,6 +154,8 @@ export function DashboardScreen() {
               seasonPoints={seasonPoints.data}
               chip={chipFor(viewing.id)}
               fixturesFor={viewingUpcoming ? viewing.id : undefined}
+              // The latest gameweek: each player's fixture until their match has synced.
+              live={!viewingUpcoming && viewing.id === last?.id}
               compact
             />
           ) : (
