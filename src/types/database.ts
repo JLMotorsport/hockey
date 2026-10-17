@@ -786,6 +786,7 @@ export type Database = {
       call_eh_sync: { Args: Record<PropertyKey, never>; Returns: boolean };
       cancel_chip: { Args: Record<PropertyKey, never>; Returns: undefined };
       copy_squad: { Args: { p_from: number; p_to: number; p_user: string }; Returns: undefined };
+      delete_my_account: { Args: { p_team_name: string }; Returns: undefined };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
       fixtures_due_for_sync: { Args: { p_now?: string }; Returns: number[] };
       import_fixtures: {
@@ -814,6 +815,7 @@ export type Database = {
           user_id: string;
         }[];
       };
+      log_account_removal: { Args: { p_user: string }; Returns: undefined };
       merge_players: { Args: { p_from: number; p_into: number }; Returns: undefined };
       name_key: { Args: { p_name: string }; Returns: string };
       performance_points:
@@ -851,6 +853,7 @@ export type Database = {
       price_floor: { Args: Record<PropertyKey, never>; Returns: number };
       record_sync_results: { Args: { p_results: Json }; Returns: undefined };
       refresh_deadline: { Args: { p_gameweek_id: number }; Returns: undefined };
+      remove_user: { Args: { p_team_name: string; p_user: string }; Returns: undefined };
       require_admin: { Args: Record<PropertyKey, never>; Returns: undefined };
       run_due_sync: { Args: Record<PropertyKey, never>; Returns: number };
       run_weekend_sync: { Args: Record<PropertyKey, never>; Returns: boolean };

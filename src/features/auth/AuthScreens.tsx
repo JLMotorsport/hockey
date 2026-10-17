@@ -373,6 +373,13 @@ export function AccountScreen() {
         </label>
         <button className="btn">Save</button>
       </form>
+      {!profile.is_super && (
+        <p className="mb-0 mt-5 text-center text-sm">
+          <Link to="/account/delete" className="muted underline">
+            Delete account
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

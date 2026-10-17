@@ -13,6 +13,7 @@ import { PlayersScreen as ManagerPlayersScreen } from './features/admin/PlayersS
 import { SettingsScreen } from './features/admin/SettingsScreen';
 import { UsersScreen } from './features/admin/UsersScreen';
 import { AccountScreen, LoginScreen, RegisterScreen } from './features/auth/AuthScreens';
+import { DeleteAccountScreen } from './features/auth/DeleteAccount';
 import {
   FixturesScreen,
   HomeScreen,
@@ -128,6 +129,7 @@ export function App() {
               <Route path="login" element={<LoginScreen />} />
               <Route path="register" element={<RegisterScreen />} />
               <Route path="account" element={<AccountScreen />} />
+              <Route path="account/delete" element={<DeleteAccountScreen />} />
               <Route path="dashboard" element={<DashboardScreen />} />
 
               <Route path="table" element={<TableScreen />} />

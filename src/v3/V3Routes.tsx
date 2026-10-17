@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Outlet, Route, Routes } from 'react-router-dom';
 import { Loading } from '@/components/ui';
 import { AccountScreen, LoginScreen, RegisterScreen } from '@/features/auth/AuthScreens';
+import { DeleteAccountScreen } from '@/features/auth/DeleteAccount';
 import { HomeScreen as PublicHome } from '@/features/league/PublicScreens';
 import { TeamOfWeekScreen } from '@/features/totw/TeamOfWeekScreen';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -82,6 +83,7 @@ export function V3Routes({ loading, managers }: { loading: boolean; managers: Re
       />
       <Route path="register" element={fallback(<RegisterScreen />)} />
       <Route path="account" element={fallback(<AccountScreen />)} />
+      <Route path="account/delete" element={fallback(<DeleteAccountScreen />)} />
       <Route path="dashboard" element={v3(<V3Points />)} />
       <Route path="table" element={v3(<V3League />)} />
       <Route path="teams/:userId" element={v3(<V3Points />)} />

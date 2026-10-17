@@ -110,6 +110,14 @@ export function V3More() {
           Log out
         </button>
       )}
+      {session && !profile?.is_super && (
+        <Link
+          to="/account/delete"
+          className="flex min-h-[44px] items-center justify-center text-[13px] text-[rgb(var(--v3-mut))] underline underline-offset-[3px]"
+        >
+          Delete account
+        </Link>
+      )}
     </div>
   );
 }

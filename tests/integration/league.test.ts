@@ -1594,6 +1594,90 @@ describe.skipIf(!configured)('league database', () => {
       expect((await picksIn(erin.id, gw.id)).find((p) => p.is_captain)!.player_id).toBe(xi()[8]);
     });
 
+    it('lets a player delete their own account, team and squads', async () => {
+      const leaver = await signUp('leaver@example.com', 'Leaving FC');
+      expect((await save(leaver)).error).toBeNull();
+      const wrong = await leaver.db.rpc('delete_my_account', { p_team_name: 'Someone Else' });
+      expect(wrong.error!.message).toMatch(/isn't your team name/);
+
+      // Typing it in any case, with stray spaces, is fine.
+      expect(
+        (await leaver.db.rpc('delete_my_account', { p_team_name: ' leaving fc ' })).error,
+      ).toBeNull();
+      expect((await service.from('profiles').select('id').eq('id', leaver.id)).data).toEqual([]);
+      expect(
+        (await service.from('picks').select('player_id').eq('user_id', leaver.id)).data,
+      ).toEqual([]);
+      const again = await createClient<Database>(URL!, ANON!, opts).auth.signInWithPassword({
+        email: 'leaver@example.com',
+        password: 'password123',
+      });
+      expect(again.error).not.toBeNull();
+      expect((await anon.rpc('league_table')).data!.some((r) => r.user_id === leaver.id)).toBe(
+        false,
+      );
+
+      // The super user can't delete themselves.
+      const team = (await service.from('profiles').select('team_name').eq('id', boss.id).single())
+        .data!.team_name;
+      expect(
+        (await boss.db.rpc('delete_my_account', { p_team_name: team })).error!.message,
+      ).toMatch(/super user/);
+    });
+
+    it('lets a manager remove a player, the super user remove a manager, and nobody the super user', async () => {
+      const gone = await signUp('removed@example.com', 'Removed XI');
+      // Alice is a manager here (appointed above), not the super user.
+      const self = await alice.db.rpc('remove_user', { p_user: alice.id, p_team_name: 'x' });
+      expect(self.error!.message).toMatch(/Delete account/);
+      const bossTeam = (
+        await service.from('profiles').select('team_name').eq('id', boss.id).single()
+      ).data!.team_name;
+      expect(
+        (await alice.db.rpc('remove_user', { p_user: boss.id, p_team_name: bossTeam })).error!
+          .message,
+      ).toMatch(/can't be removed/);
+      // Bob isn't a manager: can't remove anyone.
+      expect(
+        (await bob.db.rpc('remove_user', { p_user: gone.id, p_team_name: 'Removed XI' })).error,
+      ).not.toBeNull();
+
+      expect(
+        (await alice.db.rpc('remove_user', { p_user: gone.id, p_team_name: 'Wrong' })).error!
+          .message,
+      ).toMatch(/isn't their team name/);
+      expect(
+        (await alice.db.rpc('remove_user', { p_user: gone.id, p_team_name: 'Removed XI' })).error,
+      ).toBeNull();
+      expect((await service.from('profiles').select('id').eq('id', gone.id)).data).toEqual([]);
+
+      // It's in the change log, and can't be undone.
+      const entry = (
+        await boss.db
+          .from('manager_log')
+          .select('*')
+          .eq('table_name', 'accounts')
+          .eq('row_id', gone.id)
+          .single()
+      ).data!;
+      expect(entry).toMatchObject({ actor: alice.id, op: 'delete' });
+      expect((entry.old_data as { team_name: string }).team_name).toBe('Removed XI');
+      expect((await boss.db.rpc('undo_change', { p_id: entry.id })).error!.message).toMatch(
+        /can't be undone/,
+      );
+
+      // A manager can only be removed by the super user.
+      const mgr = await signUp('second.manager@example.com', 'Second Mgr');
+      await boss.db.rpc('set_admin', { p_user: mgr.id, p_value: true });
+      expect(
+        (await alice.db.rpc('remove_user', { p_user: mgr.id, p_team_name: 'Second Mgr' })).error!
+          .message,
+      ).toMatch(/Only the super user/);
+      expect(
+        (await boss.db.rpc('remove_user', { p_user: mgr.id, p_team_name: 'Second Mgr' })).error,
+      ).toBeNull();
+    });
+
     it('counts points from the gameweek scoring restarted', async () => {
       const gw = await live();
       await settings({ scoring_from: gw.start_date });
