@@ -7,15 +7,18 @@ import { Pitch as PitchV1 } from '@/features/v1/PitchV1';
 // the goal in perspective, boards behind it, goal at the top. Real hockey
 // geometry (55m wide; shooting circle 14.63m from the posts, dashed 5m arc
 // outside it, penalty spot 6.475m out, 23m line, centre line at 45.7m).
-// The box is 1000 wide and as tall as the space it fills, and a metre down
-// the pitch is drawn nearly as long as a metre across, so the D keeps its
-// real shape (wider than deep) on any screen instead of being stretched.
+// The box is 1000 wide and as tall as the space it fills. The half always
+// runs from the backline to the centre line at the bottom, so every player is
+// on it; the D, its dashed line and the spot are drawn to the width's scale
+// (a little foreshortened) rather than stretched with the length, so the D
+// keeps its real shape, wider than deep, on any screen.
 const PW = 55; // metres across
 const PL = 45.7; // metres to the centre line
 const TOP = 0.11; // backline, as a share of the height (boards and goal above)
+const BOTTOM = 0.985; // centre line
 const NEAR = 0.84; // width of the backline compared with the centre line
 const ACROSS = 940 / PW; // drawing units per metre across, at the centre line
-const DEPTH = 0.9; // a metre down the pitch, against one across (a little foreshortened)
+const D_DEPTH = 0.75; // a metre out from the goal in the D, against one across
 
 type Project = (xm: number, ym: number) => [number, number];
 
@@ -23,8 +26,14 @@ type Project = (xm: number, ym: number) => [number, number];
 function pitchProjection(height: number): Project {
   return (xm, ym) => {
     const k = NEAR + (1 - NEAR) * (ym / PL);
-    return [500 + (xm / PW - 0.5) * 940 * k, TOP * height + ym * ACROSS * DEPTH];
+    return [500 + (xm / PW - 0.5) * 940 * k, (TOP + (BOTTOM - TOP) * (ym / PL)) * height];
   };
+}
+
+/** How far to squeeze distances out from the goal so the D isn't stretched. */
+function dSqueeze(height: number): number {
+  const down = ((BOTTOM - TOP) * height) / PL; // units per metre down the pitch
+  return Math.min(1, (ACROSS * D_DEPTH) / down);
 }
 
 function path(project: Project, points: [number, number][]): string {
@@ -42,18 +51,18 @@ const straight = (project: Project, x1: number, y1: number, x2: number, y2: numb
     Array.from({ length: n + 1 }, (_, i) => [x1 + ((x2 - x1) * i) / n, y1 + ((y2 - y1) * i) / n]),
   );
 
-/** The D: quarter circles from each post joined by a straight. */
-function circleD(project: Project, r: number): string {
+/** The D: quarter circles from each post joined by a straight (`squeeze`: see dSqueeze). */
+function circleD(project: Project, r: number, squeeze: number): string {
   const l = PW / 2 - 1.83;
   const rr = PW / 2 + 1.83;
   const pts: [number, number][] = [];
   for (let i = 0; i <= 24; i++) {
     const t = Math.PI - (Math.PI / 2) * (i / 24);
-    pts.push([l + r * Math.cos(t), r * Math.sin(t)]);
+    pts.push([l + r * Math.cos(t), r * Math.sin(t) * squeeze]);
   }
   for (let i = 0; i <= 24; i++) {
     const t = Math.PI / 2 - (Math.PI / 2) * (i / 24);
-    pts.push([rr + r * Math.cos(t), r * Math.sin(t)]);
+    pts.push([rr + r * Math.cos(t), r * Math.sin(t) * squeeze]);
   }
   return path(project, pts);
 }
@@ -76,6 +85,7 @@ export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
     return () => ro.disconnect();
   }, []);
   const project = pitchProjection(height);
+  const squeeze = dSqueeze(height);
   const line = {
     stroke: 'white',
     strokeWidth: 2.5,
@@ -83,17 +93,16 @@ export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
     opacity: 0.9,
     vectorEffect: 'non-scaling-stroke' as const,
   };
-  const [spotX, spotY] = project(PW / 2, 6.475);
+  const [spotX, spotY] = project(PW / 2, 6.475 * squeeze);
   const [gl] = project(PW / 2 - 1.83, 0);
   const [gr] = project(PW / 2 + 1.83, 0);
   const [, back] = project(0, 0);
   const goalTop = back - 34;
-  // Stripes across the grass, every 1/8 of the half, down to the bottom of the box.
-  const band = (PL / 8) * ACROSS * DEPTH;
-  const first = project(0, 0)[1] - band;
-  const stripes = Array.from({ length: Math.ceil((height - first) / band) + 1 }, (_, i) => {
-    const y = first + band * (i - 1);
-    return { y: Math.max(0, y), h: band + Math.min(0, y), dark: i % 2 === 0 };
+  // Stripes across the grass, deeper towards the viewer.
+  const stripes = Array.from({ length: 9 }, (_, i) => {
+    const y0 = project(0, (PL / 8) * (i - 1))[1];
+    const y1 = project(0, (PL / 8) * i)[1];
+    return { y: i === 0 ? 0 : y0, h: y1 - (i === 0 ? 0 : y0), dark: i % 2 === 0 };
   });
   return (
     <svg
@@ -140,8 +149,8 @@ export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
       <path d={straight(project, PW, 0, PW, PL)} {...line} />
       <path d={straight(project, 0, 22.9, PW, 22.9)} {...line} />
       <path d={straight(project, 0, PL, PW, PL)} {...line} />
-      <path d={circleD(project, 14.63)} {...line} />
-      <path d={circleD(project, 19.63)} {...line} strokeDasharray="7 9" />
+      <path d={circleD(project, 14.63, squeeze)} {...line} />
+      <path d={circleD(project, 19.63, squeeze)} {...line} strokeDasharray="7 9" />
       <ellipse cx={spotX} cy={spotY} rx="5" ry="4" fill="white" opacity="0.9" />
     </svg>
   );
