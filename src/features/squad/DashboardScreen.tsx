@@ -2,7 +2,8 @@ import { chipName } from '@/lib/chips';
 import { useQueries } from '@tanstack/react-query';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { defaultGameweek } from '@/lib/gameweek';
-import { liveGameweek } from '@/lib/home';
+import { liveGameweek, ordinal } from '@/lib/home';
+import { ArrowButton } from './ArrowButton';
 import { ErrorText, Loading } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { formatWeekdayTime, gameweekLabel } from '@/lib/format';
@@ -278,49 +279,4 @@ export function DashboardScreen() {
       )}
     </>
   );
-}
-
-function ArrowButton({
-  label,
-  disabled,
-  onClick,
-  d,
-}: {
-  label: string;
-  disabled: boolean;
-  onClick: () => void;
-  d: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/20 text-white disabled:opacity-30"
-    >
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 24 24"
-        className="h-5 w-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d={d} />
-      </svg>
-    </button>
-  );
-}
-
-/** 3 -> "3rd" */
-function ordinal(n: number): string {
-  const tens = n % 100;
-  const suffix =
-    tens >= 11 && tens <= 13
-      ? 'th'
-      : (({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th');
-  return `${n}${suffix}`;
 }

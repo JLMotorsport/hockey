@@ -22,10 +22,14 @@ function Crest({ className = '' }: { className?: string }) {
   return <img src="/crest.png" alt="" className={`brightness-0 invert ${className}`} />;
 }
 
-/** Pick covers both squad pages: Pick team (/squad) and Transfers. */
+/** Pick Team covers Transfers too; Table covers someone's team. */
 function useAlsoActive(to: string) {
   const { pathname } = useLocation();
-  return to === '/squad' && pathname.startsWith('/transfers');
+  // Someone's team is opened from the Table, so Table stays lit there.
+  return (
+    (to === '/squad' && pathname.startsWith('/transfers')) ||
+    (to === '/table' && pathname.startsWith('/teams/'))
+  );
 }
 
 function TopLink({ to, children }: { to: string; children: string }) {
