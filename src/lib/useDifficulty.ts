@@ -1,4 +1,5 @@
 import { useAuth } from '@/lib/auth/AuthProvider';
+import type { FdrPlace } from '@/lib/fdr';
 import { useFixturePlaces, useSettings } from '@/lib/queries';
 
 /**
@@ -14,7 +15,7 @@ export function useDifficulty() {
   return {
     show: live || preview,
     preview,
-    places: places.data ?? new Map<number, { position: number; teams: number }>(),
+    places: places.data ?? new Map<number, FdrPlace>(),
     loading: places.isLoading,
   };
 }

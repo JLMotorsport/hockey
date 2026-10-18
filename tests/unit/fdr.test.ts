@@ -1,12 +1,38 @@
 import { describe, expect, it } from 'vitest';
-import { difficulty, opponentCode, ordinal, runEase, sideRun } from '@/lib/fdr';
+import { difficulty, opponentCode, ordinal, placeLine, runEase, sideRun } from '@/lib/fdr';
 import {
   parseTable,
   parseTeamFeed,
   tableFeedUrl,
 } from '../../supabase/functions/_shared/ehFixtures';
 
-describe('difficulty', () => {
+describe('difficulty from the gap between the teams', () => {
+  // 12 teams: "well" above or below is more than 3 places.
+  it('rates home games by how far the opponent is above or below us', () => {
+    expect(difficulty(1, 12, true, 8)).toBe(4); // 7 places above
+    expect(difficulty(4, 12, true, 8)).toBe(4); // 4 above
+    expect(difficulty(5, 12, true, 8)).toBe(3); // 3 above
+    expect(difficulty(7, 12, true, 8)).toBe(3); // 1 above
+    expect(difficulty(9, 12, true, 8)).toBe(2); // 1 below
+    expect(difficulty(11, 12, true, 8)).toBe(2); // 3 below
+    expect(difficulty(12, 12, true, 4)).toBe(1); // 8 below
+  });
+
+  it('adds 1 away, so an even game away is a 3 and only a much stronger side a 5', () => {
+    expect(difficulty(6, 12, false, 5)).toBe(3);
+    expect(difficulty(1, 12, false, 12)).toBe(5);
+    expect(difficulty(12, 12, false, 1)).toBe(2);
+  });
+
+  it('makes a bottom side mostly hard and a top side mostly easy', () => {
+    const bottom = [1, 3, 6, 9, 11].map((p) => difficulty(p, 12, true, 12));
+    const top = [2, 4, 6, 9, 12].map((p) => difficulty(p, 12, true, 1));
+    expect(bottom).toEqual([4, 4, 4, 3, 3]);
+    expect(top).toEqual([2, 2, 1, 1, 1]);
+  });
+});
+
+describe('difficulty without our place', () => {
   it('rates home games 1 to 4 by quarter of the table', () => {
     expect(difficulty(1, 12, true)).toBe(4);
     expect(difficulty(3, 12, true)).toBe(4);
@@ -52,8 +78,8 @@ describe('sideRun and runEase', () => {
     { id: 3, side_id: 1, gameweek_id: 13, opponent: 'Cup Opponents 1', is_home: true },
   ];
   const places = new Map([
-    [1, { position: 3, teams: 10 }],
-    [2, { position: 9, teams: 10 }],
+    [1, { position: 3, teams: 10, ours: null }],
+    [2, { position: 9, teams: 10, ours: null }],
   ]);
 
   it('fills each gameweek, with a dash for no game and no rating for a cup tie', () => {
@@ -67,6 +93,16 @@ describe('sideRun and runEase', () => {
     const easy = sideRun(fixtures, 1, [12], places);
     expect(runEase(easy)!).toBeGreaterThan(runEase(hard)!);
     expect(runEase(sideRun(fixtures, 1, [11], places))).toBeNull();
+  });
+});
+
+describe('placeLine', () => {
+  it('says where both teams are', () => {
+    expect(placeLine(true, { position: 3, teams: 12, ours: 8 })).toBe(
+      "Home · 3rd, we're 8th of 12",
+    );
+    expect(placeLine(false, { position: 9, teams: 10, ours: null })).toBe('Away (+1) · 9th of 10');
+    expect(placeLine(true, undefined)).toBe('Home');
   });
 });
 
@@ -88,14 +124,22 @@ describe('ordinal', () => {
 
 describe('England Hockey league tables', () => {
   it('keeps the feed order as positions', () => {
-    const rows = parseTable([
-      { teamName: 'Cambridge South 1', gamesPlayed: 6, totalPoints: 15 },
-      { teamName: ' Felixstowe 1 ', gamesPlayed: 6, totalPoints: 9 },
-      { teamName: null },
-    ]);
+    const rows = parseTable(
+      [
+        { teamName: 'Cambridge South 1', gamesPlayed: 6, totalPoints: 15 },
+        {
+          teamName: ' Felixstowe 1 ',
+          teamEntityUrlSlug: 'felixstowe-1-mens',
+          gamesPlayed: 6,
+          totalPoints: 9,
+        },
+        { teamName: null },
+      ],
+      'felixstowe-1-mens',
+    );
     expect(rows).toEqual([
-      { team_name: 'Cambridge South 1', position: 1, played: 6, points: 15 },
-      { team_name: 'Felixstowe 1', position: 2, played: 6, points: 9 },
+      { team_name: 'Cambridge South 1', is_us: false, position: 1, played: 6, points: 15 },
+      { team_name: 'Felixstowe 1', is_us: true, position: 2, played: 6, points: 9 },
     ]);
   });
 

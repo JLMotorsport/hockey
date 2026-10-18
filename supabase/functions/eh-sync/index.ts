@@ -159,8 +159,9 @@ async function importTable(
   sideId: number,
   feed: FeedLocation,
   competitionId: string,
+  slug: string,
 ): Promise<string> {
-  const rows = parseTable(await fetchJson(tableFeedUrl(feed.url, competitionId), feed.key));
+  const rows = parseTable(await fetchJson(tableFeedUrl(feed.url, competitionId), feed.key), slug);
   const { error } = await admin.rpc('import_league_table', { p_side_id: sideId, p_rows: rows });
   if (error) throw new Error(error.message);
   return `table of ${rows.length}`;
@@ -243,7 +244,7 @@ Deno.serve(async (req: Request) => {
       let table = '';
       if (competitionId) {
         try {
-          table = `; ${await importTable(admin, side.id, feed, competitionId)}`;
+          table = `; ${await importTable(admin, side.id, feed, competitionId, side.eh_slug)}`;
         } catch (err) {
           // The table only feeds fixture difficulty: fixtures still count without it.
           table = `; table failed (${(err as Error).message})`;

@@ -1,4 +1,5 @@
 import { seasonStats, type StatRow } from './playerStats';
+import type { FdrPlace } from './fdr';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { DEFAULT_FORMATIONS } from './formation';
 import { requireSupabase } from './supabase';
@@ -185,9 +186,15 @@ export function useFixturePlaces(userId: string | undefined) {
     queryKey: ['fixture-places', userId ?? ''],
     queryFn: async () => {
       const { data, error } = await requireSupabase().rpc('fixture_difficulty');
-      const places = new Map<number, { position: number; teams: number }>();
+      const places = new Map<number, FdrPlace>();
       if (error) return places;
-      for (const r of data ?? []) places.set(r.fixture_id, { position: r.place, teams: r.teams });
+      for (const r of data ?? [])
+        places.set(r.fixture_id, {
+          position: r.place,
+          teams: r.teams,
+          // Null when the sync couldn't find our side in the table.
+          ours: r.our_place ?? null,
+        });
       return places;
     },
   });

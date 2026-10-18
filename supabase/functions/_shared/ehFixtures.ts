@@ -116,13 +116,15 @@ export function tableFeedUrl(teamFeedUrl: string, competitionId: string): string
 
 export interface TableRow {
   team_name: string;
+  /** This row is the Felixstowe side whose page we read. */
+  is_us: boolean;
   position: number;
   played: number;
   points: number;
 }
 
 /** A league table, in England Hockey's order (it applies the tie-breaks). */
-export function parseTable(payload: unknown): TableRow[] {
+export function parseTable(payload: unknown, slug: string): TableRow[] {
   if (!Array.isArray(payload)) throw new EhFeedError('Unexpected table format.');
   const rows: TableRow[] = [];
   for (const r of payload.map(obj)) {
@@ -130,6 +132,7 @@ export function parseTable(payload: unknown): TableRow[] {
     if (!name) continue;
     rows.push({
       team_name: name.trim(),
+      is_us: r.teamEntityUrlSlug === slug,
       position: rows.length + 1,
       played: typeof r.gamesPlayed === 'number' ? r.gamesPlayed : 0,
       points: typeof r.totalPoints === 'number' ? r.totalPoints : 0,

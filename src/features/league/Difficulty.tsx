@@ -1,8 +1,13 @@
-import { FDR_COLOURS, sideRun, type Difficulty, type FdrFixture, type RunCell } from '@/lib/fdr';
+import {
+  FDR_COLOURS,
+  sideRun,
+  type Difficulty,
+  type FdrFixture,
+  type FdrPlace,
+  type RunCell,
+} from '@/lib/fdr';
 import { gameweekLabel } from '@/lib/format';
 import type { Side } from '@/lib/queries';
-
-type Place = { position: number; teams: number };
 
 /** The super user's reminder that nobody else can see difficulty yet. */
 export function PreviewStrip() {
@@ -75,7 +80,7 @@ export function DifficultyGrid({
   fixtures: FdrFixture[];
   gameweeks: { id: number; start_date: string; deadline: string }[];
   upcoming: { id: number; start_date: string; deadline: string }[];
-  places: Map<number, Place>;
+  places: Map<number, FdrPlace>;
 }) {
   const next = upcoming.slice(0, 3);
   if (!next.length) return null;
@@ -130,9 +135,9 @@ export function DifficultyGrid({
         <span>Harder</span>
       </div>
       <p className="muted mb-4 px-1 text-xs leading-snug">
-        From each league table on England Hockey. An opponent in the top quarter of the table is a
-        4, the bottom quarter a 1, and an away game adds 1, so only a top side away is a 5. A dash
-        means no game.
+        From each league table on England Hockey, by how far the opponent is above or below our
+        side. At home, a team well below us is a 1, below or level a 2, above us a 3 and well above
+        a 4. An away game adds 1, so only a much stronger side away is a 5. A dash means no game.
       </p>
     </>
   );

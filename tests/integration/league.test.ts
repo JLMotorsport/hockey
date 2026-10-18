@@ -2250,8 +2250,9 @@ describe.skipIf(!configured)('fixes from the code review', () => {
       const { error: importError } = await service.rpc('import_league_table', {
         p_side_id: f.side_id,
         p_rows: [
-          { team_name: 'Someone Else 1', position: 1, played: 3, points: 9 },
-          { team_name: f.opponent, position: 2, played: 3, points: 6 },
+          { team_name: 'Someone Else 1', is_us: false, position: 1, played: 3, points: 9 },
+          { team_name: f.opponent, is_us: false, position: 2, played: 3, points: 6 },
+          { team_name: 'Felixstowe 1', is_us: true, position: 3, played: 3, points: 3 },
         ],
       });
       expect(importError).toBeNull();
@@ -2269,7 +2270,8 @@ describe.skipIf(!configured)('fixes from the code review', () => {
       expect(mine.find((r) => r.fixture_id === f.id)).toEqual({
         fixture_id: f.id,
         place: 2,
-        teams: 2,
+        our_place: 3,
+        teams: 3,
       });
       expect((await alice.db.rpc('fixture_difficulty')).data).toEqual([]);
       expect((await anon.rpc('fixture_difficulty')).data).toEqual([]);
@@ -2290,7 +2292,7 @@ describe.skipIf(!configured)('fixes from the code review', () => {
         .from('league_tables')
         .select('*', { count: 'exact', head: true })
         .eq('side_id', sideId);
-      expect(count).toBe(2);
+      expect(count).toBe(3);
     });
   });
 });

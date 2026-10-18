@@ -391,7 +391,9 @@ export function FixturesScreen() {
                         ? 'L'
                         : 'D';
                 const place = fdr.show && !res ? fdr.places.get(f.id) : undefined;
-                const rated = place ? difficulty(place.position, place.teams, f.is_home) : null;
+                const rated = place
+                  ? difficulty(place.position, place.teams, f.is_home, place.ours)
+                  : null;
                 return (
                   <li key={f.id} className="border-b border-line last:border-0">
                     {/* A result opens the match: who played and their points. */}

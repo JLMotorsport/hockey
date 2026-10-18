@@ -1,15 +1,32 @@
-// Fixture difficulty, as FPL's, from the opponent's place in their league
-// table: top quarter 4 down to bottom quarter 1, and an away game adds 1, so
-// only a top side away is a 5. Pure, so it can be unit tested.
+// Fixture difficulty, as FPL's, from the gap between the two teams in their
+// league table (our sides are all in different leagues, so the opponent's
+// place alone says little). At home: well below us 1, below or level 2,
+// above us 3, well above us 4, where "well" is more than a quarter of the
+// table. An away game adds 1, so only a much stronger side away is a 5.
+// Without our place, the opponent's quarter of the table is used instead.
+// Pure, so it can be unit tested.
 
 export type Difficulty = 1 | 2 | 3 | 4 | 5;
 
-/** 1 (easiest) to 5 (hardest) for an opponent `position` of `teams`. */
-export function difficulty(position: number, teams: number, isHome: boolean): Difficulty | null {
-  if (!Number.isInteger(position) || !Number.isInteger(teams) || teams < 1) return null;
-  if (position < 1 || position > teams) return null;
-  const quarter = 4 - Math.floor(((position - 1) * 4) / teams);
-  return (quarter + (isHome ? 0 : 1)) as Difficulty;
+/** 1 (easiest) to 5 (hardest) for an opponent `position` of `teams`, with us at `ours`. */
+export function difficulty(
+  position: number,
+  teams: number,
+  isHome: boolean,
+  ours: number | null = null,
+): Difficulty | null {
+  const valid = (n: number) => Number.isInteger(n) && n >= 1 && n <= teams;
+  if (!Number.isInteger(teams) || teams < 1 || !valid(position)) return null;
+  let home: number;
+  if (ours !== null && valid(ours)) {
+    // Positive: they're above us.
+    const gap = ours - position;
+    const quarter = teams / 4;
+    home = gap > quarter ? 4 : gap > 0 ? 3 : gap >= -quarter ? 2 : 1;
+  } else {
+    home = 4 - Math.floor(((position - 1) * 4) / teams);
+  }
+  return (home + (isHome ? 0 : 1)) as Difficulty;
 }
 
 /** FPL's colours for each rating, with text that reads on them. */
@@ -49,6 +66,8 @@ export interface FdrFixture {
 export interface FdrPlace {
   position: number;
   teams: number;
+  /** Our side's place in the same table, when the sync found it. */
+  ours: number | null;
 }
 
 export interface RunCell {
@@ -76,7 +95,7 @@ export function sideRun(
       code: opponentCode(f.opponent),
       opponent: f.opponent,
       home: f.is_home,
-      rating: place ? difficulty(place.position, place.teams, f.is_home) : null,
+      rating: place ? difficulty(place.position, place.teams, f.is_home, place.ours) : null,
       place,
     };
   });
@@ -97,8 +116,11 @@ export function ordinal(n: number): string {
   return `${n}${suffix}`;
 }
 
-/** "Home · 3rd of 10", "Away (+1) · 9th of 10" */
+/** "Home · 3rd, we're 8th of 12", "Away (+1) · 9th of 10" */
 export function placeLine(home: boolean, place: FdrPlace | undefined): string {
   const where = home ? 'Home' : 'Away (+1)';
-  return place ? `${where} · ${ordinal(place.position)} of ${place.teams}` : where;
+  if (!place) return where;
+  return place.ours
+    ? `${where} · ${ordinal(place.position)}, we're ${ordinal(place.ours)} of ${place.teams}`
+    : `${where} · ${ordinal(place.position)} of ${place.teams}`;
 }

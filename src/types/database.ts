@@ -274,6 +274,7 @@ export type Database = {
       };
       league_tables: {
         Row: {
+          is_us: boolean;
           played: number;
           points: number;
           position: number;
@@ -283,6 +284,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          is_us?: boolean;
           played?: number;
           points?: number;
           position: number;
@@ -292,6 +294,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          is_us?: boolean;
           played?: number;
           points?: number;
           position?: number;
@@ -952,6 +955,7 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: {
           fixture_id: number;
+          our_place: number;
           place: number;
           teams: number;
         }[];
