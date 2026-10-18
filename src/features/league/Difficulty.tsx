@@ -136,8 +136,9 @@ export function DifficultyGrid({
       </div>
       <p className="muted mb-4 px-1 text-xs leading-snug">
         From each league table on England Hockey, by how far the opponent is above or below our
-        side. At home, a team well below us is a 1, below or level a 2, above us a 3 and well above
-        a 4. An away game adds 1, so only a much stronger side away is a 5. A dash means no game.
+        side. At home, a team well below us (more than a third of the table) is a 1, below or level
+        a 2, above us a 3 and well above a 4. An away game adds 1, so only a much stronger side away
+        is a 5. A dash means no game.
       </p>
     </>
   );

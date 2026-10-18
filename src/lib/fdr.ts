@@ -1,8 +1,8 @@
 // Fixture difficulty, as FPL's, from the gap between the two teams in their
 // league table (our sides are all in different leagues, so the opponent's
 // place alone says little). At home: well below us 1, below or level 2,
-// above us 3, well above us 4, where "well" is more than a quarter of the
-// table. An away game adds 1, so only a much stronger side away is a 5.
+// above us 3, well above us 4, where "well" is more than a third of the
+// table (so 2nd v 5th of 11 is just "below", a 2). An away game adds 1, so only a much stronger side away is a 5.
 // Without our place, the opponent's quarter of the table is used instead.
 // Pure, so it can be unit tested.
 
@@ -21,8 +21,8 @@ export function difficulty(
   if (ours !== null && valid(ours)) {
     // Positive: they're above us.
     const gap = ours - position;
-    const quarter = teams / 4;
-    home = gap > quarter ? 4 : gap > 0 ? 3 : gap >= -quarter ? 2 : 1;
+    const third = teams / 3;
+    home = gap > third ? 4 : gap > 0 ? 3 : gap >= -third ? 2 : 1;
   } else {
     home = 4 - Math.floor(((position - 1) * 4) / teams);
   }

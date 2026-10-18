@@ -7,14 +7,16 @@ import {
 } from '../../supabase/functions/_shared/ehFixtures';
 
 describe('difficulty from the gap between the teams', () => {
-  // 12 teams: "well" above or below is more than 3 places.
+  // 12 teams: "well" above or below is more than 4 places.
   it('rates home games by how far the opponent is above or below us', () => {
     expect(difficulty(1, 12, true, 8)).toBe(4); // 7 places above
-    expect(difficulty(4, 12, true, 8)).toBe(4); // 4 above
+    expect(difficulty(3, 12, true, 8)).toBe(4); // 5 above
+    expect(difficulty(4, 12, true, 8)).toBe(3); // 4 above
     expect(difficulty(5, 12, true, 8)).toBe(3); // 3 above
     expect(difficulty(7, 12, true, 8)).toBe(3); // 1 above
     expect(difficulty(9, 12, true, 8)).toBe(2); // 1 below
     expect(difficulty(11, 12, true, 8)).toBe(2); // 3 below
+    expect(difficulty(12, 12, true, 8)).toBe(2); // 4 below
     expect(difficulty(12, 12, true, 4)).toBe(1); // 8 below
   });
 
@@ -22,6 +24,12 @@ describe('difficulty from the gap between the teams', () => {
     expect(difficulty(6, 12, false, 5)).toBe(3);
     expect(difficulty(1, 12, false, 12)).toBe(5);
     expect(difficulty(12, 12, false, 1)).toBe(2);
+  });
+
+  it('rates a team just below a top side as below us, not the easiest', () => {
+    // W2 2nd v Sudbury 3 Development 5th of 11.
+    expect(difficulty(5, 11, true, 2)).toBe(2);
+    expect(difficulty(6, 11, true, 2)).toBe(1);
   });
 
   it('makes a bottom side mostly hard and a top side mostly easy', () => {
