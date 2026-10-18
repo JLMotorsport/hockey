@@ -277,38 +277,41 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   );
   const chrome = 'bg-black/[0.06] dark:bg-[#1f232c]';
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)] sm:pb-[env(safe-area-inset-bottom)]">
-      {/* Title bar. Pick Team is a tab: its title, and Transfers (red) to the right.
-          Transfers sits under it: back returns to Pick Team. */}
-      <header className="vt-squad-head flex min-h-[52px] shrink-0 items-center gap-2 bg-paper pb-1 pt-1">
+    <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-[env(safe-area-inset-bottom)]">
+      {/* Title bar, red as every other page's header (and up behind the status
+          bar, so switching pages doesn't flash). Pick Team is a tab: its title,
+          and Transfers to the right. Transfers sits under it: back returns. */}
+      <header className="vt-squad-head -mx-2 mb-1.5 flex min-h-[52px] shrink-0 items-center gap-2 bg-brand px-2 pb-1 pt-[calc(env(safe-area-inset-top)+0.25rem)] text-white sm:rounded-b-xl">
         {!isPick && (
           <Link
             to="/squad"
             aria-label="Back to Pick Team"
             onClick={transitionClick('/squad', 'back', leave('/squad'))}
-            className="flex h-11 w-11 shrink-0 items-center justify-center text-ink no-underline hover:no-underline"
+            className="flex h-11 w-11 shrink-0 items-center justify-center text-white no-underline hover:no-underline"
           >
             <span
               aria-hidden="true"
-              className={`flex h-10 w-10 items-center justify-center rounded-full pb-0.5 text-xl ${chrome}`}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/20 pb-0.5 text-xl"
             >
               ‹
             </span>
           </Link>
         )}
         <div className={`min-w-0 flex-1 leading-tight ${isPick ? 'pl-2' : ''}`}>
-          <h1 className="m-0 text-[1.65rem] leading-none">{isPick ? 'Pick Team' : 'Transfers'}</h1>
-          <p className="m-0 mt-0.5 truncate text-[0.8rem] text-ink-soft">
+          <h1 className="m-0 text-[1.65rem] leading-none text-white">
+            {isPick ? 'Pick Team' : 'Transfers'}
+          </h1>
+          <p className="m-0 mt-0.5 truncate text-[0.8rem] text-white/85">
             GW{all.filter((g) => g.start_date <= gameweek.start_date).length} · Deadline{' '}
             {formatDeadline(gameweek.deadline)}
           </p>
         </div>
-        <VersionSwitch tone="page" />
+        <VersionSwitch tone="light" />
         {isPick && (
           <Link
             to="/transfers"
             onClick={transitionClick('/transfers', 'swap', leave('/transfers'))}
-            className="flex min-h-tap shrink-0 items-center gap-1.5 rounded-full bg-brand px-4 text-[0.95rem] font-extrabold text-white no-underline hover:no-underline"
+            className="flex min-h-tap shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[0.95rem] font-extrabold text-brand-dark no-underline hover:no-underline"
           >
             Transfers <span aria-hidden="true">›</span>
           </Link>

@@ -500,6 +500,8 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     // After transfers, on to picking the team, as in FPL.
     if (mode === 'transfers') {
       setLoadedFrom(null);
+      // Transfers' notes ("Added 15 players...") don't belong on Pick team.
+      setNotices([]);
       go('/squad', 'swap');
     } else go('/dashboard', 'back');
   }
