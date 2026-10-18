@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { PosBadge } from '@/components/ui';
 import { StatsTable } from '@/components/StatsTable';
 import { usePlayerColumns } from '@/features/player/statColumns';
+import { RunChip } from '@/features/league/Difficulty';
+import { runEase, type RunCell } from '@/lib/fdr';
 import type { Side } from '@/lib/queries';
 import { formatPrice, type SquadPlayer } from '@/lib/squad';
 
@@ -20,6 +22,7 @@ export function PlayerPicker({
   maxPerSide,
   showPosition,
   nextFor,
+  run = null,
   onPick,
   onStats,
   onClose,
@@ -35,6 +38,8 @@ export function PlayerPicker({
   /** More than one position allowed: show each player's. */
   showPosition: boolean;
   nextFor: (p: SquadPlayer) => string;
+  /** Fixture difficulty over the next three gameweeks, when it's shown. */
+  run?: { labels: string[]; of: (p: SquadPlayer) => RunCell[] } | null;
   onPick: (id: number) => void;
   onStats: (id: number) => void;
   onClose: () => void;
@@ -43,7 +48,36 @@ export function PlayerPicker({
   const [side, setSide] = useState('');
   // 'bank': only players you can afford; a number: price cap (tenths).
   const [cap, setCap] = useState<'all' | 'bank' | number>('all');
-  const { columns, points } = usePlayerColumns<SquadPlayer>();
+  const { columns: statColumns, points } = usePlayerColumns<SquadPlayer>();
+  // The next three fixtures go straight after points, as on the board.
+  const columns = run
+    ? statColumns.flatMap((c) =>
+        c.key === 'pts'
+          ? [
+              c,
+              {
+                key: 'next',
+                label: (
+                  <span className="grid w-[108px] grid-cols-3 gap-[3px] text-center">
+                    {run.labels.map((l) => (
+                      <span key={l}>{l}</span>
+                    ))}
+                  </span>
+                ),
+                title: 'Next 3 fixtures, easiest run first',
+                value: (p: SquadPlayer) => runEase(run.of(p)),
+                render: (p: SquadPlayer) => (
+                  <span className="grid w-[108px] grid-cols-3 gap-[3px]">
+                    {run.of(p).map((cell, i) => (
+                      <RunChip key={i} cell={cell} compact />
+                    ))}
+                  </span>
+                ),
+              },
+            ]
+          : [c],
+      )
+    : statColumns;
   const sideShort = new Map(sides.map((s) => [s.id, s.short_name]));
 
   useEffect(() => {

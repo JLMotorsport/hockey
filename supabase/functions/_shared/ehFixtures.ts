@@ -31,6 +31,8 @@ export interface FixtureRow {
 
 export interface ParsedTeam {
   competition: string | null;
+  /** The league this side plays most of its games in, for its table. */
+  competitionId: string | null;
   rows: FixtureRow[];
 }
 
@@ -63,11 +65,17 @@ function score(value: unknown): number | null {
 export function parseTeamFeed(payload: unknown, slug: string): ParsedTeam {
   if (!Array.isArray(payload)) throw new EhFeedError('Unexpected feed format.');
   let competition: string | null = null;
+  let competitionId: string | null = null;
+  let most = 0;
   const rows: FixtureRow[] = [];
 
   for (const comp of payload.map(obj)) {
     competition = str(comp.competitionName) ?? competition;
     const fixtures = Array.isArray(comp.fixtures) ? comp.fixtures.map(obj) : [];
+    if (str(comp.competitionId) && fixtures.length > most) {
+      most = fixtures.length;
+      competitionId = str(comp.competitionId);
+    }
     for (const fx of fixtures) {
       if (fx.isBye === true) continue;
       const id = str(fx.id);
@@ -98,7 +106,36 @@ export function parseTeamFeed(payload: unknown, slug: string): ParsedTeam {
       });
     }
   }
-  return { competition, rows };
+  return { competition, competitionId, rows };
+}
+
+/** A competition's league table sits on the same API: .../api/competitions/<id>/table. */
+export function tableFeedUrl(teamFeedUrl: string, competitionId: string): string {
+  return `${new URL(teamFeedUrl).origin}/api/competitions/${encodeURIComponent(competitionId)}/table`;
+}
+
+export interface TableRow {
+  team_name: string;
+  position: number;
+  played: number;
+  points: number;
+}
+
+/** A league table, in England Hockey's order (it applies the tie-breaks). */
+export function parseTable(payload: unknown): TableRow[] {
+  if (!Array.isArray(payload)) throw new EhFeedError('Unexpected table format.');
+  const rows: TableRow[] = [];
+  for (const r of payload.map(obj)) {
+    const name = str(r.teamName);
+    if (!name) continue;
+    rows.push({
+      team_name: name.trim(),
+      position: rows.length + 1,
+      played: typeof r.gamesPlayed === 'number' ? r.gamesPlayed : 0,
+      points: typeof r.totalPoints === 'number' ? r.totalPoints : 0,
+    });
+  }
+  return rows;
 }
 
 /** The per-fixture feed lives next to the team feed: .../api/fixtures/<id>. */

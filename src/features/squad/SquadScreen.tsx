@@ -122,6 +122,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           maxPerSide={s.max_per_side}
           showPosition={picker.positions.length > 1}
           nextFor={nextFor}
+          run={ed.run}
           onPick={(id) => {
             add(id, picker.slot);
             setPicker(null);

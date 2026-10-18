@@ -26,7 +26,9 @@ import {
   findFeed,
   fixtureFeedUrl,
   parseLineup,
+  parseTable,
   parseTeamFeed,
+  tableFeedUrl,
   type FeedLocation,
 } from '../_shared/ehFixtures.ts';
 import {
@@ -151,6 +153,19 @@ async function importLineups(
   return message;
 }
 
+// The side's league table, for fixture difficulty (0028).
+async function importTable(
+  admin: Admin,
+  sideId: number,
+  feed: FeedLocation,
+  competitionId: string,
+): Promise<string> {
+  const rows = parseTable(await fetchJson(tableFeedUrl(feed.url, competitionId), feed.key));
+  const { error } = await admin.rpc('import_league_table', { p_side_id: sideId, p_rows: rows });
+  if (error) throw new Error(error.message);
+  return `table of ${rows.length}`;
+}
+
 // Pitchero line-ups (full names, shirts, positions) and players of the match
 // for this side's played fixtures that are new or recent.
 async function importPitchero(admin: Admin, sideId: number, teamId: number): Promise<string> {
@@ -216,7 +231,7 @@ Deno.serve(async (req: Request) => {
   for (const side of sides ?? []) {
     try {
       const { feed, payload } = await fetchFeed(side.eh_slug);
-      const { competition, rows } = parseTeamFeed(payload, side.eh_slug);
+      const { competition, competitionId, rows } = parseTeamFeed(payload, side.eh_slug);
       const { data, error: rpcError } = await admin.rpc('import_fixtures', {
         p_side_id: side.id,
         p_competition: competition,
@@ -225,6 +240,15 @@ Deno.serve(async (req: Request) => {
       if (rpcError) throw new Error(rpcError.message);
       const counts = data as { created: number; updated: number };
       const lineups = await importLineups(admin, side.id, feed, rows);
+      let table = '';
+      if (competitionId) {
+        try {
+          table = `; ${await importTable(admin, side.id, feed, competitionId)}`;
+        } catch (err) {
+          // The table only feeds fixture difficulty: fixtures still count without it.
+          table = `; table failed (${(err as Error).message})`;
+        }
+      }
       let pitchero = '';
       if (side.pitchero_team_id) {
         try {
@@ -238,7 +262,7 @@ Deno.serve(async (req: Request) => {
         side: side.name,
         side_id: side.id,
         ok: true,
-        message: `${counts.created} new, ${counts.updated} updated fixtures; ${lineups}${pitchero}`,
+        message: `${counts.created} new, ${counts.updated} updated fixtures; ${lineups}${table}${pitchero}`,
       });
     } catch (err) {
       // One side failing (a renamed page, a timeout) shouldn't stop the rest.

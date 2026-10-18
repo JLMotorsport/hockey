@@ -20,6 +20,9 @@ import { formatPrice, transferRule } from '@/lib/squad';
 import { LeagueTable } from './LeagueTable';
 import { MonthView } from './MonthView';
 import { CupView } from './CupView';
+import { DifficultyGrid, FdrBadge, PreviewStrip } from './Difficulty';
+import { difficulty, placeLine } from '@/lib/fdr';
+import { useDifficulty } from '@/lib/useDifficulty';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
 import { MatchSheet } from './MatchSheet';
 import { NoTeamPrompt } from '@/components/NoTeamPrompt';
@@ -291,9 +294,11 @@ export function FixturesScreen() {
   const gameweeks = useGameweeks();
   const fixtures = useFixtures();
   const sides = useSides();
+  const fdr = useDifficulty();
   const [tab, setTab] = useState<'upcoming' | 'results' | null>(null);
   const [match, setMatch] = useState<number | null>(null);
-  if (gameweeks.isLoading || fixtures.isLoading || sides.isLoading) return <Loading />;
+  if (gameweeks.isLoading || fixtures.isLoading || sides.isLoading || fdr.loading)
+    return <Loading />;
   if (fixtures.error) return <ErrorText error={fixtures.error} />;
   const sideList = sides.data ?? [];
   const sideShort = new Map(sideList.map((s) => [s.id, s.short_name]));
@@ -307,9 +312,20 @@ export function FixturesScreen() {
   const shown = tab ?? (upcoming.length ? 'upcoming' : 'results');
   const weeks = shown === 'upcoming' ? upcoming : results;
 
+  const now = Date.now();
   return (
     <>
+      {fdr.preview && <PreviewStrip />}
       <h1>Fixtures</h1>
+      {fdr.show && (
+        <DifficultyGrid
+          sides={sideList}
+          fixtures={list}
+          gameweeks={all}
+          upcoming={all.filter((g) => new Date(g.deadline).getTime() > now)}
+          places={fdr.places}
+        />
+      )}
       <section className="card !py-3">
         <h2 className="mb-2">Form</h2>
         <ul className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
@@ -374,6 +390,8 @@ export function FixturesScreen() {
                       : f.goals_for < f.goals_against
                         ? 'L'
                         : 'D';
+                const place = fdr.show && !res ? fdr.places.get(f.id) : undefined;
+                const rated = place ? difficulty(place.position, place.teams, f.is_home) : null;
                 return (
                   <li key={f.id} className="border-b border-line last:border-0">
                     {/* A result opens the match: who played and their points. */}
@@ -386,12 +404,21 @@ export function FixturesScreen() {
                       <span className="w-9 shrink-0 rounded-md bg-[#16181d] py-0.5 text-center font-display text-sm font-bold text-white">
                         {sideShort.get(f.side_id)}
                       </span>
-                      <span className="min-w-0 flex-1 font-semibold">
-                        {opponentName(f.opponent)}{' '}
-                        <span className="text-sm font-bold text-ink-soft">
-                          {f.is_home ? 'H' : 'A'}
+                      {rated ? (
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate font-semibold">{opponentName(f.opponent)}</span>
+                          <span className="muted text-xs">
+                            {placeLine(f.is_home, fdr.places.get(f.id))}
+                          </span>
                         </span>
-                      </span>
+                      ) : (
+                        <span className="min-w-0 flex-1 font-semibold">
+                          {opponentName(f.opponent)}{' '}
+                          <span className="text-sm font-bold text-ink-soft">
+                            {f.is_home ? 'H' : 'A'}
+                          </span>
+                        </span>
+                      )}
                       {res ? (
                         <>
                           <span className="display-num text-xl">
@@ -408,9 +435,12 @@ export function FixturesScreen() {
                           </span>
                         </>
                       ) : (
-                        <span className="muted whitespace-nowrap text-sm tabular-nums">
-                          {formatWeekdayTime(f.kickoff)}
-                        </span>
+                        <>
+                          <span className="muted whitespace-nowrap text-sm tabular-nums">
+                            {formatWeekdayTime(f.kickoff)}
+                          </span>
+                          {rated && <FdrBadge rating={rated} />}
+                        </>
                       )}
                     </button>
                   </li>

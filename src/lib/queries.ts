@@ -175,6 +175,24 @@ export function useCupEntrants(gameweekId: number | undefined) {
   });
 }
 
+/**
+ * Where each fixture's opponent sits in its league table (0028), for fixture
+ * difficulty. Empty for everyone but the super user until it's switched on,
+ * and before the migration is run.
+ */
+export function useFixturePlaces(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['fixture-places', userId ?? ''],
+    queryFn: async () => {
+      const { data, error } = await requireSupabase().rpc('fixture_difficulty');
+      const places = new Map<number, { position: number; teams: number }>();
+      if (error) return places;
+      for (const r of data ?? []) places.set(r.fixture_id, { position: r.place, teams: r.teams });
+      return places;
+    },
+  });
+}
+
 export function useLeagueTable() {
   return useQuery({
     queryKey: keys.table,

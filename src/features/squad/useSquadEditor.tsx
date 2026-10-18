@@ -2,7 +2,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { type Notice } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { shortName } from '@/lib/format';
+import { gameweekLabel, shortName } from '@/lib/format';
+import { sideRun } from '@/lib/fdr';
+import { useDifficulty } from '@/lib/useDifficulty';
 import {
   keys,
   nextOpenGameweek,
@@ -102,6 +104,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
   const previous = useSquad(userId, previousGw?.id);
   const chips = useChips(userId);
   const fixtures = useFixtures();
+  const fdr = useDifficulty();
   const gameweekPoints = useAllGameweekPoints();
   // Average over each player's last 3 games, finished gameweeks only.
   const form = useMemo(
@@ -309,6 +312,21 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
   const isKeeper = (id: number) => poolById.get(id)?.position === 'GK';
   // Who the player's side plays in the gameweek being picked.
   const nextFor = (p: SquadPlayer) => fixtureLabel(fixtures.data ?? [], p.side_id, gameweek.id);
+  // Fixture difficulty over the next three gameweeks, when it's shown (0028).
+  const runWeeks = all.filter((g) => g.start_date >= gameweek.start_date).slice(0, 3);
+  const run =
+    fdr.show && fdr.places.size > 0
+      ? {
+          labels: runWeeks.map((g) => gameweekLabel(g, all).split(' ')[0]!),
+          of: (p: SquadPlayer) =>
+            sideRun(
+              fixtures.data ?? [],
+              p.side_id,
+              runWeeks.map((g) => g.id),
+              fdr.places,
+            ),
+        }
+      : null;
   const benchSlot = (id: number) => bench.indexOf(id);
 
   /** Add to the starting 11 if there's room, else the first fitting bench slot. */
@@ -756,6 +774,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     setView,
     statColumns,
     statPoints,
+    run,
     problemsOpen,
     setProblemsOpen,
     picker,

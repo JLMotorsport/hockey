@@ -231,6 +231,7 @@ export type Database = {
         Row: {
           budget: number;
           cup_start: number;
+          fdr_live: boolean;
           formations: string[];
           id: number;
           late_entry_until: string | null;
@@ -244,6 +245,7 @@ export type Database = {
         Insert: {
           budget?: number;
           cup_start?: number;
+          fdr_live?: boolean;
           formations?: string[];
           id?: number;
           late_entry_until?: string | null;
@@ -257,6 +259,7 @@ export type Database = {
         Update: {
           budget?: number;
           cup_start?: number;
+          fdr_live?: boolean;
           formations?: string[];
           id?: number;
           late_entry_until?: string | null;
@@ -268,6 +271,44 @@ export type Database = {
           transfers_per_gameweek?: number;
         };
         Relationships: [];
+      };
+      league_tables: {
+        Row: {
+          played: number;
+          points: number;
+          position: number;
+          side_id: number;
+          team_name: string;
+          teams: number;
+          updated_at: string;
+        };
+        Insert: {
+          played?: number;
+          points?: number;
+          position: number;
+          side_id: number;
+          team_name: string;
+          teams: number;
+          updated_at?: string;
+        };
+        Update: {
+          played?: number;
+          points?: number;
+          position?: number;
+          side_id?: number;
+          team_name?: string;
+          teams?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'league_tables_side_id_fkey';
+            columns: ['side_id'];
+            isOneToOne: false;
+            referencedRelation: 'sides';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       manager_log: {
         Row: {
@@ -907,12 +948,21 @@ export type Database = {
       cup_entrants: { Args: { p_gameweek: number }; Returns: string[] };
       delete_my_account: { Args: { p_team_name: string }; Returns: undefined };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
+      fixture_difficulty: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          fixture_id: number;
+          place: number;
+          teams: number;
+        }[];
+      };
       fixtures_due_for_sync: { Args: { p_now?: string }; Returns: number[] };
       free_transfers: { Args: { p_gameweek: number; p_user: string }; Returns: number };
       import_fixtures: {
         Args: { p_competition: string; p_rows: Json; p_side_id: number };
         Returns: Json;
       };
+      import_league_table: { Args: { p_rows: Json; p_side_id: number }; Returns: number };
       import_lineup: {
         Args: { p_fixture_id: number; p_players: Json; p_withheld: number };
         Returns: Json;

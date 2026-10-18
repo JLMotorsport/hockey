@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Loading, Notices, type Notice } from '@/components/ui';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { ALL_FORMATIONS } from '@/lib/formation';
 import { keys, useSettings, useSides, type Side } from '@/lib/queries';
 import { POINTS, POSITIONS } from '@/lib/scoring';
@@ -172,8 +173,65 @@ export function SettingsScreen() {
         </details>
       </div>
 
+      <DifficultyPanel />
       <SidesPanel />
     </>
+  );
+}
+
+/** Super user only: fixture difficulty stays a preview until switched on. */
+function DifficultyPanel() {
+  const { profile } = useAuth();
+  const settings = useSettings();
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  if (!profile?.is_super || !settings.data) return null;
+  const on = Boolean(settings.data.fdr_live);
+
+  async function toggle() {
+    setError(null);
+    const { error: e } = await requireSupabase()
+      .from('league_settings')
+      .update({ fdr_live: !on })
+      .eq('id', 1);
+    if (e) setError(errorLines(e).join(' '));
+    await queryClient.invalidateQueries({ queryKey: keys.settings });
+    await queryClient.invalidateQueries({ queryKey: ['fixture-places'] });
+  }
+
+  return (
+    <section className={`${panel} mt-3.5 p-4 lg:p-5`}>
+      <h2 className="mb-1 font-display text-xl font-extrabold uppercase lg:text-[22px]">
+        Fixture difficulty
+      </h2>
+      {error && <p className="text-sm text-[#b3261e]">{error}</p>}
+      <div className="flex min-h-[56px] items-center gap-3 border-t border-line">
+        <span className="flex-1">
+          <span className="block text-[15px] font-semibold">Show to everyone</span>
+          <span className="muted block text-xs">
+            {on
+              ? 'Everyone sees difficulty on Fixtures and when adding a player.'
+              : 'Only you can see it for now.'}
+          </span>
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label="Show fixture difficulty to everyone"
+          onClick={() => void toggle()}
+          className="flex h-11 w-[3.6rem] shrink-0 items-center justify-center"
+        >
+          <span
+            className={`relative h-[31px] w-[51px] rounded-full transition-colors ${on ? 'bg-[#1f7a4d]' : 'bg-[#c5cad3] dark:bg-[#3a404b]'}`}
+          >
+            <span
+              className={`absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow transition-all ${on ? 'left-[22px]' : 'left-[2px]'}`}
+            />
+          </span>
+        </button>
+      </div>
+    </section>
   );
 }
 

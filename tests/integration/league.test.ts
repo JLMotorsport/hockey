@@ -2233,4 +2233,56 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     const back = (await anon.rpc('league_table')).data!.find((r) => r.user_id === top.user_id)!;
     expect(back.total).toBe(top.total);
   });
+  describe('fixture difficulty', () => {
+    it('only answers the super user until it is switched on', async () => {
+      const boss = await signUp('fdr-super@example.com', 'FDR Super');
+      const alice = await signUp('fdr-player@example.com', 'FDR Player');
+      const { data: fx } = await service.from('fixtures').select('id, side_id, opponent').limit(1);
+      const f = fx![0]!;
+      const { error: importError } = await service.rpc('import_league_table', {
+        p_side_id: f.side_id,
+        p_rows: [
+          { team_name: 'Someone Else 1', position: 1, played: 3, points: 9 },
+          { team_name: f.opponent, position: 2, played: 3, points: 6 },
+        ],
+      });
+      expect(importError).toBeNull();
+      // Players can't write tables themselves.
+      const { error: denied } = await alice.db.rpc('import_league_table', {
+        p_side_id: f.side_id,
+        p_rows: [],
+      });
+      expect(denied).not.toBeNull();
+
+      await service.from('league_settings').update({ fdr_live: false }).eq('id', 1);
+      await service.from('profiles').update({ is_super: true }).eq('id', boss.id);
+      const mine = (await boss.db.rpc('fixture_difficulty')).data ?? [];
+      await service.from('profiles').update({ is_super: false }).eq('id', boss.id);
+      expect(mine.find((r) => r.fixture_id === f.id)).toEqual({
+        fixture_id: f.id,
+        place: 2,
+        teams: 2,
+      });
+      expect((await alice.db.rpc('fixture_difficulty')).data).toEqual([]);
+      expect((await anon.rpc('fixture_difficulty')).data).toEqual([]);
+
+      await service.from('league_settings').update({ fdr_live: true }).eq('id', 1);
+      const live = (await alice.db.rpc('fixture_difficulty')).data ?? [];
+      expect(live.some((r) => r.fixture_id === f.id)).toBe(true);
+      await service.from('league_settings').update({ fdr_live: false }).eq('id', 1);
+    });
+
+    it('keeps the last good table when the feed comes back empty', async () => {
+      const { data: fx } = await service.from('fixtures').select('side_id').limit(1);
+      const sideId = fx![0]!.side_id;
+      expect(
+        (await service.rpc('import_league_table', { p_side_id: sideId, p_rows: [] })).data,
+      ).toBe(0);
+      const { count } = await service
+        .from('league_tables')
+        .select('*', { count: 'exact', head: true })
+        .eq('side_id', sideId);
+      expect(count).toBe(2);
+    });
+  });
 });
