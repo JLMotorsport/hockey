@@ -652,7 +652,7 @@ export function MatchScreen() {
           {sheet.map((r) => {
             const matched = playedKeys.has(nameKey(r.name));
             const unused = r.starter === false;
-            const canAdd = !matched && !unused && !fixture.walkover;
+            const canAdd = !matched && !unused;
             return (
               <div
                 key={r.name}
