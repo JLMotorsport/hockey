@@ -60,5 +60,5 @@ export const PLAYER_DATA: { key: PlayerData; label: string; help: string }[] = [
   { key: 'form', label: 'Form', help: 'Average points, last 3 games' },
   { key: 'gw', label: 'GW Points', help: 'Points last gameweek' },
   { key: 'total', label: 'Total Points', help: 'This season' },
-  { key: 'ownership', label: 'Ownership', help: 'Managers who had them last gameweek' },
+  { key: 'ownership', label: 'Ownership', help: 'Managers who have them in their squad now' },
 ];

@@ -6,6 +6,7 @@ import {
   lockedGameweeks,
   useAllGameweekPoints,
   useGameweeks,
+  usePlayerMarket,
   usePlayerStats,
   usePriceTrend,
   useSeasonPoints,
@@ -31,6 +32,7 @@ export function usePlayerColumns<T extends Pick<Player, 'id' | 'price'>>(): {
   const gameweeks = useGameweeks();
   const gwPoints = useAllGameweekPoints();
   const stats = usePlayerStats();
+  const market = usePlayerMarket();
   const locked = lockedGameweeks(gameweeks.data ?? []);
   const last = locked.at(-1);
   const form = formByPlayer(
@@ -66,6 +68,25 @@ export function usePlayerColumns<T extends Pick<Player, 'id' | 'price'>>(): {
       title: 'Price change this week',
       value: (p) => trend.data?.get(p.id) ?? 0,
       render: (p) => priceChange(trend.data?.get(p.id)),
+    },
+    {
+      key: 'sel',
+      label: 'Sel',
+      title: 'Selected by (% of managers)',
+      value: (p) => market.data?.get(p.id)?.selected_by ?? 0,
+      render: (p) => `${market.data?.get(p.id)?.selected_by ?? 0}%`,
+    },
+    {
+      key: 'in',
+      label: 'In',
+      title: 'Transferred in this gameweek',
+      value: (p) => market.data?.get(p.id)?.transfers_in ?? 0,
+    },
+    {
+      key: 'out',
+      label: 'Out',
+      title: 'Transferred out this gameweek',
+      value: (p) => market.data?.get(p.id)?.transfers_out ?? 0,
     },
     {
       key: 'form',

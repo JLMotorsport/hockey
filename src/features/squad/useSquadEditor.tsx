@@ -16,7 +16,7 @@ import {
   useFixtures,
   useSquad,
   lockedGameweeks,
-  useOwnership,
+  usePlayerMarket,
   usePriceTrend,
   transferSummaryQuery,
 } from '@/lib/queries';
@@ -114,7 +114,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
   // What the line under each card shows (FPL's "Player Data"), remembered per device.
   const lastLocked = lockedGameweeks(all).at(-1);
   const trend = usePriceTrend();
-  const ownership = useOwnership(lastLocked?.id);
+  const ownership = usePlayerMarket();
   const [dataKey, setDataKey] = useState<PlayerData>(() => {
     try {
       const saved = localStorage.getItem('pick-player-data');
@@ -442,6 +442,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     await queryClient.invalidateQueries({ queryKey: ['bank-before'] });
     await queryClient.invalidateQueries({ queryKey: ['late-entry'] });
     await queryClient.invalidateQueries({ queryKey: ['transfer-summary'] });
+    await queryClient.invalidateQueries({ queryKey: ['player-market'] });
     await queryClient.invalidateQueries({ queryKey: ['teams-without-squad'] });
     await queryClient.invalidateQueries({ queryKey: keys.table });
     // After transfers, on to picking the team, as in FPL.
@@ -474,7 +475,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
       case 'total':
         return `${points.data?.get(p.id) ?? 0} pts`;
       case 'ownership':
-        return lastLocked ? `${ownership.data?.get(p.id) ?? 0}%` : '-';
+        return `${ownership.data?.get(p.id)?.selected_by ?? 0}%`;
     }
   }
   const dataMuted = (p: SquadPlayer) => dataKey === 'opponent' && dataFor(p) === 'No game';

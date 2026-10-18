@@ -527,25 +527,30 @@ export function usePlayerStats() {
  * Ownership: the share of managers who had each player in a locked gameweek
  * (squads are only readable once the deadline has passed), 0 to 100.
  */
-export function useOwnership(gameweekId: number | undefined) {
+export interface MarketRow {
+  /** % of managers with the player in their squad now. */
+  selected_by: number;
+  /** Changes made for the next gameweek so far. */
+  transfers_in: number;
+  transfers_out: number;
+}
+
+/** Selected by %, transfers in and out per player (0025); empty before it's run. */
+export function usePlayerMarket() {
   return useQuery({
-    queryKey: ['ownership', gameweekId ?? 0],
-    enabled: Boolean(gameweekId),
+    queryKey: ['player-market'],
     queryFn: async () => {
-      const rows = await fetchAll((from, to) =>
-        requireSupabase()
-          .from('picks')
-          .select('user_id, player_id')
-          .eq('gameweek_id', gameweekId as number)
-          .order('user_id')
-          .order('player_id')
-          .range(from, to),
-      );
-      const managers = new Set(rows.map((r) => r.user_id)).size;
-      const counts = new Map<number, number>();
-      for (const r of rows) counts.set(r.player_id, (counts.get(r.player_id) ?? 0) + 1);
-      return new Map(
-        [...counts].map(([id, n]) => [id, managers ? Math.round((n / managers) * 1000) / 10 : 0]),
+      const { data, error } = await requireSupabase().rpc('player_market');
+      if (error) return new Map<number, MarketRow>();
+      return new Map<number, MarketRow>(
+        data.map((r) => [
+          r.player_id,
+          {
+            selected_by: Number(r.selected_by),
+            transfers_in: r.transfers_in,
+            transfers_out: r.transfers_out,
+          },
+        ]),
       );
     },
   });

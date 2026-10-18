@@ -856,6 +856,15 @@ export type Database = {
             Returns: number;
           };
       play_chip: { Args: { p_chip: string; p_side_id?: number }; Returns: number };
+      player_market: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          player_id: number;
+          selected_by: number;
+          transfers_in: number;
+          transfers_out: number;
+        }[];
+      };
       price_ceiling: { Args: Record<PropertyKey, never>; Returns: number };
       price_floor: { Args: Record<PropertyKey, never>; Returns: number };
       record_sync_results: { Args: { p_results: Json }; Returns: undefined };

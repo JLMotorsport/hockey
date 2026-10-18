@@ -1787,6 +1787,40 @@ describe.skipIf(!configured)('league database', () => {
       await service.from('players').delete().eq('id', pid);
     });
 
+    it('totals who is selected and transferred in and out, without showing squads', async () => {
+      const trader = await signUp('trader@example.com', 'Trade XI');
+      const gws = (await anon.from('gameweeks').select('id, deadline').order('start_date')).data!;
+      const nextIdx = gws.findIndex((g) => new Date(g.deadline) > new Date());
+      const [prev, next] = [gws[nextIdx - 1]!, gws[nextIdx]!];
+      const squad = [...xi(), ...subs()];
+      const newcomer = (await service.from('players').select('id').order('id'))
+        .data!.map((p) => p.id)
+        .find((p) => !squad.includes(p))!;
+      const put = (gw: number, players: number[]) =>
+        service.from('picks').insert(
+          players.map((p, n) => ({
+            user_id: trader.id,
+            gameweek_id: gw,
+            player_id: p,
+            is_captain: n === 0,
+            is_vice: n === 1,
+            bench_order: n < 11 ? null : n - 10,
+          })),
+        );
+      const market = async () =>
+        new Map((await anon.rpc('player_market')).data!.map((r) => [r.player_id, r]));
+
+      await put(prev.id, squad);
+      const before = await market();
+      await put(next.id, [newcomer, ...squad.slice(1)]); // one transfer: out squad[0], in newcomer
+      const after = await market();
+      expect(after.get(newcomer)!.transfers_in).toBe(before.get(newcomer)!.transfers_in + 1);
+      expect(after.get(squad[0]!)!.transfers_out).toBe(before.get(squad[0]!)!.transfers_out + 1);
+      expect(after.get(newcomer)!.selected_by).toBeGreaterThan(before.get(newcomer)!.selected_by);
+      expect(after.get(squad[1]!)!.selected_by).toBeGreaterThan(0);
+      await service.from('picks').delete().eq('user_id', trader.id);
+    });
+
     it('counts points from the gameweek scoring restarted', async () => {
       const gw = await live();
       await settings({ scoring_from: gw.start_date });
