@@ -275,6 +275,17 @@ Deno.serve(async (req: Request) => {
       });
     }
   }
+  // Players follow the side they've played for most in their last 3 games,
+  // unless a manager locked it (0031).
+  const { data: moved, error: sidesError } = await admin.rpc('refresh_player_sides');
+  results.push({
+    side: 'Player sides',
+    side_id: null,
+    ok: !sidesError,
+    message: sidesError
+      ? sidesError.message
+      : `${(moved as number | null) ?? 0} players moved to the side they now play for`,
+  });
   // Weekly price changes for any gameweek whose weekend is now over.
   const { data: prices, error: priceError } = await admin.rpc('apply_due_price_changes');
   const priceInfo = prices as { weeks?: number; changes?: number } | null;

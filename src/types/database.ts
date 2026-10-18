@@ -546,6 +546,7 @@ export type Database = {
           position_confirmed: boolean;
           price: number;
           side_id: number;
+          side_locked: boolean;
         };
         Insert: {
           active?: boolean;
@@ -558,6 +559,7 @@ export type Database = {
           position_confirmed?: boolean;
           price?: number;
           side_id: number;
+          side_locked?: boolean;
         };
         Update: {
           active?: boolean;
@@ -570,6 +572,7 @@ export type Database = {
           position_confirmed?: boolean;
           price?: number;
           side_id?: number;
+          side_locked?: boolean;
         };
         Relationships: [
           {
@@ -1050,6 +1053,7 @@ export type Database = {
       price_floor: { Args: Record<PropertyKey, never>; Returns: number };
       record_sync_results: { Args: { p_results: Json }; Returns: undefined };
       refresh_deadline: { Args: { p_gameweek_id: number }; Returns: undefined };
+      refresh_player_sides: { Args: Record<PropertyKey, never>; Returns: number };
       reminder_targets: {
         Args: { p_gameweek: number };
         Returns: {

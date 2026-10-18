@@ -520,6 +520,7 @@ function EditPlayer({
   const [row, setRow] = useState({
     name: p.name,
     side_id: p.side_id,
+    side_locked: p.side_locked,
     priceText: formatPrice(p.price),
     active: p.active,
   });
@@ -537,6 +538,7 @@ function EditPlayer({
       .update({
         name: row.name.trim(),
         side_id: row.side_id,
+        side_locked: row.side_locked,
         price,
         active: row.active,
         ...(row.active ? { needs_review: false } : {}),
@@ -553,7 +555,7 @@ function EditPlayer({
   const input =
     'mt-1 block min-h-tap w-full rounded-[10px] border border-line bg-surface px-2.5 text-base';
   return (
-    <div className="grid grid-cols-2 gap-2.5 border-t border-line pt-3 lg:grid-cols-[1fr_120px_120px_auto_auto] lg:items-end lg:px-[18px] lg:pb-3 lg:pl-[58px]">
+    <div className="grid grid-cols-2 gap-2.5 border-t border-line pt-3 lg:grid-cols-[1fr_120px_auto_120px_auto_auto] lg:items-end lg:px-[18px] lg:pb-3 lg:pl-[58px]">
       <label className="col-span-2 text-xs font-bold uppercase text-ink-soft lg:col-span-1">
         Name
         <input
@@ -567,7 +569,8 @@ function EditPlayer({
         <select
           className={input}
           value={row.side_id}
-          onChange={(e) => setRow({ ...row, side_id: Number(e.target.value) })}
+          // Choosing a side by hand locks it, so the next sync doesn't move them back.
+          onChange={(e) => setRow({ ...row, side_id: Number(e.target.value), side_locked: true })}
         >
           {sides.map((s) => (
             <option key={s.id} value={s.id}>
@@ -576,6 +579,19 @@ function EditPlayer({
           ))}
         </select>
       </label>
+      <span className="flex items-center gap-1 text-sm font-semibold">
+        <Toggle
+          checked={row.side_locked}
+          label="Lock side"
+          onChange={(v) => setRow({ ...row, side_locked: v })}
+        />
+        <span className="flex flex-col leading-tight">
+          Lock side
+          <span className="muted text-xs font-normal">
+            {row.side_locked ? 'Stays on this side' : 'Follows their last 3 games'}
+          </span>
+        </span>
+      </span>
       <label className="text-xs font-bold uppercase text-ink-soft">
         Price (m)
         <input

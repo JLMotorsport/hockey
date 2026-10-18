@@ -65,9 +65,12 @@ export function summariseSquad(
   const subs = bench.filter((p): p is SquadPlayer => p !== null);
   const picked = [...starters, ...subs];
   const perSide = new Map<string, number>();
+  // Sides this squad adds a player from (not already in the saved squad).
+  const addsFrom = new Set<string>();
   let cost = 0;
   for (const p of picked) {
     perSide.set(p.side_name, (perSide.get(p.side_name) ?? 0) + 1);
+    if (!current.includes(p.id)) addsFrom.add(p.side_name);
     cost += p.price;
   }
 
@@ -112,9 +115,13 @@ export function summariseSquad(
   if (bank < 0) {
     problems.push(`That's ${formatPrice(-bank)}m more than you can spend.`);
   }
+  // Over the limit only counts when adding from that side: a squad that went
+  // over because players moved side can be kept (as save_squad, 0031).
   for (const [side, n] of perSide) {
-    if (n > settings.max_per_side) {
-      problems.push(`Max ${settings.max_per_side} players from ${side} (you have ${n}).`);
+    if (n > settings.max_per_side && addsFrom.has(side)) {
+      problems.push(
+        `Max ${settings.max_per_side} players from ${side} (you have ${n}). You can keep the ones you have but not add another.`,
+      );
     }
   }
   if (picked.length === STARTERS + BENCH) {

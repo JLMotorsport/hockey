@@ -58,6 +58,19 @@ describe('summariseSquad', () => {
     expect(s.problems.join(' ')).toMatch(/captain/);
   });
 
+  it('lets a squad over a side limit be kept when nothing is added from that side', () => {
+    // 15 players over 4 sides (ids by id % 4): 4 from most sides, with a limit of 3.
+    const tight = { ...settings, max_per_side: 3 };
+    const kept = summariseSquad(xi(), subs(), 1, 2, tight, allIds, allIds);
+    expect(kept.problems.join(' ')).not.toMatch(/Max 3 players/);
+    // Player 5 (Side 2) is new: Side 2 is over, and that's a problem; others aren't.
+    const added = allIds.filter((id) => id !== 5);
+    const s = summariseSquad(xi(), subs(), 1, 2, tight, added, added);
+    expect(s.problems.filter((p) => p.startsWith('Max 3'))).toEqual([
+      'Max 3 players from Side 2 (you have 4). You can keep the ones you have but not add another.',
+    ]);
+  });
+
   it('needs a sub keeper first and outfield subs after', () => {
     const bench = subs();
     const swapped = [bench[1]!, bench[0]!, bench[2]!, bench[3]!];

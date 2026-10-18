@@ -2241,6 +2241,48 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     const back = (await anon.rpc('league_table')).data!.find((r) => r.user_id === top.user_id)!;
     expect(back.total).toBe(top.total);
   });
+  describe('players follow the side they play for', () => {
+    it('moves a player to the side of most of their last 3 games, unless locked', async () => {
+      const sides = (await service.from('sides').select('id').order('sort_order')).data!;
+      const [m3, m4] = [sides[2]!.id, sides[3]!.id];
+      const add = async (name: string, side_id: number, side_locked = false) =>
+        (
+          await service
+            .from('players')
+            .insert({ name, position: 'MID', side_id, price: 50, side_locked })
+            .select('id')
+            .single()
+        ).data!.id;
+      const played = async (player_id: number, side_id: number, kickoff: string) => {
+        const f = await fixture(side_id, kickoff, `Sides Opp ${kickoff}`);
+        await service.from('fixtures').update({ goals_for: 1, goals_against: 0 }).eq('id', f.id);
+        await service.from('performances').insert({ player_id, fixture_id: f.id });
+      };
+      const moved = await add('Sides Mover', m3);
+      const locked = await add('Sides Locked', m3, true);
+      const cover = await add('Sides Cover', m3);
+      for (const id of [moved, locked]) {
+        await played(id, m3, '2025-09-13T13:00:00+00:00');
+        await played(id, m4, '2025-09-20T13:00:00+00:00');
+        await played(id, m4, '2025-09-27T13:00:00+00:00');
+        await played(id, m4, '2025-10-04T13:00:00+00:00');
+      }
+      // Two of the last three for M3, one covering M4 (the most recent): stays.
+      await played(cover, m3, '2025-09-20T13:00:00+00:00');
+      await played(cover, m3, '2025-09-27T13:00:00+00:00');
+      await played(cover, m4, '2025-10-04T13:00:00+00:00');
+
+      expect(((await service.rpc('refresh_player_sides')).data as number) >= 1).toBe(true);
+      const sideOf = async (id: number) =>
+        (await service.from('players').select('side_id').eq('id', id).single()).data!.side_id;
+      expect(await sideOf(moved)).toBe(m4);
+      expect(await sideOf(locked)).toBe(m3);
+      expect(await sideOf(cover)).toBe(m3);
+      // Players can't run it.
+      expect((await anon.rpc('refresh_player_sides')).error).not.toBeNull();
+    });
+  });
+
   describe('fixture difficulty', () => {
     it('only answers the super user until it is switched on', async () => {
       const boss = await signUp('fdr-super@example.com', 'FDR Super');
