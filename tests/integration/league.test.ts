@@ -1821,6 +1821,62 @@ describe.skipIf(!configured)('league database', () => {
       await service.from('picks').delete().eq('user_id', trader.id);
     });
 
+    it('keeps phone reminders private, and knows what to tell each manager', async () => {
+      const phone = await signUp('phone@example.com', 'Phone XI');
+      const other = await signUp('other.phone@example.com', 'Other XI');
+      const sub = (user: string, n: number) => ({
+        user_id: user,
+        endpoint: `https://push.example/${n}`,
+        p256dh: 'key',
+        auth: 'auth',
+      });
+      expect((await phone.db.from('push_subscriptions').insert(sub(phone.id, 1))).error).toBeNull();
+      // Not for someone else, and nobody sees anyone else's.
+      expect(
+        (await phone.db.from('push_subscriptions').insert(sub(other.id, 2))).error,
+      ).not.toBeNull();
+      expect((await other.db.from('push_subscriptions').select('endpoint')).data).toEqual([]);
+      expect((await anon.rpc('vapid_public_key')).error).toBeNull();
+
+      const next = (
+        await anon
+          .from('gameweeks')
+          .select('id')
+          .gt('deadline', new Date().toISOString())
+          .order('start_date')
+          .limit(1)
+          .single()
+      ).data!.id;
+      // Only the reminders function (service role) can read who to remind.
+      expect((await phone.db.rpc('reminder_targets', { p_gameweek: next })).error).not.toBeNull();
+      const targets = (await service.rpc('reminder_targets', { p_gameweek: next })).data!;
+      expect(targets.find((t) => t.user_id === phone.id)).toMatchObject({
+        has_squad: false,
+        no_game: [],
+      });
+      // Saved a team and asked to hear only while unsaved: no reminder.
+      expect((await save(phone)).error).toBeNull();
+      await phone.db.from('profiles').update({ remind_only_unsaved: true }).eq('id', phone.id);
+      const after = (await service.rpc('reminder_targets', { p_gameweek: next })).data!;
+      expect(after.some((t) => t.user_id === phone.id)).toBe(false);
+    });
+
+    it('gives Capt %, points per gameweek and the Cup entrants', async () => {
+      const market = (await anon.rpc('player_market')).data!;
+      expect(market.every((r) => r.captained_by <= r.selected_by)).toBe(true);
+      const points = (await anon.rpc('league_points')).data!;
+      const table = (await anon.rpc('league_table')).data!;
+      for (const row of table.slice(0, 3)) {
+        const sum = points
+          .filter((p) => p.user_id === row.user_id)
+          .reduce((n, p) => n + p.points, 0);
+        expect(sum).toBe(row.total);
+      }
+      const gw = (await anon.from('gameweeks').select('id').order('start_date').limit(1).single())
+        .data!.id;
+      expect((await anon.rpc('cup_entrants', { p_gameweek: gw })).error).toBeNull();
+    });
+
     it('counts points from the gameweek scoring restarted', async () => {
       const gw = await live();
       await settings({ scoring_from: gw.start_date });

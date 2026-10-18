@@ -4,10 +4,11 @@ import { Sheet } from '@/components/Sheet';
 import { ErrorText, Loading } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import {
-  lockedGameweeks,
+  scoringGameweeks,
   useGameweeks,
   useLeagueTable,
   useProfileSides,
+  useSettings,
   useSides,
 } from '@/lib/queries';
 import { inLeague, leagueRows, movement, type LeagueKey } from '@/lib/table';
@@ -19,6 +20,7 @@ export function V3League() {
   const { session, profile } = useAuth();
   const table = useLeagueTable();
   const gameweeks = useGameweeks();
+  const settings = useSettings();
   const sides = useSides();
   const sideOf = useProfileSides();
   const [params, setParams] = useSearchParams();
@@ -50,7 +52,9 @@ export function V3League() {
           inLeague(league, sideOf.data ?? new Map<string, number | null>(), sideList),
         );
   const moved =
-    lockedGameweeks(gameweeks.data ?? []).length > 1 ? movement(rows) : new Map<string, number>();
+    scoringGameweeks(gameweeks.data ?? [], settings.data?.scoring_from).length > 1
+      ? movement(rows)
+      : new Map<string, number>();
   const me = session?.user.id;
   const initials = (t: string) =>
     t

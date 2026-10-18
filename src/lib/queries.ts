@@ -142,6 +142,39 @@ export function useTransferHits(userId: string | undefined, gameweekIds: number[
   return new Map(gameweekIds.map((id, i) => [id, results[i]?.data?.hit ?? 0]));
 }
 
+/** Each manager's points per counted gameweek, after hits (0027): user -> gameweek -> points. */
+export function useLeaguePoints() {
+  return useQuery({
+    queryKey: [...keys.table, 'points'],
+    queryFn: async () => {
+      const { data, error } = await requireSupabase().rpc('league_points');
+      const byUser = new Map<string, Map<number, number>>();
+      if (error) return byUser; // before the migration is run
+      for (const r of data) {
+        const m = byUser.get(r.user_id) ?? new Map<number, number>();
+        m.set(r.gameweek_id, r.points);
+        byUser.set(r.user_id, m);
+      }
+      return byUser;
+    },
+  });
+}
+
+/** Who is in the Cup: everyone with a squad for its first gameweek (0027). */
+export function useCupEntrants(gameweekId: number | undefined) {
+  return useQuery({
+    queryKey: ['cup-entrants', gameweekId ?? 0],
+    enabled: Boolean(gameweekId),
+    queryFn: async () => {
+      const { data, error } = await requireSupabase().rpc('cup_entrants', {
+        p_gameweek: gameweekId!,
+      });
+      if (error) return new Set<string>();
+      return new Set<string>(data ?? []);
+    },
+  });
+}
+
 export function useLeagueTable() {
   return useQuery({
     queryKey: keys.table,
@@ -530,6 +563,8 @@ export function usePlayerStats() {
 export interface MarketRow {
   /** % of managers with the player in their squad now. */
   selected_by: number;
+  /** % of managers with them as captain for the next gameweek (0027). */
+  captained_by: number;
   /** Changes made for the next gameweek so far. */
   transfers_in: number;
   transfers_out: number;
@@ -547,6 +582,7 @@ export function usePlayerMarket() {
           r.player_id,
           {
             selected_by: Number(r.selected_by),
+            captained_by: Number(r.captained_by ?? 0),
             transfers_in: r.transfers_in,
             transfers_out: r.transfers_out,
           },

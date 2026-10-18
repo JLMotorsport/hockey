@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { Reminders } from './Reminders';
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Notices, type Notice } from '@/components/ui';
@@ -331,58 +332,61 @@ export function AccountScreen() {
   }
 
   return (
-    <div className="card mt-6 max-w-md">
-      <h1 className="mt-0">Account</h1>
-      <p className="muted">
-        {profile.display_name} · {session.user.email}
-      </p>
-      <Notices items={notices} />
-      <form onSubmit={(e) => void submit(e)}>
-        <label className="field">
-          Fantasy team name
-          <input
-            className="input"
-            maxLength={80}
-            value={teamName}
-            onChange={(e) => setTeamName(e.target.value)}
-          />
-        </label>
-        <label className="field">
-          Your side (optional)
-          <select className="input" value={sideId} onChange={(e) => setSideId(e.target.value)}>
-            <option value="">I don't play / not sure</option>
-            {(sides.data ?? []).map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          <span className="muted text-xs">
-            Puts you in the Men's or Women's league and your side's own league too.
-          </span>
-        </label>
-        <label className="field">
-          New password
-          <input
-            className="input"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
-        <button className="btn">Save</button>
-      </form>
-      {!profile.is_super && (
-        <p className="mb-0 mt-5 text-center text-sm">
-          <Link
-            to="/account/delete"
-            className="muted inline-flex min-h-[44px] items-center px-3 underline"
-          >
-            Delete account
-          </Link>
+    <>
+      <Reminders />
+      <div className="card mt-4 max-w-md">
+        <h1 className="mt-0">Account</h1>
+        <p className="muted">
+          {profile.display_name} · {session.user.email}
         </p>
-      )}
-    </div>
+        <Notices items={notices} />
+        <form onSubmit={(e) => void submit(e)}>
+          <label className="field">
+            Fantasy team name
+            <input
+              className="input"
+              maxLength={80}
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+            />
+          </label>
+          <label className="field">
+            Your side (optional)
+            <select className="input" value={sideId} onChange={(e) => setSideId(e.target.value)}>
+              <option value="">I don't play / not sure</option>
+              {(sides.data ?? []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <span className="muted text-xs">
+              Puts you in the Men's or Women's league and your side's own league too.
+            </span>
+          </label>
+          <label className="field">
+            New password
+            <input
+              className="input"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+          <button className="btn">Save</button>
+        </form>
+        {!profile.is_super && (
+          <p className="mb-0 mt-5 text-center text-sm">
+            <Link
+              to="/account/delete"
+              className="muted inline-flex min-h-[44px] items-center px-3 underline"
+            >
+              Delete account
+            </Link>
+          </p>
+        )}
+      </div>
+    </>
   );
 }

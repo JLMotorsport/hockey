@@ -1,4 +1,3 @@
-import { toPng } from 'html-to-image';
 import { useEffect, useRef, useState } from 'react';
 import { Sheet } from '@/components/Sheet';
 import { useSearchParams } from 'react-router-dom';
@@ -21,31 +20,7 @@ import { teamOfTheWeek, type Scorer } from '@/lib/teamOfWeek';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
 import { TeamPitch, type Badge } from '@/v3/TeamPitch';
 import { BackBar } from '@/v3/V3Bits';
-
-/** Facebook's best portrait size: 1080 x 1350 (4:5), drawn at 540 x 675 and doubled. */
-const SOCIAL = { width: 540, height: 675 };
-
-/** The social card as a PNG. */
-async function renderCard(node: HTMLElement): Promise<Blob> {
-  const url = await toPng(node, {
-    pixelRatio: 2,
-    cacheBust: true,
-    width: SOCIAL.width,
-    height: SOCIAL.height,
-  });
-  return (await fetch(url)).blob();
-}
-
-/** Can this browser hand an image file to the phone's share sheet? */
-function canShareFiles(): boolean {
-  try {
-    return Boolean(
-      navigator.canShare?.({ files: [new File([''], 'x.png', { type: 'image/png' })] }),
-    );
-  } catch {
-    return false;
-  }
-}
+import { canShareFiles, renderCard, SOCIAL } from '@/lib/shareImage';
 
 /** `v3`: the V3 layout on screen (the shared image stays the club's red card). */
 export function TeamOfWeekScreen({ v3 = false }: { v3?: boolean } = {}) {

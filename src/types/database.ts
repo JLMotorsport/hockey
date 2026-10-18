@@ -230,6 +230,7 @@ export type Database = {
       league_settings: {
         Row: {
           budget: number;
+          cup_start: number;
           formations: string[];
           id: number;
           late_entry_until: string | null;
@@ -242,6 +243,7 @@ export type Database = {
         };
         Insert: {
           budget?: number;
+          cup_start?: number;
           formations?: string[];
           id?: number;
           late_entry_until?: string | null;
@@ -254,6 +256,7 @@ export type Database = {
         };
         Update: {
           budget?: number;
+          cup_start?: number;
           formations?: string[];
           id?: number;
           late_entry_until?: string | null;
@@ -587,6 +590,7 @@ export type Database = {
           is_admin: boolean;
           is_super: boolean;
           late_entry_gameweek: number | null;
+          remind_only_unsaved: boolean;
           side_id: number | null;
           team_name: string;
         };
@@ -597,6 +601,7 @@ export type Database = {
           is_admin?: boolean;
           is_super?: boolean;
           late_entry_gameweek?: number | null;
+          remind_only_unsaved?: boolean;
           side_id?: number | null;
           team_name: string;
         };
@@ -607,6 +612,7 @@ export type Database = {
           is_admin?: boolean;
           is_super?: boolean;
           late_entry_gameweek?: number | null;
+          remind_only_unsaved?: boolean;
           side_id?: number | null;
           team_name?: string;
         };
@@ -623,6 +629,67 @@ export type Database = {
             columns: ['side_id'];
             isOneToOne: false;
             referencedRelation: 'sides';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      push_subscriptions: {
+        Row: {
+          auth: string;
+          created_at: string;
+          endpoint: string;
+          id: number;
+          p256dh: string;
+          user_id: string;
+        };
+        Insert: {
+          auth: string;
+          created_at?: string;
+          endpoint: string;
+          id?: never;
+          p256dh: string;
+          user_id: string;
+        };
+        Update: {
+          auth?: string;
+          created_at?: string;
+          endpoint?: string;
+          id?: never;
+          p256dh?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'push_subscriptions_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      reminder_log: {
+        Row: {
+          gameweek_id: number;
+          kind: string;
+          sent_at: string;
+        };
+        Insert: {
+          gameweek_id: number;
+          kind: string;
+          sent_at?: string;
+        };
+        Update: {
+          gameweek_id?: number;
+          kind?: string;
+          sent_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'reminder_log_gameweek_id_fkey';
+            columns: ['gameweek_id'];
+            isOneToOne: false;
+            referencedRelation: 'gameweeks';
             referencedColumns: ['id'];
           },
         ];
@@ -725,6 +792,24 @@ export type Database = {
           },
         ];
       };
+      vapid_keys: {
+        Row: {
+          id: number;
+          private_key: string;
+          public_key: string;
+        };
+        Insert: {
+          id?: number;
+          private_key: string;
+          public_key: string;
+        };
+        Update: {
+          id?: number;
+          private_key?: string;
+          public_key?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       player_gameweek_points: {
@@ -816,8 +901,10 @@ export type Database = {
       apply_price_changes: { Args: { p_gameweek: number }; Returns: number };
       bank_before_next: { Args: Record<PropertyKey, never>; Returns: number };
       call_eh_sync: { Args: Record<PropertyKey, never>; Returns: boolean };
+      call_reminders: { Args: Record<PropertyKey, never>; Returns: boolean };
       cancel_chip: { Args: Record<PropertyKey, never>; Returns: undefined };
       copy_squad: { Args: { p_from: number; p_to: number; p_user: string }; Returns: undefined };
+      cup_entrants: { Args: { p_gameweek: number }; Returns: string[] };
       delete_my_account: { Args: { p_team_name: string }; Returns: undefined };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
       fixtures_due_for_sync: { Args: { p_now?: string }; Returns: number[] };
@@ -837,6 +924,14 @@ export type Database = {
       in_late_entry: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_super: { Args: Record<PropertyKey, never>; Returns: boolean };
+      league_points: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          gameweek_id: number;
+          points: number;
+          user_id: string;
+        }[];
+      };
       league_table: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -890,6 +985,7 @@ export type Database = {
       player_market: {
         Args: Record<PropertyKey, never>;
         Returns: {
+          captained_by: number;
           player_id: number;
           selected_by: number;
           transfers_in: number;
@@ -900,6 +996,18 @@ export type Database = {
       price_floor: { Args: Record<PropertyKey, never>; Returns: number };
       record_sync_results: { Args: { p_results: Json }; Returns: undefined };
       refresh_deadline: { Args: { p_gameweek_id: number }; Returns: undefined };
+      reminder_targets: {
+        Args: { p_gameweek: number };
+        Returns: {
+          auth: string;
+          endpoint: string;
+          free: number;
+          has_squad: boolean;
+          no_game: string[];
+          p256dh: string;
+          user_id: string;
+        }[];
+      };
       remove_user: { Args: { p_team_name: string; p_user: string }; Returns: undefined };
       require_admin: { Args: Record<PropertyKey, never>; Returns: undefined };
       run_due_sync: { Args: Record<PropertyKey, never>; Returns: number };
@@ -968,6 +1076,7 @@ export type Database = {
       };
       transfers_used: { Args: { p_gameweek: number; p_user: string }; Returns: number };
       undo_change: { Args: { p_id: number }; Returns: number };
+      vapid_public_key: { Args: Record<PropertyKey, never>; Returns: string };
       weekend_sync_due: { Args: { p_now?: string }; Returns: boolean };
     };
     Enums: {

@@ -1,7 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { gameweekLabel } from '@/lib/format';
-import { lockedGameweeks, useGameweeks, useLeagueTable, useTeamsWithoutSquad } from '@/lib/queries';
+import {
+  scoringGameweeks,
+  useGameweeks,
+  useLeagueTable,
+  useSettings,
+  useTeamsWithoutSquad,
+} from '@/lib/queries';
 import { ErrorText, Loading } from '@/components/ui';
 import { leagueRows, movement } from '@/lib/table';
 
@@ -17,6 +23,7 @@ export function LeagueTable({
   const table = useLeagueTable();
   const gameweeks = useGameweeks();
   const noTeam = useTeamsWithoutSquad();
+  const settings = useSettings();
   if (table.isLoading || gameweeks.isLoading) return <Loading />;
   if (table.error) return <ErrorText error={table.error} />;
   const all = include ? leagueRows(table.data ?? [], include) : (table.data ?? []);
@@ -27,7 +34,9 @@ export function LeagueTable({
         {include ? 'Nobody in this league yet.' : 'No teams yet. Be the first.'}
       </p>
     );
-  const locked = lockedGameweeks(gameweeks.data ?? []);
+  // Only gameweeks that count (from a scoring restart): before the second
+  // one there's nothing to have moved from.
+  const locked = scoringGameweeks(gameweeks.data ?? [], settings.data?.scoring_from);
   const latest = locked.at(-1);
   // Movement only means something once there's a gameweek before this one.
   const moved = locked.length > 1 ? movement(all) : new Map<string, number>();
@@ -53,12 +62,14 @@ export function LeagueTable({
               >
                 <span className="flex items-center gap-1">
                   <span className="display-num text-xl">{row.rank}</span>
-                  {move !== 0 && (
+                  {moved.size > 0 && (
                     <span
-                      className={`text-[0.7rem] font-bold ${move > 0 ? 'text-[#1f7a4d] dark:text-[#5fd39a]' : 'text-[#b3261e] dark:text-[#ff8a80]'}`}
-                      aria-label={move > 0 ? `up ${move}` : `down ${-move}`}
+                      className={`text-[0.7rem] font-bold ${move > 0 ? 'text-[#1f7a4d] dark:text-[#5fd39a]' : move < 0 ? 'text-[#b3261e] dark:text-[#ff8a80]' : 'text-ink-soft'}`}
+                      aria-label={
+                        move > 0 ? `up ${move}` : move < 0 ? `down ${-move}` : 'no change'
+                      }
                     >
-                      {move > 0 ? `▲${move}` : `▼${-move}`}
+                      {move > 0 ? `▲${move}` : move < 0 ? `▼${-move}` : '–'}
                     </span>
                   )}
                 </span>

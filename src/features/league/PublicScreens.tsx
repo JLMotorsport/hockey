@@ -18,6 +18,8 @@ import { inLeague, type LeagueKey } from '@/lib/table';
 import { POSITIONS, RULES_TABLE, type Position } from '@/lib/scoring';
 import { formatPrice, transferRule } from '@/lib/squad';
 import { LeagueTable } from './LeagueTable';
+import { MonthView } from './MonthView';
+import { CupView } from './CupView';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
 import { MatchSheet } from './MatchSheet';
 import { NoTeamPrompt } from '@/components/NoTeamPrompt';
@@ -67,6 +69,10 @@ export function TableScreen() {
   const sideOf = useProfileSides();
   // Home's league rows open the table on that league.
   const [params] = useSearchParams();
+  const [view, setView] = useState<'league' | 'month' | 'cup'>(() => {
+    const asked = params.get('view');
+    return asked === 'month' || asked === 'cup' ? asked : 'league';
+  });
   const [league, setLeague] = useState<LeagueKey>(() => {
     const asked = params.get('league') ?? '';
     return /^(all|men|women|side:\d+)$/.test(asked) ? (asked as LeagueKey) : 'all';
@@ -94,33 +100,75 @@ export function TableScreen() {
     <>
       <h1>League table</h1>
       <NoTeamPrompt />
-      <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Leagues">
-        {leagues.map(([key, label]) => (
+      {/* League, this month's (Manager of the Month), or the Cup. */}
+      <div
+        className="mb-3 flex rounded-xl bg-black/[0.06] p-[3px] dark:bg-[#1f232c]"
+        role="tablist"
+        aria-label="Table"
+      >
+        {(
+          [
+            ['league', 'League'],
+            ['month', 'Month'],
+            ['cup', 'Cup'],
+          ] as const
+        ).map(([key, label]) => (
           <button
             key={key}
             type="button"
             role="tab"
-            aria-selected={league === key}
-            onClick={() => setLeague(key)}
-            className={`min-h-[40px] shrink-0 rounded-full px-4 font-display text-sm font-bold uppercase ${league === key ? 'bg-brand text-white' : 'bg-surface ring-1 ring-line'}`}
+            aria-selected={view === key}
+            onClick={() => setView(key)}
+            className={`min-h-[40px] flex-1 rounded-[10px] text-[0.95rem] font-bold ${view === key ? 'bg-[#14181f] text-white dark:bg-[#eceff4] dark:text-[#0e1014]' : 'text-ink-soft'}`}
           >
             {label}
           </button>
         ))}
       </div>
-      <div className="card">
-        <LeagueTable include={include} />
-      </div>
-      <p className="muted text-sm">
-        Arrows: places up or down since the gameweek before. Tap a team to see their squad.
-        {session && !mine && (
-          <>
-            {' '}
-            <Link to="/account">Set the side you play for</Link> to join the Men&apos;s or
-            Women&apos;s league and your side&apos;s league.
-          </>
-        )}
-      </p>
+      {view === 'cup' ? (
+        <CupView />
+      ) : (
+        <>
+          <div
+            className="mb-3 flex gap-1.5 overflow-x-auto pb-1"
+            role="tablist"
+            aria-label="Leagues"
+          >
+            {leagues.map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={league === key}
+                onClick={() => setLeague(key)}
+                className={`min-h-[40px] shrink-0 rounded-full px-4 font-display text-sm font-bold uppercase ${league === key ? 'bg-brand text-white' : 'bg-surface ring-1 ring-line'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {view === 'month' ? (
+            <MonthView include={include} />
+          ) : (
+            <div className="card">
+              <LeagueTable include={include} />
+            </div>
+          )}
+          <p className="muted text-sm">
+            {view === 'month'
+              ? "Points from this month's gameweeks only."
+              : 'Arrows: places up or down since the gameweek before.'}{' '}
+            Tap a team to see their squad.
+            {session && !mine && (
+              <>
+                {' '}
+                <Link to="/account">Set the side you play for</Link> to join the Men&apos;s or
+                Women&apos;s league and your side&apos;s league.
+              </>
+            )}
+          </p>
+        </>
+      )}
     </>
   );
 }
