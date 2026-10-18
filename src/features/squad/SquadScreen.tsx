@@ -1,3 +1,5 @@
+import { type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, Navigate } from 'react-router-dom';
 import { ErrorText, Loading, Notices } from '@/components/ui';
 import { formatDeadline } from '@/lib/format';
@@ -9,6 +11,7 @@ import { VersionSwitch } from '@/components/VersionSwitch';
 import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
 import { Pitch } from '@/components/Pitch';
 import { PhoneTabBar } from '@/components/Layout';
+import { useHeaderSlot } from '@/components/headerSlot';
 import { Sheet } from '@/components/Sheet';
 import { PlayerDetail, PlayerSheet } from '@/features/player/PlayerDetail';
 import { BENCH, formatPrice, SQUAD_QUOTA, STARTERS, type SquadPlayer } from '@/lib/squad';
@@ -23,28 +26,41 @@ import { useSquadEditor, type MovePlayer } from './useSquadEditor';
 export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) {
   const ed = useSquadEditor(mode);
   if (ed.status === 'login') return <Navigate to="/login" replace />;
-  // Keep the red bar while loading, so the top of the screen doesn't flash.
+  const title = (
+    <TitleBar>
+      <div className={titleRow}>
+        <h1 className="m-0 pl-2 text-[1.65rem] leading-none text-white">
+          {mode === 'pick' ? 'Pick Team' : 'Transfers'}
+        </h1>
+      </div>
+    </TitleBar>
+  );
   if (ed.status === 'loading')
     return (
-      <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2">
-        <header className="vt-squad-head sticky top-0 z-30 -mx-2 flex min-h-[52px] shrink-0 items-center bg-brand px-4 pb-1 pt-[calc(env(safe-area-inset-top)+0.25rem)] text-white sm:rounded-b-xl">
-          <h1 className="m-0 text-[1.65rem] leading-none text-white">
-            {mode === 'pick' ? 'Pick Team' : 'Transfers'}
-          </h1>
-        </header>
+      <div className="mx-auto max-w-[26rem] px-2">
+        {title}
         <Loading />
         <PhoneTabBar />
       </div>
     );
-  if (ed.status === 'error') return <ErrorText error={ed.error} />;
+  if (ed.status === 'error')
+    return (
+      <div className="mx-auto max-w-[26rem] px-2">
+        {title}
+        <ErrorText error={ed.error} />
+        <PhoneTabBar />
+      </div>
+    );
   if (ed.status === 'nogw') {
     return (
-      <>
+      <div className="mx-auto max-w-[26rem] px-2">
+        {title}
         <h1>Pick your squad</h1>
         <p className="muted">
           There&apos;s no upcoming gameweek yet. A manager needs to sync or add fixtures.
         </p>
-      </>
+        <PhoneTabBar />
+      </div>
     );
   }
   const {
@@ -289,47 +305,48 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   );
   const chrome = 'bg-black/[0.06] dark:bg-[#1f232c]';
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-[env(safe-area-inset-bottom)]">
-      {/* Title bar, red and pinned to the top as every other page's header:
-          iPhone colours the status bar from a pinned bar, so switching pages
-          doesn't flash. Pick Team is a tab: its title, and Transfers to the
-          right. Transfers sits under it: back returns. */}
-      <header className="vt-squad-head sticky top-0 z-30 -mx-2 mb-1.5 flex min-h-[52px] shrink-0 items-center gap-2 bg-brand px-2 pb-1 pt-[calc(env(safe-area-inset-top)+0.25rem)] text-white sm:rounded-b-xl">
-        {!isPick && (
-          <Link
-            to="/squad"
-            aria-label="Back to Pick Team"
-            onClick={transitionClick('/squad', 'back', leave('/squad'))}
-            className="flex h-11 w-11 shrink-0 items-center justify-center text-white no-underline hover:no-underline"
-          >
-            <span
-              aria-hidden="true"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/20 pb-0.5 text-xl"
+    <div className="mx-auto flex min-h-[calc(100dvh-52px-env(safe-area-inset-top))] max-w-[26rem] flex-col px-2 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-1.5 sm:pb-[env(safe-area-inset-bottom)]">
+      {/* Title bar, in the app's red header (Layout), which never leaves the
+          screen. Pick Team is a tab: its title, and Transfers to the right.
+          Transfers sits under it: back returns to Pick Team. */}
+      <TitleBar>
+        <div className={titleRow}>
+          {!isPick && (
+            <Link
+              to="/squad"
+              aria-label="Back to Pick Team"
+              onClick={transitionClick('/squad', 'back', leave('/squad'))}
+              className="flex h-11 w-11 shrink-0 items-center justify-center text-white no-underline hover:no-underline"
             >
-              ‹
-            </span>
-          </Link>
-        )}
-        <div className={`min-w-0 flex-1 leading-tight ${isPick ? 'pl-2' : ''}`}>
-          <h1 className="m-0 text-[1.65rem] leading-none text-white">
-            {isPick ? 'Pick Team' : 'Transfers'}
-          </h1>
-          <p className="m-0 mt-0.5 truncate text-[0.8rem] text-white/85">
-            GW{all.filter((g) => g.start_date <= gameweek.start_date).length} · Deadline{' '}
-            {formatDeadline(gameweek.deadline)}
-          </p>
+              <span
+                aria-hidden="true"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-black/20 pb-0.5 text-xl"
+              >
+                ‹
+              </span>
+            </Link>
+          )}
+          <div className={`min-w-0 flex-1 leading-tight ${isPick ? 'pl-2' : ''}`}>
+            <h1 className="m-0 text-[1.65rem] leading-none text-white">
+              {isPick ? 'Pick Team' : 'Transfers'}
+            </h1>
+            <p className="m-0 mt-0.5 truncate text-[0.8rem] text-white/85">
+              GW{all.filter((g) => g.start_date <= gameweek.start_date).length} · Deadline{' '}
+              {formatDeadline(gameweek.deadline)}
+            </p>
+          </div>
+          <VersionSwitch tone="light" />
+          {isPick && (
+            <Link
+              to="/transfers"
+              onClick={transitionClick('/transfers', 'swap', leave('/transfers'))}
+              className="flex min-h-tap shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[0.95rem] font-extrabold text-brand-dark no-underline hover:no-underline"
+            >
+              Transfers <span aria-hidden="true">›</span>
+            </Link>
+          )}
         </div>
-        <VersionSwitch tone="light" />
-        {isPick && (
-          <Link
-            to="/transfers"
-            onClick={transitionClick('/transfers', 'swap', leave('/transfers'))}
-            className="flex min-h-tap shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[0.95rem] font-extrabold text-brand-dark no-underline hover:no-underline"
-          >
-            Transfers <span aria-hidden="true">›</span>
-          </Link>
-        )}
-      </header>
+      </TitleBar>
 
       <Notices items={notices} />
 
@@ -754,4 +771,13 @@ function MoveCell({ player, side }: { player: MovePlayer | null; side?: string }
       </span>
     </span>
   );
+}
+
+const titleRow =
+  'flex min-h-[52px] items-center gap-2 pb-1 pt-[calc(env(safe-area-inset-top)+0.25rem)]';
+
+/** Puts the page's title bar into the app's red header (see Layout). */
+function TitleBar({ children }: { children: ReactNode }) {
+  const slot = useHeaderSlot();
+  return slot ? createPortal(children, slot) : null;
 }

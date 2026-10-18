@@ -59,13 +59,7 @@ function Home() {
 
 // Testing: V1 is this morning's design (6 Oct), inside the usual header and tabs.
 function Squad({ mode }: { mode: 'pick' | 'transfers' }) {
-  return useUiVersion() === 'v1' ? (
-    <Layout>
-      <SquadScreenV1 mode={mode} />
-    </Layout>
-  ) : (
-    <SquadScreen mode={mode} />
-  );
+  return useUiVersion() === 'v1' ? <SquadScreenV1 mode={mode} /> : <SquadScreen mode={mode} />;
 }
 
 function Players() {
@@ -140,14 +134,15 @@ export function App() {
               <Route path="team-of-the-week" element={<TeamOfWeekScreen />} />
               <Route path="fixtures" element={<FixturesScreen />} />
               <Route path="rules" element={<RulesScreen />} />
+              {/* Pick team and Transfers: full screens of their own, as in FPL, with
+                  their title bar in the app's red header (Layout). */}
+              <Route path="squad" element={<Squad mode="pick" />} />
+              <Route path="transfers" element={<Squad mode="transfers" />} />
               <Route path="manage/*" element={<ManageRedirect />} />
               <Route path="*" element={<p className="my-6">We couldn&apos;t find that page.</p>} />
             </>
           )}
         </Route>
-        {/* Pick team and Transfers are full screens of their own, as in FPL: their own title bar, no tabs. */}
-        {!loading && <Route path="squad" element={<Squad mode="pick" />} />}
-        {!loading && <Route path="transfers" element={<Squad mode="transfers" />} />}
         {managerRoutes()}
       </Routes>
     </BrowserRouter>

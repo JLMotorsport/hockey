@@ -192,12 +192,22 @@ html[data-nav='swap']::view-transition-new(root) {
   animation-duration: 160ms;
 }
 
-/* Pick team and Transfers share a title bar and a pitch: they stay put and morph.
-   The app's red header and Pick team's red bar share a name too, so going to
-   Pick team the red glides across rather than fading (no flash at the top). */
-html[data-nav='swap'] .vt-squad-head,
-html[data-nav='swap'] .vt-app-head {
+/* Pick team and Transfers share a pitch: it stays put and morphs. (V3's title
+   bar morphs too.) */
+html[data-nav='swap'] .vt-squad-head {
   view-transition-name: squad-head;
+}
+/* The red header doesn't fade between pages: its new contents just appear, so
+   no text ghosts over the old and the red never dims. */
+html[data-nav='swap'] .vt-app-head {
+  view-transition-name: app-head;
+}
+::view-transition-old(app-head) {
+  display: none;
+}
+::view-transition-new(app-head),
+::view-transition-group(app-head) {
+  animation: none;
 }
 html[data-nav='swap'] .vt-squad-pitch {
   view-transition-name: squad-pitch;
