@@ -101,26 +101,34 @@ async function scheduled(admin: Admin): Promise<Record<string, unknown>> {
   const deadline = new Date(next.deadline);
   const kind = dueKind(now, deadline);
   if (!kind) return { due: false };
-  // Once only: if this reminder is already in the log, someone sent it.
+  // Once only: claim it in the log (another run that got there first has it).
   const logged = await admin.from('reminder_log').insert({ gameweek_id: next.id, kind });
   if (logged.error) return { due: false, why: 'already sent' };
-  const number = (gws ?? []).filter((g) => g.start_date <= next.start_date).length;
-  const { data: targets, error } = await admin.rpc('reminder_targets', { p_gameweek: next.id });
-  if (error) throw new Error(error.message);
-  const send = await sender(admin);
-  let sent = 0;
-  for (const t of targets ?? []) {
-    const text = reminderText(kind, number, deadline, t);
-    if (
-      await send(t, {
-        ...text,
-        url: t.has_squad ? '/squad' : '/transfers',
-        tag: `gw${next.id}-${kind}`,
-      })
-    )
-      sent += 1;
+  try {
+    const number = (gws ?? []).filter((g) => g.start_date <= next.start_date).length;
+    const { data: targets, error } = await admin.rpc('reminder_targets', { p_gameweek: next.id });
+    if (error) throw new Error(error.message);
+    const send = await sender(admin);
+    let sent = 0;
+    for (const t of targets ?? []) {
+      const text = reminderText(kind, number, deadline, t);
+      if (
+        await send(t, {
+          ...text,
+          url: t.has_squad ? '/squad' : '/transfers',
+          tag: `gw${next.id}-${kind}`,
+        })
+      )
+        sent += 1;
+    }
+    return { due: kind, gameweek: number, sent };
+  } catch (err) {
+    // Not sent after all: free the claim so the next run (within the
+    // window) tries again. A phone that already had it gets the same tag,
+    // which replaces rather than repeats it.
+    await admin.from('reminder_log').delete().eq('gameweek_id', next.id).eq('kind', kind);
+    throw err;
   }
-  return { due: kind, gameweek: number, sent };
 }
 
 Deno.serve(async (req: Request) => {

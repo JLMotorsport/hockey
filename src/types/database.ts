@@ -69,6 +69,45 @@ export type Database = {
           },
         ];
       };
+      cup_seeds: {
+        Row: {
+          display_name: string;
+          gameweek_id: number;
+          seed: number;
+          team_name: string;
+          user_id: string | null;
+        };
+        Insert: {
+          display_name: string;
+          gameweek_id: number;
+          seed: number;
+          team_name: string;
+          user_id?: string | null;
+        };
+        Update: {
+          display_name?: string;
+          gameweek_id?: number;
+          seed?: number;
+          team_name?: string;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'cup_seeds_gameweek_id_fkey';
+            columns: ['gameweek_id'];
+            isOneToOne: false;
+            referencedRelation: 'gameweeks';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'cup_seeds_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       fixtures: {
         Row: {
           auto_synced_at: string | null;
@@ -372,6 +411,21 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      one_off_runs: {
+        Row: {
+          name: string;
+          ran_at: string;
+        };
+        Insert: {
+          name: string;
+          ran_at?: string;
+        };
+        Update: {
+          name?: string;
+          ran_at?: string;
+        };
+        Relationships: [];
       };
       performances: {
         Row: {
@@ -954,6 +1008,15 @@ export type Database = {
       call_reminders: { Args: Record<PropertyKey, never>; Returns: boolean };
       cancel_chip: { Args: Record<PropertyKey, never>; Returns: undefined };
       copy_squad: { Args: { p_from: number; p_to: number; p_user: string }; Returns: undefined };
+      cup_draw: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          display_name: string;
+          seed: number;
+          team_name: string;
+          user_id: string;
+        }[];
+      };
       cup_entrants: { Args: { p_gameweek: number }; Returns: string[] };
       delete_my_account: { Args: { p_team_name: string }; Returns: undefined };
       ensure_gameweek: { Args: { p_day: string }; Returns: number };
@@ -1097,6 +1160,10 @@ export type Database = {
           p_goals_for: number;
           p_stats: Json;
         };
+        Returns: undefined;
+      };
+      save_push_subscription: {
+        Args: { p_auth: string; p_endpoint: string; p_p256dh: string };
         Returns: undefined;
       };
       save_squad: {

@@ -67,7 +67,7 @@ export function Reminders() {
     setBusy(true);
     setNotices([]);
     try {
-      if (next) await subscribe(session!.user.id);
+      if (next) await subscribe();
       else await unsubscribe();
       setOn(next);
       if (next)

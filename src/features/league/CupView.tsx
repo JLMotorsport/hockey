@@ -4,11 +4,11 @@ import { useAuth } from '@/lib/auth/AuthProvider';
 import { cupDraw, type CupRound, type CupTie } from '@/lib/cup';
 import { formatWeekdayTime, gameweekLabel } from '@/lib/format';
 import {
-  useCupEntrants,
+  useCupDraw,
   useGameweeks,
   useLeaguePoints,
-  useLeagueTable,
   useSettings,
+  type CupSeed,
 } from '@/lib/queries';
 
 /** Settled: two days after a gameweek starts its scores are final (as auto-subs). */
@@ -22,7 +22,6 @@ const settled = (startDate: string, now = new Date()) =>
  */
 export function CupView() {
   const { session } = useAuth();
-  const table = useLeagueTable();
   const points = useLeaguePoints();
   const gameweeks = useGameweeks();
   const settings = useSettings();
@@ -31,11 +30,13 @@ export function CupView() {
   const start = all[startNumber - 1];
   const now = new Date();
   const started = Boolean(start && new Date(start.deadline) <= now);
-  const entrants = useCupEntrants(started ? start?.id : undefined);
+  // Entrants and seeds are frozen at the first deadline (0035), so later
+  // sign-ups or deleted accounts don't rewrite rounds already played.
+  const draw = useCupDraw(started);
 
-  if (table.isLoading || points.isLoading || gameweeks.isLoading || entrants.isLoading)
-    return <Loading />;
-  if (table.error) return <ErrorText error={table.error} />;
+  if (points.isLoading || gameweeks.isLoading || draw.isLoading) return <Loading />;
+  if (points.error) return <ErrorText error={points.error} />;
+  if (draw.error) return <ErrorText error={draw.error} />;
 
   const rules = (
     <p className="muted px-1 text-sm leading-relaxed">
@@ -63,26 +64,15 @@ export function CupView() {
     const g = all.find((x) => x.id === id);
     return g ? gameweekLabel(g, all).split(' ')[0] : 'TBC';
   };
-  // Seeds: the league table before the Cup's first gameweek.
-  const from = settings.data?.scoring_from;
-  const before = all
-    .filter((g) => g.start_date < start.start_date && (!from || g.start_date >= from))
-    .map((g) => g.id);
-  const seeds = (table.data ?? [])
-    .filter((r) => entrants.data?.has(r.user_id))
-    .map((r) => ({
-      ...r,
-      before: before.reduce((sum, id) => sum + (points.data?.get(r.user_id)?.get(id) ?? 0), 0),
-    }))
-    .sort(
-      (a, b) =>
-        b.before - a.before || a.team_name.toLowerCase().localeCompare(b.team_name.toLowerCase()),
-    );
+  const seeds: CupSeed[] = draw.data ?? [];
   const gwOf = (id: number | undefined) => all.find((g) => g.id === id);
   const rounds: CupRound[] = cupDraw(
     seeds.length,
     all.slice(startNumber - 1).map((g) => g.id),
-    (seed, gw) => points.data?.get(seeds[seed - 1]!.user_id)?.get(gw),
+    (seed, gw) => {
+      const id = seeds[seed - 1]?.user_id;
+      return id ? points.data?.get(id)?.get(gw) : undefined;
+    },
     (gw) => {
       const g = gwOf(gw);
       return Boolean(g && new Date(g.deadline) <= now && settled(g.start_date, now));
@@ -204,14 +194,14 @@ function TeamCell({
   right = false,
 }: {
   seed: number | null | undefined;
-  seeds: { user_id: string; team_name: string; display_name: string }[];
+  seeds: CupSeed[];
   you: number;
   right?: boolean;
 }) {
   const s = typeof seed === 'number' ? seeds[seed - 1] : undefined;
   return (
     <Link
-      to={s ? `/teams/${s.user_id}` : '#'}
+      to={s?.user_id ? `/teams/${s.user_id}` : '#'}
       className={`flex min-w-0 flex-col text-white no-underline hover:no-underline ${right ? 'items-end text-right' : ''}`}
     >
       <span className="max-w-full truncate font-extrabold">{s?.team_name ?? 'To be decided'}</span>
@@ -227,7 +217,7 @@ function Ties({
 }: {
   ties: CupTie[];
   name: (seed: number | null | undefined) => string;
-  seeds: { user_id: string }[];
+  seeds: CupSeed[];
 }) {
   // Byes aren't games: list the ties that are.
   const games = ties.filter((t) => t.a !== null || t.b !== null);
@@ -274,12 +264,13 @@ function TieName({
   seed: number | null | undefined;
   won: boolean;
   name: (seed: number | null | undefined) => string;
-  seeds: { user_id: string }[];
+  seeds: CupSeed[];
   right?: boolean;
 }) {
   const cls = `truncate ${won ? 'font-extrabold' : ''} ${right ? 'text-right' : ''}`;
-  return typeof seed === 'number' ? (
-    <Link to={`/teams/${seeds[seed - 1]!.user_id}`} className={`${cls} text-ink no-underline`}>
+  const userId = typeof seed === 'number' ? seeds[seed - 1]?.user_id : null;
+  return userId ? (
+    <Link to={`/teams/${userId}`} className={`${cls} text-ink no-underline`}>
       {name(seed)}
     </Link>
   ) : (

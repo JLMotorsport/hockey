@@ -79,7 +79,7 @@ export function usePlayerColumns<T extends Pick<Player, 'id' | 'price'>>(): {
     {
       key: 'capt',
       label: 'Capt',
-      title: 'Captained by (% of managers, next gameweek)',
+      title: 'Captained by (% of managers, this gameweek, shown after the deadline)',
       value: (p) => market.data?.get(p.id)?.captained_by ?? 0,
       render: (p) => `${market.data?.get(p.id)?.captained_by ?? 0}%`,
     },

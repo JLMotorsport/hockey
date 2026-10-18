@@ -8,9 +8,10 @@ RLS, Edge Functions).
 
 - The database is the real boundary. Squad rules, deadlines, hidden squads and manager-only
   actions are enforced in `supabase/migrations` (RLS + RPCs); the UI only mirrors them.
-- Points rules live in two places that must agree: `performance_points()` (latest in
-  `supabase/migrations/0029_clean_sheet_five_no_assists.sql`) and `src/lib/scoring.ts`. The
-  integration tests check parity. Assists are not tracked or scored and don't appear in the app.
+- Points rules live in two places that must agree: `performance_points()` (0029 for a normal
+  game, 0034 adds the walkover form: only player of the match and cards) and `src/lib/scoring.ts`.
+  The integration tests check parity. Assists are not tracked or scored and don't appear in the app.
+  `squad_lineup`, `player_gameweek_points` and `set_prices_from_points` all call it (latest 0035).
 - No em dashes in any user-facing copy.
 - 44px minimum touch targets for anything people tap on a phone.
 - **Design first.** Any redesign or new screen goes on the design canvas

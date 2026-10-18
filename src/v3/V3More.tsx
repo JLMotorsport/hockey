@@ -2,9 +2,9 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { VersionSwitch } from '@/components/VersionSwitch';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { signOut } from '@/lib/push';
 import { useTransitionClick } from '@/lib/navTransition';
 import { useSides } from '@/lib/queries';
-import { supabase } from '@/lib/supabase';
 import { BUILD_LABEL } from '@/lib/version';
 
 /** V3 More (board "More"): your team, settings, the design switch and the rest of the league. */
@@ -104,7 +104,7 @@ export function V3More() {
       {session && (
         <button
           type="button"
-          onClick={() => void supabase?.auth.signOut()}
+          onClick={() => void signOut()}
           className="mt-3.5 min-h-[44px] w-full text-center text-sm font-semibold text-[#ff8a97]"
         >
           Log out

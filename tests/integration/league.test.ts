@@ -2332,6 +2332,97 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     });
   });
 
+  describe('review fixes (0035)', () => {
+    it('keeps a walkover player of the match when England Hockey corrects the walkover', async () => {
+      const sides = (await service.from('sides').select('id').order('sort_order')).data!;
+      const m4 = sides[3]!.id;
+      const row = (walkover: string) => ({
+        eh_fixture_id: 'wo-flip-1',
+        kickoff: '2025-09-20T14:30:00',
+        opponent: 'Flip Opp',
+        is_home: true,
+        goals_for: 5,
+        goals_against: 0,
+        eh_team_id: null,
+        walkover,
+      });
+      await service.rpc('import_fixtures', {
+        p_side_id: m4,
+        p_competition: 'League',
+        p_rows: [row('for')],
+      });
+      const f = (
+        await service.from('fixtures').select('id').eq('eh_fixture_id', 'wo-flip-1').single()
+      ).data!;
+      const p = (
+        await service
+          .from('players')
+          .insert({ name: 'Flip Star', position: 'MID', side_id: m4, price: 40 })
+          .select('id')
+          .single()
+      ).data!;
+      await service
+        .from('performances')
+        .insert({ player_id: p.id, fixture_id: f.id, player_of_match: true });
+      await service.rpc('import_fixtures', {
+        p_side_id: m4,
+        p_competition: 'League',
+        p_rows: [row('against')],
+      });
+      const { count } = await service
+        .from('performances')
+        .select('*', { count: 'exact', head: true })
+        .eq('fixture_id', f.id);
+      expect(count).toBe(1);
+    });
+
+    it('moves a phone to whoever turns reminders on last', async () => {
+      const a = await signUp('phone-a@example.com', 'Phone A');
+      const b = await signUp('phone-b@example.com', 'Phone B');
+      const args = { p_endpoint: 'https://push.example/shared-phone', p_p256dh: 'k', p_auth: 'a' };
+      expect((await a.db.rpc('save_push_subscription', args)).error).toBeNull();
+      expect((await b.db.rpc('save_push_subscription', args)).error).toBeNull();
+      const rows = (
+        await service.from('push_subscriptions').select('user_id').eq('endpoint', args.p_endpoint)
+      ).data!;
+      expect(rows).toEqual([{ user_id: b.id }]);
+      expect((await anon.rpc('save_push_subscription', args)).error).not.toBeNull();
+    });
+
+    it('lets only the super user switch fixture difficulty', async () => {
+      const boss = await signUp('fdr-admin@example.com', 'FDR Admin');
+      await service.from('profiles').update({ is_admin: true, is_super: false }).eq('id', boss.id);
+      const tried = await boss.db.from('league_settings').update({ fdr_live: true }).eq('id', 1);
+      expect(tried.error?.message).toMatch(/super user/);
+      await service.from('profiles').update({ is_super: true }).eq('id', boss.id);
+      expect(
+        (await boss.db.from('league_settings').update({ fdr_live: true }).eq('id', 1)).error,
+      ).toBeNull();
+      await service.from('league_settings').update({ fdr_live: false }).eq('id', 1);
+      await service.from('profiles').update({ is_super: false, is_admin: false }).eq('id', boss.id);
+    });
+
+    it('freezes the Cup draw once it has started', async () => {
+      const gws = (await service.from('gameweeks').select('id, deadline').order('start_date'))
+        .data!;
+      const n = gws.reduce((last, g, i) => (new Date(g.deadline) <= new Date() ? i + 1 : last), 0);
+      await service.from('league_settings').update({ cup_start: n }).eq('id', 1);
+      const first = (await anon.rpc('cup_draw')).data ?? [];
+      const second = (await anon.rpc('cup_draw')).data ?? [];
+      expect(second).toEqual(first);
+      if (first.length) {
+        // A later team name change doesn't rewrite the frozen draw.
+        await service
+          .from('profiles')
+          .update({ team_name: 'Renamed After Draw' })
+          .eq('id', first[0]!.user_id!);
+        const third = (await anon.rpc('cup_draw')).data ?? [];
+        expect(third.map((r) => r.user_id)).toEqual(first.map((r) => r.user_id));
+      }
+      await service.from('league_settings').update({ cup_start: 9 }).eq('id', 1);
+    });
+  });
+
   describe('players follow the side they play for', () => {
     it('moves a player whose last 3 games were all for another side, unless locked', async () => {
       const sides = (await service.from('sides').select('id').order('sort_order')).data!;

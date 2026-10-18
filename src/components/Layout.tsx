@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { supabase } from '@/lib/supabase';
+import { signOut } from '@/lib/push';
 import {
   CalendarIcon,
   HomeIcon,
@@ -156,7 +156,7 @@ export function Layout({ children }: { children?: ReactNode } = {}) {
                       <button
                         type="button"
                         className="rounded-full px-3 py-1.5 font-display text-[0.95rem] font-bold uppercase tracking-wide text-white/80 hover:text-white"
-                        onClick={() => void supabase?.auth.signOut()}
+                        onClick={() => void signOut()}
                       >
                         Log out
                       </button>
@@ -288,7 +288,7 @@ export function PhoneTabBar({ guard }: { guard?: Guard } = {}) {
                   className="flex min-h-[52px] w-full items-center font-display text-lg font-bold uppercase text-brand"
                   onClick={() => {
                     setMenuOpen(false);
-                    void supabase?.auth.signOut();
+                    void signOut();
                   }}
                 >
                   Log out

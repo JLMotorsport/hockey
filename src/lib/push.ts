@@ -41,7 +41,7 @@ function keyBytes(base64: string): Uint8Array<ArrayBuffer> {
 }
 
 /** Ask the phone for permission, subscribe it, and save the subscription. */
-export async function subscribe(userId: string): Promise<void> {
+export async function subscribe(): Promise<void> {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
     throw new Error(
@@ -67,14 +67,23 @@ export async function subscribe(userId: string): Promise<void> {
       applicationServerKey: keyBytes(key),
     }));
   const json = sub.toJSON();
-  await db.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
-  const { error } = await db.from('push_subscriptions').insert({
-    user_id: userId,
-    endpoint: sub.endpoint,
-    p256dh: json.keys?.p256dh ?? '',
-    auth: json.keys?.auth ?? '',
+  // Moves the phone to you if someone else had it (a shared phone), 0035.
+  const { error } = await db.rpc('save_push_subscription', {
+    p_endpoint: sub.endpoint,
+    p_p256dh: json.keys?.p256dh ?? '',
+    p_auth: json.keys?.auth ?? '',
   });
   if (error) throw new Error(error.message);
+}
+
+/** Log out, first stopping this phone's reminders (they were for you). */
+export async function signOut(): Promise<void> {
+  try {
+    await unsubscribe();
+  } catch {
+    // No notifications on this browser, or already gone: log out anyway.
+  }
+  await requireSupabase().auth.signOut();
 }
 
 export async function unsubscribe(): Promise<void> {

@@ -122,7 +122,7 @@ export function TableScreen() {
             role="tab"
             aria-selected={view === key}
             onClick={() => setView(key)}
-            className={`min-h-[40px] flex-1 rounded-[10px] text-[0.95rem] font-bold ${view === key ? 'bg-[#14181f] text-white dark:bg-[#eceff4] dark:text-[#0e1014]' : 'text-ink-soft'}`}
+            className={`min-h-tap flex-1 rounded-[10px] text-[0.95rem] font-bold ${view === key ? 'bg-[#14181f] text-white dark:bg-[#eceff4] dark:text-[#0e1014]' : 'text-ink-soft'}`}
           >
             {label}
           </button>
@@ -144,7 +144,7 @@ export function TableScreen() {
                 role="tab"
                 aria-selected={league === key}
                 onClick={() => setLeague(key)}
-                className={`min-h-[40px] shrink-0 rounded-full px-4 font-display text-sm font-bold uppercase ${league === key ? 'bg-brand text-white' : 'bg-surface ring-1 ring-line'}`}
+                className={`min-h-tap shrink-0 rounded-full px-4 font-display text-sm font-bold uppercase ${league === key ? 'bg-brand text-white' : 'bg-surface ring-1 ring-line'}`}
               >
                 {label}
               </button>
@@ -354,7 +354,7 @@ export function FixturesScreen() {
             role="tab"
             aria-selected={shown === t}
             onClick={() => setTab(t)}
-            className={`min-h-[40px] flex-1 rounded-full font-display text-sm font-bold uppercase ${shown === t ? 'bg-brand text-white' : 'text-ink-soft'}`}
+            className={`min-h-tap flex-1 rounded-full font-display text-sm font-bold uppercase ${shown === t ? 'bg-brand text-white' : 'text-ink-soft'}`}
           >
             {t === 'upcoming' ? 'Upcoming' : 'Results'}
           </button>

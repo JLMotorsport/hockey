@@ -68,6 +68,10 @@ export function useGameweeks() {
   });
 }
 
+/** An RPC that doesn't exist yet (its migration hasn't been run). */
+export const missingRpc = (error: { code?: string }) =>
+  error.code === 'PGRST202' || error.code === '42883';
+
 export function useSettings() {
   return useQuery({
     queryKey: keys.settings,
@@ -150,7 +154,11 @@ export function useLeaguePoints() {
     queryFn: async () => {
       const { data, error } = await requireSupabase().rpc('league_points');
       const byUser = new Map<string, Map<number, number>>();
-      if (error) return byUser; // before the migration is run
+      if (error) {
+        // Before the migration is run, nothing; any other failure retries.
+        if (missingRpc(error)) return byUser;
+        throw new Error(error.message);
+      }
       for (const r of data) {
         const m = byUser.get(r.user_id) ?? new Map<number, number>();
         m.set(r.gameweek_id, r.points);
@@ -161,17 +169,26 @@ export function useLeaguePoints() {
   });
 }
 
-/** Who is in the Cup: everyone with a squad for its first gameweek (0027). */
-export function useCupEntrants(gameweekId: number | undefined) {
+export interface CupSeed {
+  seed: number;
+  /** Null when the account has since been deleted. */
+  user_id: string | null;
+  team_name: string;
+  display_name: string;
+}
+
+/** The Cup's entrants and seeds, frozen at its first deadline (0035); empty before. */
+export function useCupDraw(started: boolean) {
   return useQuery({
-    queryKey: ['cup-entrants', gameweekId ?? 0],
-    enabled: Boolean(gameweekId),
-    queryFn: async () => {
-      const { data, error } = await requireSupabase().rpc('cup_entrants', {
-        p_gameweek: gameweekId!,
-      });
-      if (error) return new Set<string>();
-      return new Set<string>(data ?? []);
+    queryKey: ['cup-draw'],
+    enabled: started,
+    queryFn: async (): Promise<CupSeed[]> => {
+      const { data, error } = await requireSupabase().rpc('cup_draw');
+      if (error) {
+        if (missingRpc(error)) return [];
+        throw new Error(error.message);
+      }
+      return data ?? [];
     },
   });
 }
@@ -575,12 +592,15 @@ export function usePlayerStats() {
       )) as unknown as (Omit<StatRow, 'goals_against'> & {
         fixture: { goals_against: number | null; walkover: string | null } | null;
       })[];
-      // A walkover's notional 5-0 isn't a clean sheet anyone kept.
+      // Nobody played a walkover: only its player of the match counts (as a
+      // game), and its notional 5-0 isn't a clean sheet anyone kept.
       return seasonStats(
-        rows.map((r) => ({
-          ...r,
-          goals_against: r.fixture?.walkover ? null : (r.fixture?.goals_against ?? null),
-        })),
+        rows
+          .filter((r) => !r.fixture?.walkover || r.player_of_match)
+          .map((r) => ({
+            ...r,
+            goals_against: r.fixture?.walkover ? null : (r.fixture?.goals_against ?? null),
+          })),
       );
     },
   });

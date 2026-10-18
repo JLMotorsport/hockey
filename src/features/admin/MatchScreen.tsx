@@ -58,6 +58,8 @@ export function MatchScreen() {
   const [score, setScore] = useState({ for: '', against: '' });
   const [complete, setComplete] = useState(false);
   const [extra, setExtra] = useState<number[]>([]);
+  // Pitchero names being added (so a double tap can't add someone twice).
+  const [adding, setAdding] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<number | null>(null);
   const [tab, setTab] = useState<'sheet' | 'pitchero'>('sheet');
   const [dirty, setDirty] = useState(false);
@@ -89,12 +91,15 @@ export function MatchScreen() {
 
   const line = (pid: number) => lines.get(pid) ?? EMPTY;
   function update(pid: number, patch: Partial<Line>) {
-    const next = new Map(lines);
-    const merged = { ...line(pid), ...patch };
-    // Entering a stat means they played.
-    if (!('played' in patch)) merged.played = true;
-    next.set(pid, merged);
-    setLines(next);
+    // From the latest state, so a change made after an await isn't lost.
+    setLines((prev) => {
+      const next = new Map(prev);
+      const merged = { ...(prev.get(pid) ?? EMPTY), ...patch };
+      // Entering a stat means they played.
+      if (!('played' in patch)) merged.played = true;
+      next.set(pid, merged);
+      return next;
+    });
     setDirty(true);
   }
 
@@ -193,6 +198,7 @@ export function MatchScreen() {
    */
   async function playedFromPitchero(name: string, position: string | null) {
     const key = nameKey(name);
+    if (adding.has(key)) return;
     const known =
       all.find(
         (p) => !p.name_withheld && nameKey(p.name) === key && p.side_id === fixture.side_id,
@@ -210,6 +216,7 @@ export function MatchScreen() {
       update(known.id, { played: true });
       return;
     }
+    setAdding((prev) => new Set(prev).add(key));
     const { data, error } = await requireSupabase()
       .from('players')
       .insert({
@@ -221,11 +228,16 @@ export function MatchScreen() {
       .select('id')
       .single();
     if (error) {
+      setAdding((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
       setNotices(errorLines(error).map((text) => ({ kind: 'error', text })));
       return;
     }
-    await queryClient.invalidateQueries({ queryKey: keys.players });
     update(data.id, { played: true });
+    await queryClient.invalidateQueries({ queryKey: keys.players });
     setNotices([
       {
         kind: 'success',
@@ -653,6 +665,7 @@ export function MatchScreen() {
             const matched = playedKeys.has(nameKey(r.name));
             const unused = r.starter === false;
             const canAdd = !matched && !unused;
+            const busy = adding.has(nameKey(r.name));
             return (
               <div
                 key={r.name}
@@ -668,11 +681,12 @@ export function MatchScreen() {
                 {canAdd && (
                   <button
                     type="button"
+                    disabled={busy}
                     onClick={() => void playedFromPitchero(r.name, r.position)}
                     aria-label={`${r.name} played: add to the team sheet`}
-                    className="min-h-tap rounded-full bg-brand px-3 text-xs font-extrabold uppercase text-white lg:min-h-[32px]"
+                    className="min-h-tap rounded-full bg-brand px-3 text-xs font-extrabold uppercase text-white disabled:opacity-50 lg:min-h-[32px]"
                   >
-                    Played
+                    {busy ? 'Adding' : 'Played'}
                   </button>
                 )}
               </div>

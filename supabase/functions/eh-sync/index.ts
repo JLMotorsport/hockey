@@ -176,7 +176,6 @@ async function importPitchero(admin: Admin, sideId: number, teamId: number): Pro
     .from('fixtures')
     .select('id, kickoff, opponent')
     .eq('side_id', sideId)
-    .is('walkover', null)
     .not('goals_for', 'is', null)
     .lte('kickoff', new Date().toISOString())
     .or(`pitchero_imported_at.is.null,kickoff.gte.${since}`);
