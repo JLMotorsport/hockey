@@ -527,7 +527,9 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
           ? {
               key: `p${p.id}`,
               position: pos,
-              name: names.get(p.id) ?? shortName(p.name),
+              name: shortName(p.name),
+              tag: sideById.get(p.side_id)?.short_name,
+              subInfo: true,
               sub: dataFor(p),
               subMuted: dataMuted(p),
               captain: captainId === p.id,
@@ -557,7 +559,10 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
       ? {
           key: `b${p.id}`,
           position: p.position,
-          name: names.get(p.id) ?? shortName(p.name),
+          name: shortName(p.name),
+          tag: sideById.get(p.side_id)?.short_name,
+          subInfo: true,
+          badge: i > 0 ? String(i) : undefined,
           sub: dataFor(p),
           subMuted: dataMuted(p),
           highlight: swapFrom !== null && canSwap(swapFrom, p.id),
@@ -643,7 +648,9 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
           ...here.map((p): PitchSlot => ({
             key: `t${p.id}`,
             position: pos,
-            name: names.get(p.id) ?? shortName(p.name),
+            name: shortName(p.name),
+            tag: sideById.get(p.side_id)?.short_name,
+            subInfo: true,
             heading: `${formatPrice(p.price)}m`,
             headingPill: true,
             sub: dataFor(p),

@@ -33,6 +33,7 @@ export function ChipsCard({
   only,
   elsewhere,
   className = 'mb-2',
+  slim = false,
 }: {
   userId: string;
   gameweek: Gameweek;
@@ -44,6 +45,8 @@ export function ChipsCard({
   /** Chips shown greyed out because they're played on another page, with that page's name. */
   elsewhere?: Partial<Record<ChipKey, string>>;
   className?: string;
+  /** One short row: the icon beside the name rather than above it (Pick Team, Transfers). */
+  slim?: boolean;
 }) {
   const queryClient = useQueryClient();
   const chips = useChips(userId);
@@ -100,14 +103,29 @@ export function ChipsCard({
               }}
               className={`flex min-h-tap flex-col items-center gap-[3px] rounded-[10px] bg-surface px-1 py-1.5 text-center shadow-card dark:shadow-none ${state.state === 'used' || away ? 'opacity-50' : ''}`}
             >
-              <span
-                className={`flex h-[26px] w-[26px] items-center justify-center rounded-lg text-white [&>svg]:h-4 [&>svg]:w-4 ${CHIP_COLOURS[c.key]}`}
-              >
-                <Icon />
-              </span>
-              <span className="flex min-h-[23px] items-center text-[0.66rem] font-bold leading-[1.1]">
-                {c.name}
-              </span>
+              {slim ? (
+                <span className="flex min-h-[26px] items-center gap-1">
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-white [&>svg]:h-3.5 [&>svg]:w-3.5 ${CHIP_COLOURS[c.key]}`}
+                  >
+                    <Icon />
+                  </span>
+                  <span className="text-left text-[0.66rem] font-bold leading-[1.05]">
+                    {c.name}
+                  </span>
+                </span>
+              ) : (
+                <>
+                  <span
+                    className={`flex h-[26px] w-[26px] items-center justify-center rounded-lg text-white [&>svg]:h-4 [&>svg]:w-4 ${CHIP_COLOURS[c.key]}`}
+                  >
+                    <Icon />
+                  </span>
+                  <span className="flex min-h-[23px] items-center text-[0.66rem] font-bold leading-[1.1]">
+                    {c.name}
+                  </span>
+                </>
+              )}
               <span
                 className={`w-[92%] rounded-md py-0.5 text-[0.69rem] font-bold ${
                   state.state === 'active'

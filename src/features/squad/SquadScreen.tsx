@@ -8,6 +8,7 @@ import { StatsTable } from '@/components/StatsTable';
 import { VersionSwitch } from '@/components/VersionSwitch';
 import { POSITION_NAMES, POSITIONS, type Position } from '@/lib/scoring';
 import { Pitch } from '@/components/Pitch';
+import { PhoneTabBar } from '@/components/Layout';
 import { Sheet } from '@/components/Sheet';
 import { PlayerDetail, PlayerSheet } from '@/features/player/PlayerDetail';
 import { BENCH, formatPrice, SQUAD_QUOTA, STARTERS, type SquadPlayer } from '@/lib/squad';
@@ -36,7 +37,6 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   }
   const {
     session,
-    go,
     transitionClick,
     sides,
     all,
@@ -276,52 +276,43 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   );
   const chrome = 'bg-black/[0.06] dark:bg-[#1f232c]';
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
-      {/* Title bar, as FPL's: back, the page, and Transfers where FPL has its assistant. */}
-      <header className="vt-squad-head flex h-[46px] shrink-0 items-center gap-1 bg-paper">
-        <button
-          type="button"
-          aria-label="Back"
-          onClick={() => {
-            if (dirty && !window.confirm('You have unsaved changes. Leave without saving?')) return;
-            // Always back to My Team, as FPL, wherever you came from.
-            setLoadedFrom(null);
-            go('/dashboard', 'back');
-          }}
-          className="flex h-11 w-11 items-center justify-center"
-        >
-          <span
-            aria-hidden="true"
-            className={`flex h-9 w-9 items-center justify-center rounded-full pb-0.5 text-xl ${chrome}`}
+    <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)] sm:pb-[env(safe-area-inset-bottom)]">
+      {/* Title bar. Pick Team is a tab: its title, and Transfers (red) to the right.
+          Transfers sits under it: back returns to Pick Team. */}
+      <header className="vt-squad-head flex min-h-[52px] shrink-0 items-center gap-2 bg-paper pb-1 pt-1">
+        {!isPick && (
+          <Link
+            to="/squad"
+            aria-label="Back to Pick Team"
+            onClick={transitionClick('/squad', 'back', leave('/squad'))}
+            className="flex h-11 w-11 shrink-0 items-center justify-center text-ink no-underline hover:no-underline"
           >
-            ‹
-          </span>
-        </button>
+            <span
+              aria-hidden="true"
+              className={`flex h-10 w-10 items-center justify-center rounded-full pb-0.5 text-xl ${chrome}`}
+            >
+              ‹
+            </span>
+          </Link>
+        )}
+        <div className={`min-w-0 flex-1 leading-tight ${isPick ? 'pl-2' : ''}`}>
+          <h1 className="m-0 text-[1.65rem] leading-none">{isPick ? 'Pick Team' : 'Transfers'}</h1>
+          <p className="m-0 mt-0.5 truncate text-[0.8rem] text-ink-soft">
+            GW{all.filter((g) => g.start_date <= gameweek.start_date).length} · Deadline{' '}
+            {formatDeadline(gameweek.deadline)}
+          </p>
+        </div>
         <VersionSwitch tone="page" />
-        <h1 className="m-0 flex-1 text-center font-sans text-[1.2rem] font-extrabold normal-case tracking-normal">
-          {isPick ? 'Pick Team' : 'Transfers'}
-        </h1>
-        <Link
-          to={isPick ? '/transfers' : '/squad'}
-          onClick={transitionClick(
-            isPick ? '/transfers' : '/squad',
-            'swap',
-            leave(isPick ? '/transfers' : '/squad'),
-          )}
-          className="flex min-h-tap items-center text-ink no-underline hover:no-underline"
-        >
-          <span className={`flex h-8 items-center rounded-full px-2.5 text-xs font-bold ${chrome}`}>
-            {isPick ? 'Transfers' : 'Pick Team'}
-          </span>
-        </Link>
+        {isPick && (
+          <Link
+            to="/transfers"
+            onClick={transitionClick('/transfers', 'swap', leave('/transfers'))}
+            className="flex min-h-tap shrink-0 items-center gap-1.5 rounded-full bg-brand px-4 text-[0.95rem] font-extrabold text-white no-underline hover:no-underline"
+          >
+            Transfers <span aria-hidden="true">›</span>
+          </Link>
+        )}
       </header>
-      <p className="m-0 shrink-0 pb-2 pt-0.5 text-center text-[0.8rem]">
-        <span className="font-semibold text-ink-soft">
-          Gameweek {all.filter((g) => g.start_date <= gameweek.start_date).length}
-        </span>{' '}
-        <span className="text-ink-soft">•</span>{' '}
-        <b>Deadline: {formatDeadline(gameweek.deadline)}</b>
-      </p>
 
       <Notices items={notices} />
 
@@ -343,6 +334,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
               sides={sides.data ?? []}
               onNotice={setNotices}
               elsewhere={{ wildcard: 'Transfers' }}
+              slim
             />
           ) : (
             <div className="mb-2 flex shrink-0 items-stretch gap-1.5">
@@ -365,6 +357,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
                   onNotice={setNotices}
                   only={['wildcard']}
                   className=""
+                  slim
                 />
               </div>
             </div>
@@ -418,13 +411,12 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
                 rows={slots}
                 bench={benchSlots}
                 compact
-                variant="card"
                 fieldClass={dirty ? PICK_FIELD.saving : PICK_FIELD.idle}
               />
             </div>
           ) : view === 'pitch' ? (
             <div className="vt-squad-pitch relative">
-              <Pitch rows={transferRows} compact variant="card" fieldClass={TRANSFER_FIELD} />
+              <Pitch rows={transferRows} compact fieldClass={TRANSFER_FIELD} />
               {squadPlayers.length < STARTERS + BENCH && (
                 <button
                   type="button"
@@ -515,7 +507,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
 
       {/* Transfers, as FPL: Add Player for an empty place, Next to review and confirm. */}
       {!isPick && (
-        <div className="sticky bottom-0 z-20 -mx-2 mt-auto flex gap-2.5 bg-paper px-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2.5">
+        <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 -mx-2 mt-auto flex gap-2.5 bg-paper px-2.5 pb-2 pt-2.5 sm:bottom-0 sm:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             disabled={!firstGap}
@@ -549,7 +541,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
 
       {/* Pick team: only once something has changed, as in FPL. */}
       {isPick && dirty && !empty && (
-        <div className="sticky bottom-0 z-20 -mx-2 mt-auto bg-paper px-2.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] pt-2">
+        <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 -mx-2 mt-auto bg-paper px-2.5 pb-2 pt-2 sm:bottom-0 sm:pb-[max(0.4rem,env(safe-area-inset-bottom))]">
           {showProblems && problemsOpen && (
             <ul className="mb-2 list-disc space-y-1 rounded-xl border border-[#f2c27a] bg-[#fff4e5] py-2 pl-7 pr-3 text-sm font-semibold text-[#6b3d00] dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8]">
               {problems.map((p) => (
@@ -714,6 +706,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
       )}
 
       {overlays}
+      <PhoneTabBar guard={leave('')} />
     </div>
   );
 }
@@ -721,15 +714,16 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
 // Pick team's pitch: the screen's height less the title bar, gameweek line,
 // chips, view switch, subs and (once changed) the save button, with a floor so
 // short screens scroll rather than squash.
+// Phones: the tab bar (4rem) is under the page too; laptops keep a pitch's shape.
 const PICK_FIELD = {
-  idle: 'h-[max(18rem,calc(100dvh-20.5rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))]',
+  idle: 'h-[max(17rem,calc(100dvh-22rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))] sm:h-auto sm:aspect-[590/954]',
   saving:
-    'h-[max(18rem,calc(100dvh-24.25rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))]',
+    'h-[max(17rem,calc(100dvh-25.75rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))] sm:h-auto sm:aspect-[590/954]',
 };
 
 // Transfers: all 15 on the pitch, no subs strip; the rest as Pick team's.
 const TRANSFER_FIELD =
-  'h-[max(21rem,calc(100dvh-18.1rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))]';
+  'h-[max(20rem,calc(100dvh-19.5rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))] sm:h-auto sm:aspect-[590/954]';
 
 /** One side of a transfer on the confirm sheet: name, then position, side and price. */
 function MoveCell({ player, side }: { player: MovePlayer | null; side?: string }) {

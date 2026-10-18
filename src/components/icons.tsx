@@ -38,6 +38,11 @@ export const MenuIcon = () => (
     <path d="M4 6h16M4 12h16M4 18h16" />
   </svg>
 );
+export const ShirtIcon = () => (
+  <svg {...base}>
+    <path d="M8 3l4 2 4-2 5 4-3 3-1-1v11H7V9l-1 1-3-3z" />
+  </svg>
+);
 export const HomeIcon = () => (
   <svg {...base}>
     <path d="M3 11l9-8 9 8M5 10v10h14V10" />

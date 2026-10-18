@@ -2,7 +2,15 @@ import { useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
-import { CalendarIcon, HomeIcon, MenuIcon, PitchIcon, SwapIcon, TrophyIcon } from './icons';
+import {
+  CalendarIcon,
+  HomeIcon,
+  MenuIcon,
+  PitchIcon,
+  ShirtIcon,
+  SwapIcon,
+  TrophyIcon,
+} from './icons';
 import { Sheet } from './Sheet';
 import { BUILD_COMMIT, BUILD_LABEL } from '@/lib/version';
 import { VersionSwitch } from './VersionSwitch';
@@ -37,16 +45,28 @@ function TopLink({ to, children }: { to: string; children: string }) {
   );
 }
 
-function Tab({ to, icon, children }: { to: string; icon: ReactNode; children: string }) {
+type Guard = (e: { preventDefault: () => void }) => void;
+
+function Tab({
+  to,
+  icon,
+  children,
+  guard,
+}: {
+  to: string;
+  icon: ReactNode;
+  children: string;
+  guard?: Guard;
+}) {
   const transitionClick = useTransitionClick();
   const also = useAlsoActive(to);
   return (
     <NavLink
-      onClick={transitionClick(to, 'swap')}
+      onClick={transitionClick(to, 'swap', guard)}
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
-        `flex h-16 flex-1 flex-col items-center justify-center gap-0.5 font-display text-[0.7rem] font-bold uppercase no-underline hover:no-underline ${isActive || also ? 'text-brand' : 'text-ink-soft'}`
+        `flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 whitespace-nowrap font-display text-[0.7rem] font-bold uppercase no-underline hover:no-underline ${isActive || also ? 'text-brand' : 'text-ink-soft'}`
       }
     >
       {icon}
@@ -58,12 +78,6 @@ function Tab({ to, icon, children }: { to: string; icon: ReactNode; children: st
 export function Layout({ children }: { children?: ReactNode } = {}) {
   const { session, profile } = useAuth();
   const v2 = useUiVersion() === 'v2';
-  const [menuOpen, setMenuOpen] = useState(false);
-  const navigate = useNavigate();
-  const go = (to: string) => {
-    setMenuOpen(false);
-    navigate(to);
-  };
 
   return (
     <div className="min-h-screen pb-20 sm:pb-0">
@@ -105,7 +119,7 @@ export function Layout({ children }: { children?: ReactNode } = {}) {
           <nav className="hidden flex-wrap items-center gap-1 sm:flex">
             {session && v2 && <TopLink to="/">Home</TopLink>}
             {session && <TopLink to="/dashboard">{v2 ? 'Points' : 'My team'}</TopLink>}
-            {session && !v2 && <TopLink to="/squad">Pick</TopLink>}
+            {session && <TopLink to="/squad">{v2 ? 'Pick Team' : 'Pick'}</TopLink>}
             <TopLink to="/table">Table</TopLink>
             <TopLink to="/team-of-the-week">TOTW</TopLink>
             <TopLink to="/players">Players</TopLink>
@@ -145,36 +159,59 @@ export function Layout({ children }: { children?: ReactNode } = {}) {
         Fixtures, line-ups, goals and cards from England Hockey.
       </footer>
 
+      <PhoneTabBar />
+    </div>
+  );
+}
+
+/**
+ * The phone tab bar and its More menu: on every page, Pick Team and Transfers
+ * too. `guard` can stop a tab being followed (unsaved changes).
+ */
+export function PhoneTabBar({ guard }: { guard?: Guard } = {}) {
+  const { session, profile } = useAuth();
+  const v2 = useUiVersion() === 'v2';
+  const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const go = (to: string) => {
+    setMenuOpen(false);
+    navigate(to);
+  };
+  return (
+    <>
       {/* Phone tab bar, as on the Premier League app. */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_12px_rgb(0_0_0/0.06)] sm:hidden">
         {session && v2 ? (
-          // V2, as FPL: Home holds Pick Team and Transfers; My Team becomes Points.
+          // V2, as FPL: Home, Points, then Pick Team (Transfers is under it).
           <>
-            <Tab to="/" icon={<HomeIcon />}>
+            <Tab guard={guard} to="/" icon={<HomeIcon />}>
               Home
             </Tab>
-            <Tab to="/dashboard" icon={<PitchIcon />}>
+            <Tab guard={guard} to="/dashboard" icon={<PitchIcon />}>
               Points
+            </Tab>
+            <Tab guard={guard} to="/squad" icon={<ShirtIcon />}>
+              Pick Team
             </Tab>
           </>
         ) : session ? (
           <>
-            <Tab to="/dashboard" icon={<PitchIcon />}>
+            <Tab guard={guard} to="/dashboard" icon={<PitchIcon />}>
               My team
             </Tab>
-            <Tab to="/squad" icon={<SwapIcon />}>
+            <Tab guard={guard} to="/squad" icon={<SwapIcon />}>
               Pick
             </Tab>
           </>
         ) : (
-          <Tab to="/" icon={<HomeIcon />}>
+          <Tab guard={guard} to="/" icon={<HomeIcon />}>
             Home
           </Tab>
         )}
-        <Tab to="/table" icon={<TrophyIcon />}>
+        <Tab guard={guard} to="/table" icon={<TrophyIcon />}>
           Table
         </Tab>
-        <Tab to="/fixtures" icon={<CalendarIcon />}>
+        <Tab guard={guard} to="/fixtures" icon={<CalendarIcon />}>
           Fixtures
         </Tab>
         <button
@@ -229,6 +266,6 @@ export function Layout({ children }: { children?: ReactNode } = {}) {
           </ul>
         </Sheet>
       )}
-    </div>
+    </>
   );
 }

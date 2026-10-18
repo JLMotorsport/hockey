@@ -234,6 +234,8 @@ export interface PitchSlot {
   subMuted?: boolean;
   /** Card style: the data strip dark, as FPL's points. */
   subDark?: boolean;
+  /** Plate style: the strip is information (opponent, price), so grey, never points red. */
+  subInfo?: boolean;
   captain?: boolean;
   /** Small badge on the shirt; defaults to "C" for the captain. */
   badge?: string;
@@ -357,7 +359,7 @@ export function PlayerSpot({
             </span>
             {slot.sub !== undefined && (
               <span
-                className={`block px-1 ${compact ? 'py-px sm:py-0.5' : 'py-0.5'} font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
+                className={`block px-1 ${compact ? 'py-px sm:py-0.5' : 'py-0.5'} font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.subInfo ? (slot.subMuted ? 'bg-[#6b7280]' : 'bg-[#4a505c]') : slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
               >
                 {slot.sub}
               </span>
@@ -564,7 +566,8 @@ function PitchField({
       <PitchMarkings stretch />
       <Boards />
       <div
-        className={`relative flex h-full flex-col justify-around px-1 ${fit ? 'py-3' : compact ? 'py-1.5 sm:py-6' : 'py-6'}`}
+        // Prices above the shirts (Transfers): start below the boards so the keepers' don't overlap them.
+        className={`relative flex h-full flex-col justify-around px-1 ${fit ? 'py-3' : compact ? 'py-1.5 sm:py-6' : 'py-6'} ${rows.GK.some((s) => s.headingPill) ? '!pt-6' : ''}`}
       >
         {order.map((pos) => (
           <div
