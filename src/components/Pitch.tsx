@@ -7,33 +7,54 @@ import { Pitch as PitchV1 } from '@/features/v1/PitchV1';
 // the goal in perspective, boards behind it, goal at the top. Real hockey
 // geometry (55m wide; shooting circle 14.63m from the posts, dashed 5m arc
 // outside it, penalty spot 6.475m out, 23m line, centre line at 45.7m).
-// The box is 1000 wide and as tall as the space it fills. The half always
-// runs from the backline to the centre line at the bottom, so every player is
-// on it; the D, its dashed line and the spot are drawn to the width's scale
-// (a little foreshortened) rather than stretched with the length, so the D
-// keeps its real shape, wider than deep, on any screen.
+// The box is 1000 wide and as tall as the space it fills. As FPL: the
+// defenders stand on our 23m line, the midfielders on halfway, and the
+// forwards in the opposition half, which runs on to the bottom. The D, its
+// dashed line and the spot are drawn to the width's scale (a little
+// foreshortened) so the D keeps its real shape, wider than deep.
 const PW = 55; // metres across
 const PL = 45.7; // metres to the centre line
+const L23 = 22.9; // our 23m line
 const TOP = 0.11; // backline, as a share of the height (boards and goal above)
-const BOTTOM = 0.985; // centre line
 const NEAR = 0.84; // width of the backline compared with the centre line
 const ACROSS = 940 / PW; // drawing units per metre across, at the centre line
 const D_DEPTH = 0.75; // a metre out from the goal in the D, against one across
 
+/** Where the 23m line and halfway fall, as shares of the pitch's height (the defenders' and midfielders' rows). */
+export interface PitchLines {
+  l23: number;
+  half: number;
+}
+const DEFAULT_LINES: PitchLines = { l23: 0.4, half: 0.64 };
+
 type Project = (xm: number, ym: number) => [number, number];
 
+/** Metres down the pitch to drawing units: backline, 23m line and halfway where the rows are. */
+function depthScale(height: number, lines: PitchLines) {
+  const y0 = TOP * height;
+  const y23 = Math.max(y0 + 1, lines.l23 * height);
+  const yHalf = Math.max(y23 + 1, lines.half * height);
+  const near = (y23 - y0) / L23; // units per metre, backline to 23m
+  const far = (yHalf - y23) / (PL - L23); // 23m to halfway, and on beyond it
+  return {
+    near,
+    y: (ym: number) => (ym <= L23 ? y0 + ym * near : y23 + (ym - L23) * far),
+    metres: (y: number) => (y <= y23 ? (y - y0) / near : L23 + (y - y23) / far),
+  };
+}
+
 /** Metres on the pitch to drawing units, for a box 1000 wide and `height` tall. */
-function pitchProjection(height: number): Project {
+function pitchProjection(height: number, lines: PitchLines): Project {
+  const depth = depthScale(height, lines);
   return (xm, ym) => {
     const k = NEAR + (1 - NEAR) * (ym / PL);
-    return [500 + (xm / PW - 0.5) * 940 * k, (TOP + (BOTTOM - TOP) * (ym / PL)) * height];
+    return [500 + (xm / PW - 0.5) * 940 * k, depth.y(ym)];
   };
 }
 
 /** How far to squeeze distances out from the goal so the D isn't stretched. */
-function dSqueeze(height: number): number {
-  const down = ((BOTTOM - TOP) * height) / PL; // units per metre down the pitch
-  return Math.min(1, (ACROSS * D_DEPTH) / down);
+function dSqueeze(height: number, lines: PitchLines): number {
+  return Math.min(1, (ACROSS * D_DEPTH) / depthScale(height, lines).near);
 }
 
 function path(project: Project, points: [number, number][]): string {
@@ -67,7 +88,13 @@ function circleD(project: Project, r: number, squeeze: number): string {
   return path(project, pts);
 }
 
-export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
+export function PitchMarkings({
+  stretch = false,
+  lines = DEFAULT_LINES,
+}: {
+  stretch?: boolean;
+  lines?: PitchLines;
+}) {
   void stretch; // kept so callers needn't change
   // The box's height in drawing units (1000 wide), from the space it fills.
   const ref = useRef<SVGSVGElement>(null);
@@ -84,8 +111,10 @@ export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const project = pitchProjection(height);
-  const squeeze = dSqueeze(height);
+  const project = pitchProjection(height, lines);
+  const squeeze = dSqueeze(height, lines);
+  // How many metres down the bottom of the box is (past halfway: their half).
+  const end = depthScale(height, lines).metres(height) + 1;
   const line = {
     stroke: 'white',
     strokeWidth: 2.5,
@@ -98,8 +127,8 @@ export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
   const [gr] = project(PW / 2 + 1.83, 0);
   const [, back] = project(0, 0);
   const goalTop = back - 34;
-  // Stripes across the grass, deeper towards the viewer.
-  const stripes = Array.from({ length: 9 }, (_, i) => {
+  // Stripes across the grass, every 1/8 of a half, on to the bottom of the box.
+  const stripes = Array.from({ length: Math.ceil(end / (PL / 8)) + 1 }, (_, i) => {
     const y0 = project(0, (PL / 8) * (i - 1))[1];
     const y1 = project(0, (PL / 8) * i)[1];
     return { y: i === 0 ? 0 : y0, h: y1 - (i === 0 ? 0 : y0), dark: i % 2 === 0 };
@@ -145,9 +174,9 @@ export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
       />
       {/* Lines */}
       <path d={straight(project, 0, 0, PW, 0)} {...line} />
-      <path d={straight(project, 0, 0, 0, PL)} {...line} />
-      <path d={straight(project, PW, 0, PW, PL)} {...line} />
-      <path d={straight(project, 0, 22.9, PW, 22.9)} {...line} />
+      <path d={straight(project, 0, 0, 0, end)} {...line} />
+      <path d={straight(project, PW, 0, PW, end)} {...line} />
+      <path d={straight(project, 0, L23, PW, L23)} {...line} />
       <path d={straight(project, 0, PL, PW, PL)} {...line} />
       <path d={circleD(project, 14.63, squeeze)} {...line} />
       <path d={circleD(project, 19.63, squeeze)} {...line} strokeDasharray="7 9" />
@@ -590,14 +619,49 @@ function PitchField({
   card?: boolean;
   fieldClass?: string;
 }) {
+  // The 23m line under the defenders and halfway under the midfielders: where
+  // their shirts actually are, as shares of the field's height.
+  const field = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef<Partial<Record<Position, HTMLDivElement | null>>>({});
+  const [lines, setLines] = useState<PitchLines | undefined>(undefined);
+  useLayoutEffect(() => {
+    const box = field.current;
+    if (!box) return;
+    const measure = () => {
+      const h = box.getBoundingClientRect().height;
+      // At the hem of the row's shirts, so the line shows between the players they stand on.
+      const mid = (pos: Position) => {
+        const row = rowRefs.current[pos];
+        const shirt = row?.querySelector('svg')?.getBoundingClientRect();
+        const r = shirt ?? row?.getBoundingClientRect();
+        if (!r) return undefined;
+        const y = shirt ? r.bottom - r.height * 0.1 : r.top + r.height / 2;
+        return (y - box.getBoundingClientRect().top) / h;
+      };
+      const l23 = mid('DEF');
+      const half = mid('MID');
+      if (h > 0 && l23 !== undefined && half !== undefined) {
+        setLines((was) =>
+          was && Math.abs(was.l23 - l23) < 0.002 && Math.abs(was.half - half) < 0.002
+            ? was
+            : { l23, half },
+        );
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [rows]);
   return (
     <div
+      ref={field}
       className={`relative w-full overflow-hidden ${fieldClass ?? (compact ? COMPACT_FIELD[hasBench ? 'withBench' : 'noBench'] : '')}`}
       style={
         fit ? { height: '100%' } : compact || fieldClass ? undefined : { aspectRatio: '590 / 954' }
       }
     >
-      <PitchMarkings stretch />
+      <PitchMarkings stretch lines={lines} />
       <Boards />
       <div
         // Prices above the shirts (Transfers): start below the boards so the keepers' don't overlap them.
@@ -606,6 +670,9 @@ function PitchField({
         {order.map((pos) => (
           <div
             key={pos}
+            ref={(el) => {
+              rowRefs.current[pos] = el;
+            }}
             className={`flex justify-center ${card ? 'gap-1.5 px-1' : 'gap-0.5'} sm:gap-2`}
           >
             {rows[pos].map((slot) => (
