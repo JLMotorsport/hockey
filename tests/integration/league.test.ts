@@ -2242,7 +2242,7 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     expect(back.total).toBe(top.total);
   });
   describe('players follow the side they play for', () => {
-    it('moves a player to the side of most of their last 3 games, unless locked', async () => {
+    it('moves a player whose last 3 games were all for another side, unless locked', async () => {
       const sides = (await service.from('sides').select('id').order('sort_order')).data!;
       const [m3, m4] = [sides[2]!.id, sides[3]!.id];
       const add = async (name: string, side_id: number, side_locked = false) =>
@@ -2271,6 +2271,11 @@ describe.skipIf(!configured)('fixes from the code review', () => {
       await played(cover, m3, '2025-09-20T13:00:00+00:00');
       await played(cover, m3, '2025-09-27T13:00:00+00:00');
       await played(cover, m4, '2025-10-04T13:00:00+00:00');
+      // Two for M4 out of the last three isn't enough: all three must be (0032).
+      const twoOfThree = await add('Sides Two Of Three', m3);
+      await played(twoOfThree, m3, '2025-09-20T13:00:00+00:00');
+      await played(twoOfThree, m4, '2025-09-27T13:00:00+00:00');
+      await played(twoOfThree, m4, '2025-10-04T13:00:00+00:00');
 
       expect(((await service.rpc('refresh_player_sides')).data as number) >= 1).toBe(true);
       const sideOf = async (id: number) =>
@@ -2278,6 +2283,7 @@ describe.skipIf(!configured)('fixes from the code review', () => {
       expect(await sideOf(moved)).toBe(m4);
       expect(await sideOf(locked)).toBe(m3);
       expect(await sideOf(cover)).toBe(m3);
+      expect(await sideOf(twoOfThree)).toBe(m3);
       // Players can't run it.
       expect((await anon.rpc('refresh_player_sides')).error).not.toBeNull();
     });
