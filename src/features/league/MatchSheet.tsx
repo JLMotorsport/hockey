@@ -70,9 +70,13 @@ export function MatchSheet({ fixtureId, onClose }: { fixtureId: number; onClose:
             </span>
             {result && (
               <>
-                <span className="display-num text-3xl">
-                  {fixture.goals_for}-{fixture.goals_against}
-                </span>
+                {fixture.walkover ? (
+                  <span className="font-display text-xl font-extrabold uppercase">Walkover</span>
+                ) : (
+                  <span className="display-num text-3xl">
+                    {fixture.goals_for}-{fixture.goals_against}
+                  </span>
+                )}
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-md font-display font-bold text-white ${result === 'W' ? 'bg-[#1f7a4d]' : result === 'L' ? 'bg-[#b3261e]' : 'bg-[#6b7280]'}`}
                   aria-label={result === 'W' ? 'Won' : result === 'L' ? 'Lost' : 'Drew'}
@@ -82,7 +86,14 @@ export function MatchSheet({ fixtureId, onClose }: { fixtureId: number; onClose:
               </>
             )}
           </div>
-          {rows.length === 0 ? (
+          {fixture.walkover ? (
+            <p className="muted">
+              {fixture.walkover === 'for'
+                ? 'The other side conceded, so we were awarded the win.'
+                : 'We conceded this one, so it counts as a loss.'}{' '}
+              Nobody played, so nobody scores from it.
+            </p>
+          ) : rows.length === 0 ? (
             <p className="muted">
               Who played isn&apos;t in yet. It appears once the match syncs from England Hockey.
             </p>

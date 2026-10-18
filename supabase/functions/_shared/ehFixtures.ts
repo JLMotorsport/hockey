@@ -27,6 +27,8 @@ export interface FixtureRow {
   goals_against: number | null;
   /** England Hockey's id for the Felixstowe team in this fixture. */
   eh_team_id: string | null;
+  /** A walkover: nobody played. 'for' when it was awarded to us, 'against' when we conceded. */
+  walkover: 'for' | 'against' | null;
 }
 
 export interface ParsedTeam {
@@ -95,6 +97,15 @@ export function parseTeamFeed(payload: unknown, slug: string): ParsedTeam {
           [goalsFor, goalsAgainst] = isHome ? [h, a] : [a, h];
         }
       }
+      // walkover is the side it was awarded to: H(ome) or A(way).
+      const wo = str(fx.walkover)?.toUpperCase();
+      const isWalkover = Boolean(wo) || /walkover/i.test(String(fx.status ?? ''));
+      let walkover: FixtureRow['walkover'] = null;
+      if (isWalkover) {
+        const toUs =
+          wo === 'H' ? isHome : wo === 'A' ? !isHome : (goalsFor ?? 0) > (goalsAgainst ?? 0);
+        walkover = toUs ? 'for' : 'against';
+      }
       rows.push({
         eh_fixture_id: id,
         kickoff: kickoff.slice(0, 19),
@@ -103,6 +114,7 @@ export function parseTeamFeed(payload: unknown, slug: string): ParsedTeam {
         goals_for: goalsFor,
         goals_against: goalsAgainst,
         eh_team_id: str(isHome ? fx.homeTeamId : fx.awayTeamId) ?? str((isHome ? home : away).id),
+        walkover,
       });
     }
   }

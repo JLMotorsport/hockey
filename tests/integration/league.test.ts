@@ -2241,6 +2241,60 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     const back = (await anon.rpc('league_table')).data!.find((r) => r.user_id === top.user_id)!;
     expect(back.total).toBe(top.total);
   });
+  describe('walkovers', () => {
+    it('stores a walkover, clears its stats and refuses new ones', async () => {
+      const sides = (await service.from('sides').select('id').order('sort_order')).data!;
+      const m4 = sides[3]!.id;
+      const row = (walkover: string | null) => ({
+        eh_fixture_id: 'wo-test-1',
+        kickoff: '2025-09-13T14:30:00',
+        opponent: 'East Coast 2',
+        is_home: false,
+        goals_for: 0,
+        goals_against: 5,
+        eh_team_id: null,
+        walkover,
+      });
+      await service.rpc('import_fixtures', {
+        p_side_id: m4,
+        p_competition: 'League',
+        p_rows: [row(null)],
+      });
+      const f = (
+        await service.from('fixtures').select('id').eq('eh_fixture_id', 'wo-test-1').single()
+      ).data!;
+      const p = (
+        await service
+          .from('players')
+          .insert({ name: 'Walkover Keeper', position: 'GK', side_id: m4, price: 40 })
+          .select('id')
+          .single()
+      ).data!;
+      expect(
+        (await service.from('performances').insert({ player_id: p.id, fixture_id: f.id })).error,
+      ).toBeNull();
+      // The sync learns it was a walkover we conceded: the stats go.
+      await service.rpc('import_fixtures', {
+        p_side_id: m4,
+        p_competition: 'League',
+        p_rows: [row('against')],
+      });
+      const after = (await service.from('fixtures').select('walkover').eq('id', f.id).single())
+        .data!;
+      expect(after.walkover).toBe('against');
+      const { count } = await service
+        .from('performances')
+        .select('*', { count: 'exact', head: true })
+        .eq('fixture_id', f.id);
+      expect(count).toBe(0);
+      // And none can be added.
+      const refused = await service
+        .from('performances')
+        .insert({ player_id: p.id, fixture_id: f.id });
+      expect(refused.error?.message).toMatch(/walkover/);
+    });
+  });
+
   describe('players follow the side they play for', () => {
     it('moves a player whose last 3 games were all for another side, unless locked', async () => {
       const sides = (await service.from('sides').select('id').order('sort_order')).data!;

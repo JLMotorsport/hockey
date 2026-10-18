@@ -140,18 +140,26 @@ const RESULT_STYLE = {
 const RESULT_NAME = { W: 'won', D: 'drew', L: 'lost' } as const;
 
 /** A side's recent results as W/D/L boxes, oldest first (letter and colour both). */
-export function FormBoxes({ results }: { results: ('W' | 'D' | 'L')[] }) {
+/** Results as coloured W/D/L boxes; a walkover's box has a white ring. */
+export function FormBoxes({
+  results,
+  walkovers = [],
+}: {
+  results: ('W' | 'D' | 'L')[];
+  walkovers?: boolean[];
+}) {
   if (!results.length) return <span className="muted text-sm">No results yet</span>;
   return (
     <span
       className="inline-flex gap-1"
-      aria-label={`Last ${results.length}: ${results.map((r) => RESULT_NAME[r]).join(', ')}`}
+      aria-label={`Last ${results.length}: ${results.map((r, i) => `${RESULT_NAME[r]}${walkovers[i] ? ' (walkover)' : ''}`).join(', ')}`}
     >
       {results.map((r, i) => (
         <span
           key={i}
           aria-hidden="true"
-          className={`flex h-5 w-5 items-center justify-center rounded font-display text-xs font-bold text-white ${RESULT_STYLE[r]}`}
+          title={walkovers[i] ? 'Walkover' : undefined}
+          className={`flex h-5 w-5 items-center justify-center rounded font-display text-xs font-bold text-white ${RESULT_STYLE[r]} ${walkovers[i] ? 'ring-2 ring-inset ring-white/70' : ''}`}
         >
           {r}
         </span>

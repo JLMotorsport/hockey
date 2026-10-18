@@ -87,6 +87,7 @@ export type Database = {
           side_id: number;
           stats_complete: boolean;
           stats_locked: boolean;
+          walkover: string | null;
           withheld_count: number;
         };
         Insert: {
@@ -106,6 +107,7 @@ export type Database = {
           side_id: number;
           stats_complete?: boolean;
           stats_locked?: boolean;
+          walkover?: string | null;
           withheld_count?: number;
         };
         Update: {
@@ -125,6 +127,7 @@ export type Database = {
           side_id?: number;
           stats_complete?: boolean;
           stats_locked?: boolean;
+          walkover?: string | null;
           withheld_count?: number;
         };
         Relationships: [

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ErrorText, FormBoxes, Loading, PosBadge } from '@/components/ui';
 import { formatShortDate, formatWeekdayTime, gameweekLabel } from '@/lib/format';
-import { fixtureLabel, opponentName, sideForm } from '@/lib/form';
+import { fixtureLabel, opponentName, sideForm, sideFormWalkovers } from '@/lib/form';
 import {
   nextOpenGameweek,
   useProfileSides,
@@ -335,11 +335,16 @@ export function FixturesScreen() {
                 {side.short_name}
               </span>
               <span className="min-w-0 flex-1 truncate text-sm">{side.name}</span>
-              <FormBoxes results={sideForm(list, side.id)} />
+              <FormBoxes
+                results={sideForm(list, side.id)}
+                walkovers={sideFormWalkovers(list, side.id)}
+              />
             </li>
           ))}
         </ul>
-        <p className="muted mt-2 text-xs">Last 5 results, most recent on the right.</p>
+        <p className="muted mt-2 text-xs">
+          Last 5 results, most recent on the right. A ringed box was a walkover.
+        </p>
       </section>
       <div className="mb-4 flex rounded-full bg-surface p-1 shadow-card" role="tablist">
         {(['upcoming', 'results'] as const).map((t) => (
@@ -423,9 +428,18 @@ export function FixturesScreen() {
                       )}
                       {res ? (
                         <>
-                          <span className="display-num text-xl">
-                            {f.goals_for}-{f.goals_against}
-                          </span>
+                          {f.walkover ? (
+                            <span className="text-right text-xs font-bold uppercase leading-tight text-ink-soft">
+                              Walkover
+                              <span className="block font-semibold normal-case">
+                                {f.walkover === 'for' ? 'awarded to us' : 'we conceded'}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="display-num text-xl">
+                              {f.goals_for}-{f.goals_against}
+                            </span>
+                          )}
                           <span
                             className={`flex h-7 w-7 items-center justify-center rounded-md font-display font-bold text-white ${res === 'W' ? 'bg-[#1f7a4d]' : res === 'L' ? 'bg-[#b3261e]' : 'bg-[#6b7280]'}`}
                             aria-label={res === 'W' ? 'Won' : res === 'L' ? 'Lost' : 'Drew'}

@@ -1,4 +1,11 @@
-import { fixtureLabel, formByPlayer, opponentName, shortOpponent, sideForm } from '@/lib/form';
+import {
+  fixtureLabel,
+  formByPlayer,
+  opponentName,
+  shortOpponent,
+  sideForm,
+  sideFormWalkovers,
+} from '@/lib/form';
 
 describe('fixtures for picking', () => {
   it('shortens opponent names', () => {
@@ -66,5 +73,20 @@ describe('side form', () => {
     expect(sideForm(fixtures, 1)).toEqual(['L', 'W', 'D', 'W']);
     expect(sideForm(fixtures, 1, 2)).toEqual(['D', 'W']);
     expect(sideForm(fixtures, 3)).toEqual([]);
+  });
+});
+
+describe('sideFormWalkovers', () => {
+  it('marks which of the last results were walkovers', () => {
+    const f = (kickoff: string, gf: number, ga: number, walkover: string | null = null) => ({
+      side_id: 4,
+      kickoff,
+      goals_for: gf,
+      goals_against: ga,
+      walkover,
+    });
+    const list = [f('2026-09-12', 0, 5, 'against'), f('2026-09-19', 1, 0), f('2026-09-26', 3, 2)];
+    expect(sideForm(list, 4)).toEqual(['L', 'W', 'W']);
+    expect(sideFormWalkovers(list, 4)).toEqual([true, false, false]);
   });
 });

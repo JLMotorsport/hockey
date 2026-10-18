@@ -85,6 +85,8 @@ export interface ResultLike {
   kickoff: string;
   goals_for: number | null;
   goals_against: number | null;
+  /** A walkover (0033): it counts as a win or loss, but nobody played. */
+  walkover?: string | null;
 }
 
 /** Won, drew or lost; null until there's a score. */
@@ -96,11 +98,19 @@ export function resultOf(f: {
   return f.goals_for > f.goals_against ? 'W' : f.goals_for < f.goals_against ? 'L' : 'D';
 }
 
-/** A Felixstowe side's last `n` results, oldest first. */
-export function sideForm(fixtures: ResultLike[], sideId: number, n = 5): Result[] {
+function lastResults(fixtures: ResultLike[], sideId: number, n: number): ResultLike[] {
   return fixtures
     .filter((f) => f.side_id === sideId && f.goals_for !== null && f.goals_against !== null)
     .sort((a, b) => a.kickoff.localeCompare(b.kickoff))
-    .slice(-n)
-    .map((f) => resultOf(f)!);
+    .slice(-n);
+}
+
+/** A Felixstowe side's last `n` results, oldest first. */
+export function sideForm(fixtures: ResultLike[], sideId: number, n = 5): Result[] {
+  return lastResults(fixtures, sideId, n).map((f) => resultOf(f)!);
+}
+
+/** Which of those results were walkovers, in the same order. */
+export function sideFormWalkovers(fixtures: ResultLike[], sideId: number, n = 5): boolean[] {
+  return lastResults(fixtures, sideId, n).map((f) => Boolean(f.walkover));
 }

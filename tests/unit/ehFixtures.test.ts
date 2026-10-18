@@ -172,3 +172,39 @@ describe('parseLineup (real Colchester 2 v Felixstowe 2 match, names anonymised)
     expect(parseLineup(odd, felixstowe).unknownEvents).toEqual(['ZZ']);
   });
 });
+
+describe('walkovers', () => {
+  const fx = (over: Record<string, unknown>) => ({
+    id: 'w1',
+    fixtureDate: '2026-09-12T14:30:00',
+    isResult: true,
+    homeTeam: { entityUrlSlug: 'east-coast-2-mens', teamName: 'East Coast 2' },
+    awayTeam: {
+      entityUrlSlug: 'felixstowe-4-development-mens',
+      teamName: 'Felixstowe 4 Development',
+    },
+    homeTeamScore: '5',
+    awayTeamScore: '0',
+    ...over,
+  });
+  const parse = (f: Record<string, unknown>) =>
+    parseTeamFeed([{ competitionName: 'League', fixtures: [f] }], 'felixstowe-4-development-mens')
+      .rows[0]!;
+
+  it('marks a walkover we conceded (awarded to the home side, we were away)', () => {
+    const r = parse(fx({ status: 'Walkover', walkover: 'H' }));
+    expect(r.walkover).toBe('against');
+    expect([r.goals_for, r.goals_against]).toEqual([0, 5]);
+  });
+
+  it('marks a walkover awarded to us', () => {
+    expect(
+      parse(fx({ status: 'Walkover', walkover: 'A', homeTeamScore: '0', awayTeamScore: '5' }))
+        .walkover,
+    ).toBe('for');
+  });
+
+  it('leaves normal results alone', () => {
+    expect(parse(fx({ status: 'Result', walkover: '' })).walkover).toBeNull();
+  });
+});
