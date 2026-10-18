@@ -85,7 +85,8 @@ export function Layout({ children }: { children?: ReactNode } = {}) {
 
   return (
     <div className="min-h-screen pb-20 sm:pb-0">
-      <header className="sticky top-0 z-30 bg-brand text-white shadow-md">
+      {/* vt-app-head: the red bar glides into Pick team's rather than fading (index.css). */}
+      <header className="vt-app-head sticky top-0 z-30 bg-brand text-white shadow-md">
         {/* Still being built: BETA and the build in the bar's top-right corner on phones. */}
         <span
           title={`Build ${BUILD_COMMIT}`}

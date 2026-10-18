@@ -23,7 +23,19 @@ import { useSquadEditor, type MovePlayer } from './useSquadEditor';
 export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) {
   const ed = useSquadEditor(mode);
   if (ed.status === 'login') return <Navigate to="/login" replace />;
-  if (ed.status === 'loading') return <Loading />;
+  // Keep the red bar while loading, so the top of the screen doesn't flash.
+  if (ed.status === 'loading')
+    return (
+      <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2">
+        <header className="vt-squad-head sticky top-0 z-30 -mx-2 flex min-h-[52px] shrink-0 items-center bg-brand px-4 pb-1 pt-[calc(env(safe-area-inset-top)+0.25rem)] text-white sm:rounded-b-xl">
+          <h1 className="m-0 text-[1.65rem] leading-none text-white">
+            {mode === 'pick' ? 'Pick Team' : 'Transfers'}
+          </h1>
+        </header>
+        <Loading />
+        <PhoneTabBar />
+      </div>
+    );
   if (ed.status === 'error') return <ErrorText error={ed.error} />;
   if (ed.status === 'nogw') {
     return (
