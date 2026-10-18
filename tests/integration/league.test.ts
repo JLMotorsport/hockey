@@ -2332,6 +2332,56 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     });
   });
 
+  describe('linking hand-added players to England Hockey (0036)', () => {
+    it('links one letter out, but not when two hand-added players are that close', async () => {
+      const sides = (await service.from('sides').select('id').order('sort_order')).data!;
+      const m4 = sides[3]!.id;
+      const f = await fixture(m4, '2025-11-01T14:00:00+00:00', 'Link Opp');
+      await service.from('fixtures').update({ goals_for: 1, goals_against: 0 }).eq('id', f.id);
+      const hand = (
+        await service
+          .from('players')
+          .insert({ name: 'Denis Keeganson', position: 'DEF', side_id: m4, price: 50 })
+          .select('id')
+          .single()
+      ).data!;
+      const lineup = (member_id: string, name: string) => ({
+        member_id,
+        name,
+        withheld: false,
+        shirt: null,
+        is_gk: false,
+        goals: 0,
+        green_cards: 0,
+        yellow_cards: 0,
+        red_cards: 0,
+      });
+      await service.rpc('import_lineup', {
+        p_fixture_id: f.id,
+        p_players: [lineup('eh-link-1', 'Dennis Keeganson')],
+        p_withheld: 0,
+      });
+      const linked = (
+        await service.from('players').select('eh_member_id').eq('id', hand.id).single()
+      ).data!;
+      expect(linked.eh_member_id).toBe('eh-link-1');
+
+      // Two hand-added players both one letter out: no guess, a new player.
+      await service.from('players').insert([
+        { name: 'Sam Pemberton', position: 'MID', side_id: m4, price: 50 },
+        { name: 'Sam Pemburton', position: 'MID', side_id: m4, price: 50 },
+      ]);
+      await service.rpc('import_lineup', {
+        p_fixture_id: f.id,
+        p_players: [lineup('eh-link-1', 'Dennis Keeganson'), lineup('eh-link-2', 'Sam Pembarton')],
+        p_withheld: 0,
+      });
+      const made = (await service.from('players').select('name').eq('eh_member_id', 'eh-link-2'))
+        .data!;
+      expect(made).toEqual([{ name: 'Sam Pembarton' }]);
+    });
+  });
+
   describe('review fixes (0035)', () => {
     it('keeps a walkover player of the match when England Hockey corrects the walkover', async () => {
       const sides = (await service.from('sides').select('id').order('sort_order')).data!;

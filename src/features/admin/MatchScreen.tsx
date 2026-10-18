@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ErrorText, Loading, Notices, PosBadge, type Notice } from '@/components/ui';
 import { formatDayTime, gameweekLabel } from '@/lib/format';
 import { opponentName } from '@/lib/form';
-import { mapPosition, nameKey } from '@/lib/pitcheroMatch';
+import { mapPosition, nameKey, namesClose, sameName } from '@/lib/pitcheroMatch';
 import {
   keys,
   useFixtureDetail,
@@ -199,10 +199,15 @@ export function MatchScreen() {
   async function playedFromPitchero(name: string, position: string | null) {
     const key = nameKey(name);
     if (adding.has(key)) return;
+    // The same player under the same name, or one letter out (Denis /
+    // Dennis), as the sync links them (0036); not just the initial.
+    const named = all.filter((p) => !p.name_withheld);
+    const exact = named.filter((p) => sameName(p.name, name));
+    const close = named.filter((p) => namesClose(p.name, name));
     const known =
-      all.find(
-        (p) => !p.name_withheld && nameKey(p.name) === key && p.side_id === fixture.side_id,
-      ) ?? all.find((p) => !p.name_withheld && nameKey(p.name) === key);
+      exact.find((p) => p.side_id === fixture.side_id) ??
+      exact[0] ??
+      (close.length === 1 ? close[0] : undefined);
     if (
       unnamedHere > 0 &&
       !window.confirm(

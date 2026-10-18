@@ -162,3 +162,25 @@ export function suggestPositions(
   }
   return out;
 }
+
+const letters = (name: string) => name.toLowerCase().replace(/[^a-z]/g, '');
+
+/**
+ * Two names the same but for at most one letter added, missing or changed
+ * (Denis / Dennis), ignoring spaces, hyphens and capitals. Short names (under
+ * 8 letters) must match exactly. The same rule as names_close() (0036).
+ */
+export function namesClose(a: string, b: string): boolean {
+  const x = letters(a);
+  const y = letters(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  if (Math.min(x.length, y.length) < 8 || Math.abs(x.length - y.length) > 1) return false;
+  let i = 0;
+  while (i < Math.min(x.length, y.length) && x[i] === y[i]) i += 1;
+  if (x.length === y.length) return x.slice(i + 1) === y.slice(i + 1);
+  return x.length > y.length ? x.slice(i + 1) === y.slice(i) : x.slice(i) === y.slice(i + 1);
+}
+
+/** The same name, ignoring spaces, hyphens and capitals. */
+export const sameName = (a: string, b: string) => letters(a) !== '' && letters(a) === letters(b);

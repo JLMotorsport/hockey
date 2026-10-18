@@ -54,7 +54,8 @@ Integration tests need `SUPABASE_TEST_URL`, `SUPABASE_TEST_ANON_KEY` and
 public key, imports fixtures and scores via `import_fixtures()`, then reads each played fixture's
 feed (`/api/fixtures/<id>`) for line-ups, goals (FG/PC/PS) and cards (GC/YC/RC) and imports them
 via `import_lineup()`. Players are matched by England Hockey member id (or by name, once, for
-players a manager added by hand). Assists, player of the match and outfield positions are not
+players a manager added by hand: exact, or one letter out for names of 8+ letters when only one
+hand-added player is that close, `names_close()` in 0036). Assists, player of the match and outfield positions are not
 published. The sync only writes goals and cards for players with an England Hockey id; manual rows
 (withheld names) and player of the match are kept. `stats_locked` stops the sync for a match.
 The parser in `supabase/functions/_shared/ehFixtures.ts` is pure TS, shared with vitest.
