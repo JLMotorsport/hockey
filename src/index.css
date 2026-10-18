@@ -160,11 +160,6 @@
     opacity: 0;
   }
 }
-@keyframes nav-fade-out {
-  to {
-    opacity: 0;
-  }
-}
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -183,9 +178,10 @@ html[data-nav='back']::view-transition-old(root) {
 html[data-nav='back']::view-transition-new(root) {
   animation-name: nav-in-left;
 }
+/* Swap: the new page fades in over the old, which stays solid underneath, so
+   what's the same on both (the red header) never dims or flickers. */
 html[data-nav='swap']::view-transition-old(root) {
-  animation-name: nav-fade-out;
-  animation-duration: 120ms;
+  animation: none;
 }
 html[data-nav='swap']::view-transition-new(root) {
   animation-name: nav-fade-in;
@@ -197,18 +193,7 @@ html[data-nav='swap']::view-transition-new(root) {
 html[data-nav='swap'] .vt-squad-head {
   view-transition-name: squad-head;
 }
-/* The red header doesn't fade between pages: its new contents just appear, so
-   no text ghosts over the old and the red never dims. */
-html[data-nav='swap'] .vt-app-head {
-  view-transition-name: app-head;
-}
-::view-transition-old(app-head) {
-  display: none;
-}
-::view-transition-new(app-head),
-::view-transition-group(app-head) {
-  animation: none;
-}
+
 html[data-nav='swap'] .vt-squad-pitch {
   view-transition-name: squad-pitch;
 }

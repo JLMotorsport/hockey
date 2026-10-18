@@ -95,8 +95,9 @@ export function Layout({ children }: { children?: ReactNode } = {}) {
   return (
     <HeaderSlot.Provider value={slot}>
       <div className={own ? '' : 'min-h-screen pb-20 sm:pb-0'}>
-        {/* vt-app-head: swaps instantly between pages rather than fading (index.css). */}
-        <header className="vt-app-head sticky top-0 z-30 bg-brand text-white shadow-md">
+        {/* The same header on every page (Pick team's title goes into the slot), so
+            it never leaves the screen and iPhone keeps the status bar red. */}
+        <header className="sticky top-0 z-30 bg-brand text-white shadow-md">
           {own ? (
             <div ref={setSlot} className="mx-auto max-w-[26rem] px-2" />
           ) : (
