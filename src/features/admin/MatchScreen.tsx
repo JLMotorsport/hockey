@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ErrorText, Loading, Notices, PosBadge, type Notice } from '@/components/ui';
 import { formatDayTime, gameweekLabel } from '@/lib/format';
 import { opponentName } from '@/lib/form';
-import { nameKey } from '@/lib/pitcheroMatch';
+import { mapPosition, nameKey } from '@/lib/pitcheroMatch';
 import {
   keys,
   useFixtureDetail,
@@ -185,6 +185,53 @@ export function MatchScreen() {
     }
     setNotices([{ kind: 'success', text: 'Match saved.' }]);
     await queryClient.invalidateQueries();
+  }
+
+  /**
+   * On Pitchero but not England Hockey: put them on the team sheet, adding
+   * them to this side first if the app has never seen them.
+   */
+  async function playedFromPitchero(name: string, position: string | null) {
+    const key = nameKey(name);
+    const known =
+      all.find(
+        (p) => !p.name_withheld && nameKey(p.name) === key && p.side_id === fixture.side_id,
+      ) ?? all.find((p) => !p.name_withheld && nameKey(p.name) === key);
+    if (
+      unnamedHere > 0 &&
+      !window.confirm(
+        `England Hockey has ${unnamedHere} withheld player(s) on this match, and ${name} may be one of them. If so, use Identify instead, or they'll count twice. Add ${name} anyway?`,
+      )
+    )
+      return;
+    if (known) {
+      if (!line(known.id).played && known.side_id !== fixture.side_id)
+        setExtra([...extra, known.id]);
+      update(known.id, { played: true });
+      return;
+    }
+    const { data, error } = await requireSupabase()
+      .from('players')
+      .insert({
+        name: name.trim(),
+        position: mapPosition(position) ?? 'MID',
+        side_id: fixture.side_id,
+        needs_review: true,
+      })
+      .select('id')
+      .single();
+    if (error) {
+      setNotices(errorLines(error).map((text) => ({ kind: 'error', text })));
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: keys.players });
+    update(data.id, { played: true });
+    setNotices([
+      {
+        kind: 'success',
+        text: `${name} added as a new player (check their position and price in Players). Save the match to keep it.`,
+      },
+    ]);
   }
 
   async function setLock(locked: boolean) {
@@ -605,6 +652,7 @@ export function MatchScreen() {
           {sheet.map((r) => {
             const matched = playedKeys.has(nameKey(r.name));
             const unused = r.starter === false;
+            const canAdd = !matched && !unused && !fixture.walkover;
             return (
               <div
                 key={r.name}
@@ -617,6 +665,16 @@ export function MatchScreen() {
                 >
                   {matched ? 'Matched' : unused ? 'Unused sub' : 'Not on EH'}
                 </span>
+                {canAdd && (
+                  <button
+                    type="button"
+                    onClick={() => void playedFromPitchero(r.name, r.position)}
+                    aria-label={`${r.name} played: add to the team sheet`}
+                    className="min-h-tap rounded-full bg-brand px-3 text-xs font-extrabold uppercase text-white lg:min-h-[32px]"
+                  >
+                    Played
+                  </button>
+                )}
               </div>
             );
           })}
