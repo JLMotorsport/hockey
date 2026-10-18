@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ComponentProps, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import type { Position } from '@/lib/scoring';
 import { useUiVersion } from '@/lib/uiVersion';
 import { Pitch as PitchV1 } from '@/features/v1/PitchV1';
@@ -6,22 +6,28 @@ import { Pitch as PitchV1 } from '@/features/v1/PitchV1';
 // Our half of a hockey pitch as FPL draws a football one: seen from behind
 // the goal in perspective, boards behind it, goal at the top. Real hockey
 // geometry (55m wide; shooting circle 14.63m from the posts, dashed 5m arc
-// outside it, penalty spot 6.475m out, 23m line, centre line at 45.7m),
-// projected so the far end is narrower. Drawn into a 1000 x 1000 box that is
-// stretched to fit, with lines that keep their width.
+// outside it, penalty spot 6.475m out, 23m line, centre line at 45.7m).
+// The box is 1000 wide and as tall as the space it fills, and a metre down
+// the pitch is drawn nearly as long as a metre across, so the D keeps its
+// real shape (wider than deep) on any screen instead of being stretched.
 const PW = 55; // metres across
 const PL = 45.7; // metres to the centre line
 const TOP = 0.11; // backline, as a share of the height (boards and goal above)
-const BOTTOM = 0.985; // centre line
 const NEAR = 0.84; // width of the backline compared with the centre line
+const ACROSS = 940 / PW; // drawing units per metre across, at the centre line
+const DEPTH = 0.9; // a metre down the pitch, against one across (a little foreshortened)
 
-function project(xm: number, ym: number): [number, number] {
-  const v = TOP + (BOTTOM - TOP) * (ym / PL);
-  const k = NEAR + (1 - NEAR) * ((v - TOP) / (BOTTOM - TOP));
-  return [500 + (xm / PW - 0.5) * 940 * k, v * 1000];
+type Project = (xm: number, ym: number) => [number, number];
+
+/** Metres on the pitch to drawing units, for a box 1000 wide and `height` tall. */
+function pitchProjection(height: number): Project {
+  return (xm, ym) => {
+    const k = NEAR + (1 - NEAR) * (ym / PL);
+    return [500 + (xm / PW - 0.5) * 940 * k, TOP * height + ym * ACROSS * DEPTH];
+  };
 }
 
-function path(points: [number, number][]): string {
+function path(project: Project, points: [number, number][]): string {
   return points
     .map(([x, y], i) => {
       const [px, py] = project(x, y);
@@ -30,13 +36,14 @@ function path(points: [number, number][]): string {
     .join(' ');
 }
 
-const straight = (x1: number, y1: number, x2: number, y2: number, n = 16) =>
+const straight = (project: Project, x1: number, y1: number, x2: number, y2: number, n = 16) =>
   path(
+    project,
     Array.from({ length: n + 1 }, (_, i) => [x1 + ((x2 - x1) * i) / n, y1 + ((y2 - y1) * i) / n]),
   );
 
 /** The D: quarter circles from each post joined by a straight. */
-function circleD(r: number): string {
+function circleD(project: Project, r: number): string {
   const l = PW / 2 - 1.83;
   const rr = PW / 2 + 1.83;
   const pts: [number, number][] = [];
@@ -48,11 +55,27 @@ function circleD(r: number): string {
     const t = Math.PI / 2 - (Math.PI / 2) * (i / 24);
     pts.push([rr + r * Math.cos(t), r * Math.sin(t)]);
   }
-  return path(pts);
+  return path(project, pts);
 }
 
 export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
-  void stretch; // always stretched now; kept so callers needn't change
+  void stretch; // kept so callers needn't change
+  // The box's height in drawing units (1000 wide), from the space it fills.
+  const ref = useRef<SVGSVGElement>(null);
+  const [height, setHeight] = useState(1000);
+  useLayoutEffect(() => {
+    const el = ref.current?.parentElement;
+    if (!el) return;
+    const fit = () => {
+      const { width, height: h } = el.getBoundingClientRect();
+      if (width > 0 && h > 0) setHeight(Math.round((1000 * h) / width));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const project = pitchProjection(height);
   const line = {
     stroke: 'white',
     strokeWidth: 2.5,
@@ -65,15 +88,17 @@ export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
   const [gr] = project(PW / 2 + 1.83, 0);
   const [, back] = project(0, 0);
   const goalTop = back - 34;
-  // Stripes across the grass, deeper towards the viewer.
-  const stripes = Array.from({ length: 9 }, (_, i) => {
-    const y0 = project(0, (PL / 8) * (i - 1))[1];
-    const y1 = project(0, (PL / 8) * i)[1];
-    return { y: i === 0 ? 0 : y0, h: y1 - (i === 0 ? 0 : y0), dark: i % 2 === 0 };
+  // Stripes across the grass, every 1/8 of the half, down to the bottom of the box.
+  const band = (PL / 8) * ACROSS * DEPTH;
+  const first = project(0, 0)[1] - band;
+  const stripes = Array.from({ length: Math.ceil((height - first) / band) + 1 }, (_, i) => {
+    const y = first + band * (i - 1);
+    return { y: Math.max(0, y), h: band + Math.min(0, y), dark: i % 2 === 0 };
   });
   return (
     <svg
-      viewBox="0 0 1000 1000"
+      ref={ref}
+      viewBox={`0 0 1000 ${height}`}
       preserveAspectRatio="none"
       className="absolute inset-0 h-full w-full"
       aria-hidden="true"
@@ -87,7 +112,7 @@ export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
           <stop offset="1" stopColor="#a50f0f" />
         </linearGradient>
       </defs>
-      <rect width="1000" height="1000" fill="#1f8a4c" />
+      <rect width="1000" height={height} fill="#1f8a4c" />
       {stripes.map((st, i) => (
         <rect key={i} y={st.y} width="1000" height={st.h} fill={st.dark ? '#1b7a43' : '#239552'} />
       ))}
@@ -110,13 +135,13 @@ export function PitchMarkings({ stretch = false }: { stretch?: boolean }) {
         opacity={1}
       />
       {/* Lines */}
-      <path d={straight(0, 0, PW, 0)} {...line} />
-      <path d={straight(0, 0, 0, PL)} {...line} />
-      <path d={straight(PW, 0, PW, PL)} {...line} />
-      <path d={straight(0, 22.9, PW, 22.9)} {...line} />
-      <path d={straight(0, PL, PW, PL)} {...line} />
-      <path d={circleD(14.63)} {...line} />
-      <path d={circleD(19.63)} {...line} strokeDasharray="7 9" />
+      <path d={straight(project, 0, 0, PW, 0)} {...line} />
+      <path d={straight(project, 0, 0, 0, PL)} {...line} />
+      <path d={straight(project, PW, 0, PW, PL)} {...line} />
+      <path d={straight(project, 0, 22.9, PW, 22.9)} {...line} />
+      <path d={straight(project, 0, PL, PW, PL)} {...line} />
+      <path d={circleD(project, 14.63)} {...line} />
+      <path d={circleD(project, 19.63)} {...line} strokeDasharray="7 9" />
       <ellipse cx={spotX} cy={spotY} rx="5" ry="4" fill="white" opacity="0.9" />
     </svg>
   );
