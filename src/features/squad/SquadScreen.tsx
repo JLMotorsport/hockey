@@ -333,7 +333,8 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
               gameweeks={all}
               sides={sides.data ?? []}
               onNotice={setNotices}
-              elsewhere={{ wildcard: 'Transfers' }}
+              // The wildcard is played on Transfers, so it isn't shown here at all.
+              only={['triple_captain', 'rolling_subs', 'team_bus']}
               slim
             />
           ) : (
