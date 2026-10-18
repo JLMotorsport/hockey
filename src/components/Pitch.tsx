@@ -9,7 +9,7 @@ import { Pitch as PitchV1 } from '@/features/v1/PitchV1';
 // outside it, penalty spot 6.475m out, 23m line, centre line at 45.7m).
 // The box is 1000 wide and as tall as the space it fills. As FPL: the
 // defenders stand on our 23m line, the midfielders on halfway, and the
-// forwards in the opposition half, which runs on to the bottom. The D, its
+// forwards on the opposition's 23m line, evenly spaced as on a real pitch. The D, its
 // dashed line and the spot are drawn to the width's scale (a little
 // foreshortened) so the D keeps its real shape, wider than deep.
 const PW = 55; // metres across
@@ -178,6 +178,8 @@ export function PitchMarkings({
       <path d={straight(project, PW, 0, PW, end)} {...line} />
       <path d={straight(project, 0, L23, PW, L23)} {...line} />
       <path d={straight(project, 0, PL, PW, PL)} {...line} />
+      {/* Their 23m line, the same distance past halfway as ours is before it (where the forwards stand). */}
+      <path d={straight(project, 0, 2 * PL - L23, PW, 2 * PL - L23)} {...line} />
       <path d={circleD(project, 14.63, squeeze)} {...line} />
       <path d={circleD(project, 19.63, squeeze)} {...line} strokeDasharray="7 9" />
       <ellipse cx={spotX} cy={spotY} rx="5" ry="4" fill="white" opacity="0.9" />
