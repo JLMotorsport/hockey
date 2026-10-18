@@ -208,7 +208,7 @@ export function MatchScreen() {
   const source = fixture.stats_locked
     ? 'Locked: the sync leaves this match alone.'
     : fixture.lineup_imported_at
-      ? `Line-up from England Hockey, ${formatDayTime(fixture.lineup_imported_at)}. Player of the match, assists and players added by hand are kept when it syncs.`
+      ? `Line-up from England Hockey, ${formatDayTime(fixture.lineup_imported_at)}. Player of the match and players added by hand are kept when it syncs.`
       : fixture.eh_fixture_id
         ? 'No line-up on England Hockey yet. It comes in on the next sync once the team enters it, or fill it in here.'
         : 'Added by hand: fill in who played.';
@@ -343,11 +343,10 @@ export function MatchScreen() {
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
         <div className={tab === 'sheet' ? '' : 'hidden lg:block'}>
           <section className={`${panel} overflow-hidden`}>
-            <div className="hidden grid-cols-[28px_1fr_100px_100px_128px_40px_32px] items-center gap-2 border-b border-line px-4 py-3 text-xs font-bold uppercase tracking-wider text-ink-soft lg:grid">
+            <div className="hidden grid-cols-[28px_1fr_100px_128px_40px_32px] items-center gap-2 border-b border-line px-4 py-3 text-xs font-bold uppercase tracking-wider text-ink-soft lg:grid">
               <span>#</span>
               <span>Player</span>
               <span className="text-center">Goals</span>
-              <span className="text-center">Assists</span>
               <span className="text-center">Cards</span>
               <span className="text-center">POTM</span>
               <span className="text-right">Pts</span>
@@ -358,7 +357,6 @@ export function MatchScreen() {
               const covering = p.side_id !== fixture.side_id;
               const summary = [
                 l.goals && `${l.goals} goal${l.goals > 1 ? 's' : ''}`,
-                l.assists && `${l.assists} assist${l.assists > 1 ? 's' : ''}`,
                 l.green_cards && 'green',
                 l.yellow_cards && 'yellow',
                 l.red_cards && 'red',
@@ -371,7 +369,7 @@ export function MatchScreen() {
                   key={p.id}
                   className={`border-b border-line ${p.name_withheld ? 'bg-[#fff4f4] dark:bg-[#2e1a1c]' : isOpen ? 'bg-[#fafbfc] dark:bg-[#1d2129]' : ''}`}
                 >
-                  <div className="flex min-h-[56px] items-center gap-2.5 px-3.5 py-1.5 lg:grid lg:grid-cols-[28px_1fr_100px_100px_128px_40px_32px] lg:gap-2 lg:px-4">
+                  <div className="flex min-h-[56px] items-center gap-2.5 px-3.5 py-1.5 lg:grid lg:grid-cols-[28px_1fr_100px_128px_40px_32px] lg:gap-2 lg:px-4">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-line text-[13px] font-bold">
                       {shirt.get(p.id) ?? ''}
                     </span>
@@ -405,14 +403,6 @@ export function MatchScreen() {
                         value={l.goals}
                         label={`${p.name} goals`}
                         onChange={(v) => update(p.id, { goals: v })}
-                        small
-                      />
-                    </span>
-                    <span className="hidden justify-center lg:flex">
-                      <Stepper
-                        value={l.assists}
-                        label={`${p.name} assists`}
-                        onChange={(v) => update(p.id, { assists: v })}
                         small
                       />
                     </span>
@@ -461,12 +451,7 @@ export function MatchScreen() {
                   {/* Phone: tap a player to edit them. */}
                   {isOpen && (
                     <div className="flex flex-col gap-2.5 px-3.5 pb-3.5 pt-1 lg:hidden">
-                      {(
-                        [
-                          ['goals', 'Goals'],
-                          ['assists', 'Assists'],
-                        ] as const
-                      ).map(([field, label]) => (
+                      {([['goals', 'Goals']] as const).map(([field, label]) => (
                         <div key={field} className="flex items-center gap-2.5">
                           <span className="flex-1 text-sm font-semibold">{label}</span>
                           <Stepper
@@ -523,7 +508,7 @@ export function MatchScreen() {
             )}
           </section>
           <p className="muted my-2 text-center text-xs lg:hidden">
-            Tap a player to change goals, assists, cards or player of the match.
+            Tap a player to change goals, cards or player of the match.
           </p>
 
           <section className={`${panel} mt-3 p-4`}>

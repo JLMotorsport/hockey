@@ -22,7 +22,6 @@ function lines(m: PlayerMatch, position: Position) {
   return breakdown({
     position,
     goals: m.goals,
-    assists: m.assists,
     green_cards: m.green_cards,
     yellow_cards: m.yellow_cards,
     red_cards: m.red_cards,
@@ -297,7 +296,6 @@ export function PlayerDetail({
                 <th>Date</th>
                 <th>Match</th>
                 <th className="num">G</th>
-                <th className="num">A</th>
                 <th>Cards</th>
                 <th className="num">Pts</th>
               </tr>
@@ -326,7 +324,6 @@ export function PlayerDetail({
                       )}
                     </td>
                     <td className="num">{m.goals || ''}</td>
-                    <td className="num">{m.assists || ''}</td>
                     <td className="text-xs">{cards}</td>
                     <td className="num font-bold">{total(lines(m, player.position))}</td>
                   </tr>

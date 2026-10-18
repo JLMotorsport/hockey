@@ -117,7 +117,6 @@ export function usePlayerColumns<T extends Pick<Player, 'id' | 'price'>>(): {
     },
     { key: 'apps', label: 'Apps', title: 'Appearances', value: (p) => st(p.id).apps },
     { key: 'goals', label: 'Goals', title: 'Goals', value: (p) => st(p.id).goals },
-    { key: 'assists', label: 'Ast', title: 'Assists', value: (p) => st(p.id).assists },
     { key: 'cs', label: 'CS', title: 'Clean sheets', value: (p) => st(p.id).cleanSheets },
     { key: 'potm', label: 'POTM', title: 'Player of the match', value: (p) => st(p.id).potm },
     {

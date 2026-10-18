@@ -8,8 +8,9 @@ RLS, Edge Functions).
 
 - The database is the real boundary. Squad rules, deadlines, hidden squads and manager-only
   actions are enforced in `supabase/migrations` (RLS + RPCs); the UI only mirrors them.
-- Points rules live in two places that must agree: `performance_points()` in
-  `supabase/migrations/0002_game.sql` and `src/lib/scoring.ts`. The integration tests check parity.
+- Points rules live in two places that must agree: `performance_points()` (latest in
+  `supabase/migrations/0029_clean_sheet_five_no_assists.sql`) and `src/lib/scoring.ts`. The
+  integration tests check parity. Assists are not tracked or scored and don't appear in the app.
 - No em dashes in any user-facing copy.
 - 44px minimum touch targets for anything people tap on a phone.
 - **Design first.** Any redesign or new screen goes on the design canvas
@@ -54,5 +55,5 @@ feed (`/api/fixtures/<id>`) for line-ups, goals (FG/PC/PS) and cards (GC/YC/RC) 
 via `import_lineup()`. Players are matched by England Hockey member id (or by name, once, for
 players a manager added by hand). Assists, player of the match and outfield positions are not
 published. The sync only writes goals and cards for players with an England Hockey id; manual rows
-(withheld names), assists and player of the match are kept. `stats_locked` stops the sync for a match.
+(withheld names) and player of the match are kept. `stats_locked` stops the sync for a match.
 The parser in `supabase/functions/_shared/ehFixtures.ts` is pure TS, shared with vitest.

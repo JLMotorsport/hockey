@@ -3,7 +3,6 @@ import { breakdown, points, type StatLine } from '@/lib/scoring';
 const base: StatLine = {
   position: 'MID',
   goals: 0,
-  assists: 0,
   green_cards: 0,
   yellow_cards: 0,
   red_cards: 0,
@@ -15,8 +14,16 @@ const base: StatLine = {
 
 describe('points', () => {
   it('defender goal, clean sheet and a home win', () => {
-    // 1 played + 6 goal + 4 clean sheet + 1 home win
-    expect(points({ ...base, position: 'DEF', goals: 1, goals_for: 2, goals_against: 0 })).toBe(12);
+    // 1 played + 6 goal + 5 clean sheet + 1 home win
+    expect(points({ ...base, position: 'DEF', goals: 1, goals_for: 2, goals_against: 0 })).toBe(13);
+  });
+
+  it('a clean sheet is 5 for a keeper or defender, 1 for a midfielder', () => {
+    const cs = { ...base, goals_for: 0, goals_against: 0 };
+    expect(breakdown({ ...cs, position: 'GK' })).toContainEqual(['Clean sheet', 5]);
+    expect(breakdown({ ...cs, position: 'DEF' })).toContainEqual(['Clean sheet', 5]);
+    expect(breakdown({ ...cs, position: 'MID' })).toContainEqual(['Clean sheet', 1]);
+    expect(breakdown({ ...cs, position: 'FWD' }).map(([r]) => r)).not.toContain('Clean sheet');
   });
 
   it('an away win is worth 2', () => {
@@ -31,19 +38,18 @@ describe('points', () => {
     expect(points({ ...base, position: 'GK', goals_for: 0, goals_against: 1 })).toBe(1);
   });
 
-  it('forward cards, assists and player of the match in a draw', () => {
+  it('forward cards and player of the match in a draw', () => {
     const line = {
       ...base,
       position: 'FWD' as const,
       goals: 2,
-      assists: 1,
       player_of_match: true,
       green_cards: 1,
       yellow_cards: 1,
       goals_for: 2,
       goals_against: 2,
     };
-    expect(points(line)).toBe(1 + 8 + 3 + 3 - 1 - 2);
+    expect(points(line)).toBe(1 + 8 + 3 - 1 - 2);
   });
 
   it('no result yet means no team points', () => {

@@ -13,7 +13,6 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 const SCORING: [string, (string | number)[]][] = [
   ['Played', POSITIONS.map(() => POINTS.appearance)],
   ['Goal (FG, PC or PS)', POSITIONS.map((p) => POINTS.goal[p])],
-  ['Assist', POSITIONS.map(() => POINTS.assist)],
   ['Clean sheet', POSITIONS.map((p) => POINTS.cleanSheet[p])],
   ['Every 2 conceded', POSITIONS.map((p) => (p === 'GK' || p === 'DEF' ? -1 : 0))],
   ['Home win / away win', POSITIONS.map(() => `+${POINTS.teamWin.home} / +${POINTS.teamWin.away}`)],

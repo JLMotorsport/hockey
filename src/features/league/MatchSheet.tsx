@@ -39,7 +39,6 @@ export function MatchSheet({ fixtureId, onClose }: { fixtureId: number; onClose:
       const line = {
         position: player.position,
         goals: perf.goals,
-        assists: perf.assists,
         green_cards: perf.green_cards,
         yellow_cards: perf.yellow_cards,
         red_cards: perf.red_cards,

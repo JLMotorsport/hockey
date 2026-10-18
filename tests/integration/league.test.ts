@@ -178,7 +178,6 @@ describe.skipIf(!configured)('league database', () => {
       {
         position: 'DEF',
         goals: 1,
-        assists: 0,
         green_cards: 0,
         yellow_cards: 0,
         red_cards: 0,
@@ -190,7 +189,17 @@ describe.skipIf(!configured)('league database', () => {
       {
         position: 'GK',
         goals: 0,
-        assists: 0,
+        green_cards: 0,
+        yellow_cards: 0,
+        red_cards: 0,
+        player_of_match: false,
+        goals_for: 1,
+        goals_against: 0,
+        is_home: true,
+      },
+      {
+        position: 'GK',
+        goals: 0,
         green_cards: 1,
         yellow_cards: 1,
         red_cards: 0,
@@ -202,7 +211,6 @@ describe.skipIf(!configured)('league database', () => {
       {
         position: 'MID',
         goals: 2,
-        assists: 3,
         green_cards: 0,
         yellow_cards: 0,
         red_cards: 1,
@@ -214,7 +222,6 @@ describe.skipIf(!configured)('league database', () => {
       {
         position: 'FWD',
         goals: 3,
-        assists: 1,
         green_cards: 0,
         yellow_cards: 0,
         red_cards: 0,
@@ -228,7 +235,8 @@ describe.skipIf(!configured)('league database', () => {
       const { data } = await anon.rpc('performance_points', {
         p_position: l.position,
         p_goals: l.goals,
-        p_assists: l.assists,
+        // Assists aren't tracked, so they score nothing whatever is stored.
+        p_assists: 3,
         p_green: l.green_cards,
         p_yellow: l.yellow_cards,
         p_red: l.red_cards,

@@ -1,5 +1,5 @@
 // Fantasy points rules. The database (performance_points in
-// supabase/migrations/0015_away_wins.sql) is the source of truth for totals; this
+// supabase/migrations/0029_clean_sheet_five_no_assists.sql) is the source of truth for totals; this
 // mirrors it for the rules page and per-match breakdowns. tests/unit and
 // tests/integration check the two agree.
 
@@ -15,8 +15,7 @@ export const POSITION_NAMES: Record<Position, string> = {
 export const POINTS = {
   appearance: 1,
   goal: { GK: 6, DEF: 6, MID: 5, FWD: 4 } as Record<Position, number>,
-  assist: 3,
-  cleanSheet: { GK: 4, DEF: 4, MID: 1, FWD: 0 } as Record<Position, number>,
+  cleanSheet: { GK: 5, DEF: 5, MID: 1, FWD: 0 } as Record<Position, number>,
   concededPerPoint: 2,
   // Away wins count double, to reward travelling.
   teamWin: { home: 1, away: 2 },
@@ -32,8 +31,7 @@ export const RULES_TABLE: [string, string][] = [
   ['Goal (GK / DEF)', '6'],
   ['Goal (MID)', '5'],
   ['Goal (FWD)', '4'],
-  ['Assist', '3'],
-  ['Clean sheet (GK / DEF)', '4'],
+  ['Clean sheet (GK / DEF)', '5'],
   ['Clean sheet (MID)', '1'],
   ['Every 2 goals conceded (GK / DEF)', '-1'],
   ['Team win at home', '1'],
@@ -48,7 +46,6 @@ export const RULES_TABLE: [string, string][] = [
 export interface StatLine {
   position: Position;
   goals: number;
-  assists: number;
   green_cards: number;
   yellow_cards: number;
   red_cards: number;
@@ -63,7 +60,6 @@ export interface StatLine {
 export function breakdown(s: StatLine): [string, number][] {
   const items: [string, number][] = [['Played', POINTS.appearance]];
   if (s.goals) items.push([`${s.goals} goal(s)`, s.goals * POINTS.goal[s.position]]);
-  if (s.assists) items.push([`${s.assists} assist(s)`, s.assists * POINTS.assist]);
 
   if (s.goals_for !== null && s.goals_against !== null) {
     if (s.goals_against === 0 && POINTS.cleanSheet[s.position]) {
