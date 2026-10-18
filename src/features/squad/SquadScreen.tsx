@@ -278,10 +278,11 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
   const chrome = 'bg-black/[0.06] dark:bg-[#1f232c]';
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-[26rem] flex-col px-2 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-[env(safe-area-inset-bottom)]">
-      {/* Title bar, red as every other page's header (and up behind the status
-          bar, so switching pages doesn't flash). Pick Team is a tab: its title,
-          and Transfers to the right. Transfers sits under it: back returns. */}
-      <header className="vt-squad-head -mx-2 mb-1.5 flex min-h-[52px] shrink-0 items-center gap-2 bg-brand px-2 pb-1 pt-[calc(env(safe-area-inset-top)+0.25rem)] text-white sm:rounded-b-xl">
+      {/* Title bar, red and pinned to the top as every other page's header:
+          iPhone colours the status bar from a pinned bar, so switching pages
+          doesn't flash. Pick Team is a tab: its title, and Transfers to the
+          right. Transfers sits under it: back returns. */}
+      <header className="vt-squad-head sticky top-0 z-30 -mx-2 mb-1.5 flex min-h-[52px] shrink-0 items-center gap-2 bg-brand px-2 pb-1 pt-[calc(env(safe-area-inset-top)+0.25rem)] text-white sm:rounded-b-xl">
         {!isPick && (
           <Link
             to="/squad"
