@@ -2064,6 +2064,81 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     expect(picks).toEqual([{ player_id: into, is_captain: true, bench_order: null }]);
   });
 
+  it('merges one person registered twice on England Hockey, and the sync keeps them as one', async () => {
+    const boss = await signIn('boss@example.com');
+    const side = (await service.from('sides').select('id').order('sort_order')).data![0]!.id;
+    const [first, second] = (
+      await service
+        .from('players')
+        .insert([
+          {
+            name: 'Twice Registered',
+            position: 'MID',
+            side_id: side,
+            price: 50,
+            eh_member_id: 'eh-a',
+          },
+          {
+            name: 'Twice Registered',
+            position: 'MID',
+            side_id: side,
+            price: 50,
+            eh_member_id: 'eh-b',
+          },
+        ])
+        .select('id')
+        .order('id')
+    ).data!.map((p) => p.id);
+    const fixture = (
+      await service
+        .from('fixtures')
+        .insert({ side_id: side, kickoff: days(-40), opponent: 'Alias Opp', gameweek_id: 0 })
+        .select('id')
+        .single()
+    ).data!.id;
+    const line = (member: string) => ({
+      member_id: member,
+      name: 'Twice Registered',
+      withheld: false,
+      shirt: '8',
+      is_gk: false,
+      goals: 1,
+      green_cards: 0,
+      yellow_cards: 0,
+      red_cards: 0,
+    });
+
+    // Without saying they're the same person, still refused.
+    const refused = await boss.db.rpc('merge_players', { p_from: second!, p_into: first! });
+    expect(refused.error!.message).toMatch(/different people on England Hockey/);
+    expect(
+      (
+        await boss.db.rpc('merge_players', {
+          p_from: second!,
+          p_into: first!,
+          p_same_person: true,
+        })
+      ).error,
+    ).toBeNull();
+
+    // The next sync lists them under the second id: no new player, the goal is theirs.
+    const res = await service.rpc('import_lineup', {
+      p_fixture_id: fixture,
+      p_players: [line('eh-b')] as never,
+      p_withheld: 0,
+    });
+    expect(res.data).toEqual({ created: 0, players: 1 });
+    expect(
+      (await service.from('players').select('id').eq('name', 'Twice Registered')).data,
+    ).toEqual([{ id: first }]);
+    expect(
+      (await service.from('performances').select('player_id, goals').eq('fixture_id', fixture))
+        .data,
+    ).toEqual([{ player_id: first, goals: 1 }]);
+    await service.from('fixtures').delete().eq('id', fixture);
+    await service.from('players').delete().eq('id', first!);
+  });
+
   it('keeps the league table up to date when points change', async () => {
     const locked = (
       await anon.from('gameweeks').select('id').lte('deadline', new Date().toISOString())

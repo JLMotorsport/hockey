@@ -461,6 +461,32 @@ export type Database = {
           },
         ];
       };
+      player_eh_aliases: {
+        Row: {
+          created_at: string;
+          eh_member_id: string;
+          player_id: number;
+        };
+        Insert: {
+          created_at?: string;
+          eh_member_id: string;
+          player_id: number;
+        };
+        Update: {
+          created_at?: string;
+          eh_member_id?: string;
+          player_id?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'player_eh_aliases_player_id_fkey';
+            columns: ['player_id'];
+            isOneToOne: false;
+            referencedRelation: 'players';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       players: {
         Row: {
           active: boolean;
@@ -823,7 +849,11 @@ export type Database = {
         }[];
       };
       log_account_removal: { Args: { p_user: string }; Returns: undefined };
-      merge_players: { Args: { p_from: number; p_into: number }; Returns: undefined };
+      merge_players: {
+        Args: { p_from: number; p_into: number; p_same_person?: boolean };
+        Returns: undefined;
+      };
+      merge_players_core: { Args: { p_from: number; p_into: number }; Returns: undefined };
       name_key: { Args: { p_name: string }; Returns: string };
       performance_points:
         | {
@@ -856,6 +886,7 @@ export type Database = {
             Returns: number;
           };
       play_chip: { Args: { p_chip: string; p_side_id?: number }; Returns: number };
+      player_for_eh: { Args: { p_member_id: string }; Returns: number };
       player_market: {
         Args: Record<PropertyKey, never>;
         Returns: {
