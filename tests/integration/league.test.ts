@@ -2242,7 +2242,7 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     expect(back.total).toBe(top.total);
   });
   describe('walkovers', () => {
-    it('stores a walkover, clears its stats and refuses new ones', async () => {
+    it('stores a walkover, clears its stats, and scores only player of the match on it', async () => {
       const sides = (await service.from('sides').select('id').order('sort_order')).data!;
       const m4 = sides[3]!.id;
       const row = (walkover: string | null) => ({
@@ -2287,11 +2287,48 @@ describe.skipIf(!configured)('fixes from the code review', () => {
         .select('*', { count: 'exact', head: true })
         .eq('fixture_id', f.id);
       expect(count).toBe(0);
-      // And none can be added.
-      const refused = await service
+      // A manager can add a player of the match (0034); only that scores.
+      const added = await service
         .from('performances')
-        .insert({ player_id: p.id, fixture_id: f.id });
-      expect(refused.error?.message).toMatch(/walkover/);
+        .insert({ player_id: p.id, fixture_id: f.id, player_of_match: true });
+      expect(added.error).toBeNull();
+      const gw = (await service.from('fixtures').select('gameweek_id').eq('id', f.id).single())
+        .data!;
+      const pts = (
+        await service
+          .from('player_gameweek_points')
+          .select('points')
+          .eq('player_id', p.id)
+          .eq('gameweek_id', gw.gameweek_id)
+          .single()
+      ).data!;
+      expect(pts.points).toBe(3);
+      const line = {
+        position: 'GK' as const,
+        goals: 0,
+        green_cards: 0,
+        yellow_cards: 0,
+        red_cards: 0,
+        player_of_match: true,
+        goals_for: 0,
+        goals_against: 5,
+        is_home: false,
+        walkover: true,
+      };
+      const { data: db } = await anon.rpc('performance_points', {
+        p_position: 'GK',
+        p_goals: 0,
+        p_assists: 0,
+        p_green: 0,
+        p_yellow: 0,
+        p_red: 0,
+        p_player_of_match: true,
+        p_goals_for: 0,
+        p_goals_against: 5,
+        p_is_home: false,
+        p_walkover: true,
+      });
+      expect(db).toBe(points(line));
     });
   });
 

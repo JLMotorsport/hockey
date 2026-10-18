@@ -54,14 +54,16 @@ export interface StatLine {
   goals_against: number | null;
   /** Felixstowe at home (false: away). */
   is_home: boolean;
+  /** A walkover (0034): nobody played, so only player of the match and cards count. */
+  walkover?: boolean;
 }
 
 /** [reason, points] pairs for one player in one match. */
 export function breakdown(s: StatLine): [string, number][] {
-  const items: [string, number][] = [['Played', POINTS.appearance]];
-  if (s.goals) items.push([`${s.goals} goal(s)`, s.goals * POINTS.goal[s.position]]);
+  const items: [string, number][] = s.walkover ? [] : [['Played', POINTS.appearance]];
+  if (s.goals && !s.walkover) items.push([`${s.goals} goal(s)`, s.goals * POINTS.goal[s.position]]);
 
-  if (s.goals_for !== null && s.goals_against !== null) {
+  if (s.goals_for !== null && s.goals_against !== null && !s.walkover) {
     if (s.goals_against === 0 && POINTS.cleanSheet[s.position]) {
       items.push(['Clean sheet', POINTS.cleanSheet[s.position]]);
     }

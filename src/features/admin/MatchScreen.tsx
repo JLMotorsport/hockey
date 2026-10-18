@@ -142,6 +142,7 @@ export function MatchScreen() {
       goals_for: gf,
       goals_against: ga,
       is_home: fixture.is_home,
+      walkover: Boolean(fixture.walkover),
     });
 
   // Pitchero's sheet, matched against named players who played here.
@@ -311,8 +312,8 @@ export function MatchScreen() {
       {fixture.walkover && (
         <p className="mb-3 rounded-xl bg-[#fff1dc] px-3 py-2 text-sm text-[#7a4600] dark:bg-[#4a3010] dark:text-[#ffc773]">
           A walkover ({fixture.walkover === 'for' ? 'awarded to us' : 'we conceded'}): nobody
-          played, so there are no player stats and no points. It still counts as a{' '}
-          {fixture.walkover === 'for' ? 'win' : 'loss'}.
+          played, so only player of the match scores (3 points). Add the player below and star them.
+          It still counts as a {fixture.walkover === 'for' ? 'win' : 'loss'}.
         </p>
       )}
       <p className="muted mb-3 text-[13px]">

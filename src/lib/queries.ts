@@ -505,6 +505,7 @@ export interface PlayerMatch {
     is_home: boolean;
     goals_for: number | null;
     goals_against: number | null;
+    walkover: string | null;
   } | null;
 }
 
@@ -518,7 +519,7 @@ export function usePlayerHistory(playerId: number | undefined) {
         await requireSupabase()
           .from('performances')
           .select(
-            'fixture_id, goals, assists, green_cards, yellow_cards, red_cards, player_of_match, fixture:fixtures(kickoff, gameweek_id, side_id, opponent, is_home, goals_for, goals_against)',
+            'fixture_id, goals, assists, green_cards, yellow_cards, red_cards, player_of_match, fixture:fixtures(kickoff, gameweek_id, side_id, opponent, is_home, goals_for, goals_against, walkover)',
           )
           .eq('player_id', playerId as number),
       ) as unknown as PlayerMatch[];
@@ -567,15 +568,19 @@ export function usePlayerStats() {
         requireSupabase()
           .from('performances')
           .select(
-            'player_id, goals, assists, green_cards, yellow_cards, red_cards, player_of_match, fixture:fixtures(goals_against)',
+            'player_id, goals, assists, green_cards, yellow_cards, red_cards, player_of_match, fixture:fixtures(goals_against, walkover)',
           )
           .order('id')
           .range(from, to),
       )) as unknown as (Omit<StatRow, 'goals_against'> & {
-        fixture: { goals_against: number | null } | null;
+        fixture: { goals_against: number | null; walkover: string | null } | null;
       })[];
+      // A walkover's notional 5-0 isn't a clean sheet anyone kept.
       return seasonStats(
-        rows.map((r) => ({ ...r, goals_against: r.fixture?.goals_against ?? null })),
+        rows.map((r) => ({
+          ...r,
+          goals_against: r.fixture?.walkover ? null : (r.fixture?.goals_against ?? null),
+        })),
       );
     },
   });

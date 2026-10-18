@@ -56,6 +56,12 @@ describe('points', () => {
     expect(points({ ...base, goals: 1 })).toBe(6);
   });
 
+  it('a walkover scores only player of the match and cards', () => {
+    const wo = { ...base, position: 'GK' as const, goals_for: 5, goals_against: 0, walkover: true };
+    expect(breakdown({ ...wo, player_of_match: true })).toEqual([['Player of the match', 3]]);
+    expect(points(wo)).toBe(0);
+  });
+
   it('red card', () => {
     expect(breakdown({ ...base, red_cards: 1 })).toContainEqual(['1 red card(s)', -4]);
   });

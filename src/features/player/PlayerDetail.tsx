@@ -29,6 +29,7 @@ function lines(m: PlayerMatch, position: Position) {
     goals_for: m.fixture?.goals_for ?? null,
     goals_against: m.fixture?.goals_against ?? null,
     is_home: m.fixture?.is_home ?? true,
+    walkover: Boolean(m.fixture?.walkover),
   });
 }
 
@@ -317,7 +318,9 @@ export function PlayerDetail({
                       {sideShort(f?.side_id ?? 0)} {f?.is_home ? 'v' : '@'}{' '}
                       {opponentName(f?.opponent ?? '')}{' '}
                       <span className="muted whitespace-nowrap">
-                        {f?.goals_for ?? ''}-{f?.goals_against ?? ''}
+                        {f?.walkover
+                          ? 'Walkover'
+                          : `${f?.goals_for ?? ''}-${f?.goals_against ?? ''}`}
                       </span>
                       {m.player_of_match && (
                         <span className="ml-1 text-xs font-bold text-brand">★ PoM</span>

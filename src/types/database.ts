@@ -1039,6 +1039,22 @@ export type Database = {
               p_yellow: number;
             };
             Returns: number;
+          }
+        | {
+            Args: {
+              p_assists: number;
+              p_goals: number;
+              p_goals_against: number;
+              p_goals_for: number;
+              p_green: number;
+              p_is_home: boolean;
+              p_player_of_match: boolean;
+              p_position: string;
+              p_red: number;
+              p_walkover: boolean;
+              p_yellow: number;
+            };
+            Returns: number;
           };
       play_chip: { Args: { p_chip: string; p_side_id?: number }; Returns: number };
       player_for_eh: { Args: { p_member_id: string }; Returns: number };

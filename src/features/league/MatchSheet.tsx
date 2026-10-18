@@ -46,6 +46,7 @@ export function MatchSheet({ fixtureId, onClose }: { fixtureId: number; onClose:
         goals_for: fixture.goals_for,
         goals_against: fixture.goals_against,
         is_home: fixture.is_home,
+        walkover: Boolean(fixture.walkover),
       };
       // The headline things, for the line under the name ("Played" goes without saying).
       const why = breakdown(line)
@@ -86,14 +87,15 @@ export function MatchSheet({ fixtureId, onClose }: { fixtureId: number; onClose:
               </>
             )}
           </div>
-          {fixture.walkover ? (
+          {fixture.walkover && (
             <p className="muted">
               {fixture.walkover === 'for'
                 ? 'The other side conceded, so we were awarded the win.'
                 : 'We conceded this one, so it counts as a loss.'}{' '}
-              Nobody played, so nobody scores from it.
+              Nobody played, so only player of the match scores.
             </p>
-          ) : rows.length === 0 ? (
+          )}
+          {fixture.walkover && rows.length === 0 ? null : rows.length === 0 ? (
             <p className="muted">
               Who played isn&apos;t in yet. It appears once the match syncs from England Hockey.
             </p>
