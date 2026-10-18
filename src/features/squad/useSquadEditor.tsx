@@ -47,6 +47,7 @@ import {
   type SquadPlayer,
 } from '@/lib/squad';
 import { errorLines, requireSupabase } from '@/lib/supabase';
+import { clearDraft, deviceStorage, draftKey, readDraft, writeDraft } from '@/lib/squadDraft';
 
 /**
  * The squad being edited for the next gameweek, shared by every design
@@ -174,6 +175,38 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     setViceId(s.vice);
     setLoadedFrom(gameweek.id);
   }, [gameweek, current.data, loadedFrom]);
+
+  // A first squad picked but not saved: kept on this device and put back
+  // next time, so closing the page doesn't lose it (lib/squadDraft).
+  const draft = userId && gameweek ? draftKey(userId, gameweek.id) : null;
+  const firstSquad = Boolean(current.data && current.data.length === 0);
+  const [draftFor, setDraftFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!draft || !firstSquad || !players.data || draftFor === draft) return;
+    setDraftFor(draft);
+    const known = new Set(players.data.filter((p) => p.active).map((p) => p.id));
+    const back = readDraft(deviceStorage(), draft, (id) => known.has(id));
+    if (!back) return;
+    setSelected(new Set(back.starters));
+    setBench(back.bench);
+    setCaptainId(back.captain);
+    setViceId(back.vice);
+    setNotices([
+      {
+        kind: 'info',
+        text: "Your picks from last time are back. They don't count until you save them.",
+      },
+    ]);
+  }, [draft, firstSquad, players.data, draftFor]);
+  useEffect(() => {
+    if (!draft || !firstSquad || draftFor !== draft) return;
+    writeDraft(deviceStorage(), draft, {
+      starters: [...selected],
+      bench,
+      captain: captainId,
+      vice: viceId,
+    });
+  }, [draft, firstSquad, draftFor, selected, bench, captainId, viceId]);
 
   const sideById = useMemo(() => new Map((sides.data ?? []).map((s) => [s.id, s])), [sides.data]);
   const currentIds = useMemo(() => (current.data ?? []).map((r) => r.player_id), [current.data]);
@@ -438,6 +471,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+    if (draft) clearDraft(deviceStorage(), draft);
     await queryClient.invalidateQueries({ queryKey: ['squad'] });
     await queryClient.invalidateQueries({ queryKey: ['bank-before'] });
     await queryClient.invalidateQueries({ queryKey: ['late-entry'] });
@@ -742,6 +776,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     previousCounts,
     freeFix,
     transfers,
+    firstSquad,
     summary,
     lineUp,
     problems,

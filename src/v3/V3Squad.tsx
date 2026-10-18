@@ -42,6 +42,7 @@ export function V3Squad({ mode }: { mode: 'pick' | 'transfers' }) {
     wildcard,
     freeFix,
     transfers,
+    firstSquad,
     problems,
     showProblems,
     dirty,
@@ -409,11 +410,11 @@ export function V3Squad({ mode }: { mode: 'pick' | 'transfers' }) {
             </button>
             <button
               type="button"
-              disabled={!dirty}
-              onClick={() => setConfirmOpen(true)}
+              disabled={!dirty || saving}
+              onClick={() => (firstSquad && !problems.length ? void save() : setConfirmOpen(true))}
               className="v3-btn v3-red v3-glow flex-1 text-white disabled:opacity-40 disabled:shadow-none"
             >
-              Next
+              {firstSquad ? (saving ? 'Saving' : 'Save squad') : 'Next'}
             </button>
           </div>
         )}

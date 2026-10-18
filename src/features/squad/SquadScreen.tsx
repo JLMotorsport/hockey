@@ -74,6 +74,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     benchPlayers,
     freeFix,
     transfers,
+    firstSquad,
     summary,
     problems,
     nextFor,
@@ -523,14 +524,26 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           >
             Add Player
           </button>
-          <button
-            type="button"
-            disabled={!dirty}
-            onClick={() => setConfirmOpen(true)}
-            className="min-h-[46px] flex-1 rounded-full bg-[#14181f] text-base font-extrabold text-white disabled:border-[1.5px] disabled:border-line disabled:bg-transparent disabled:text-ink-soft dark:bg-[#eceff4] dark:text-[#0e1014] dark:disabled:bg-transparent"
-          >
-            Next
-          </button>
+          {firstSquad ? (
+            // A first squad saves in one tap; anything wrong shows on the sheet.
+            <button
+              type="button"
+              disabled={!dirty || saving}
+              onClick={() => (problems.length ? setConfirmOpen(true) : void save())}
+              className="min-h-[46px] flex-1 rounded-full bg-[#1f7a4d] text-base font-extrabold text-white disabled:border-[1.5px] disabled:border-line disabled:bg-transparent disabled:text-ink-soft"
+            >
+              {saving ? 'Saving' : 'Save squad'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={!dirty}
+              onClick={() => setConfirmOpen(true)}
+              className="min-h-[46px] flex-1 rounded-full bg-[#14181f] text-base font-extrabold text-white disabled:border-[1.5px] disabled:border-line disabled:bg-transparent disabled:text-ink-soft dark:bg-[#eceff4] dark:text-[#0e1014] dark:disabled:bg-transparent"
+            >
+              Next
+            </button>
+          )}
         </div>
       )}
 
