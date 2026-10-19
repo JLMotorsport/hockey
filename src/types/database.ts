@@ -1073,6 +1073,7 @@ export type Database = {
       };
       merge_players_core: { Args: { p_from: number; p_into: number }; Returns: undefined };
       name_key: { Args: { p_name: string }; Returns: string };
+      names_close: { Args: { p_a: string; p_b: string }; Returns: boolean };
       performance_points:
         | {
             Args: {
@@ -1131,8 +1132,24 @@ export type Database = {
           transfers_out: number;
         }[];
       };
+      price_after: { Args: { p_avg: number; p_points: number; p_price: number }; Returns: number };
       price_ceiling: { Args: Record<PropertyKey, never>; Returns: number };
       price_floor: { Args: Record<PropertyKey, never>; Returns: number };
+      price_preview: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          average: number;
+          gameweek_id: number;
+          name: string;
+          new_price: number;
+          old_price: number;
+          owned: number;
+          player_id: number;
+          player_position: string;
+          points: number;
+          side_id: number;
+        }[];
+      };
       record_sync_results: { Args: { p_results: Json }; Returns: undefined };
       refresh_deadline: { Args: { p_gameweek_id: number }; Returns: undefined };
       refresh_player_sides: { Args: Record<PropertyKey, never>; Returns: number };

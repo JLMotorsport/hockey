@@ -11,6 +11,7 @@ import { MatchScreen } from './features/admin/MatchScreen';
 import { MatchesScreen } from './features/admin/MatchesScreen';
 import { OverviewScreen } from './features/admin/OverviewScreen';
 import { PlayersScreen as ManagerPlayersScreen } from './features/admin/PlayersScreen';
+import { PricesScreen } from './features/admin/PricesScreen';
 import { SettingsScreen } from './features/admin/SettingsScreen';
 import { UsersScreen } from './features/admin/UsersScreen';
 import { AccountScreen, LoginScreen, RegisterScreen } from './features/auth/AuthScreens';
@@ -74,6 +75,7 @@ function managerRoutes(overview?: ReactNode) {
       <Route path="matches" element={<MatchesScreen />} />
       <Route path="matches/:id" element={<MatchScreen />} />
       <Route path="players" element={<ManagerPlayersScreen />} />
+      <Route path="prices" element={<PricesScreen />} />
       <Route path="identify" element={<IdentifyScreen />} />
       <Route path="gameweeks" element={<GameweeksScreen />} />
       <Route path="users" element={<UsersScreen />} />

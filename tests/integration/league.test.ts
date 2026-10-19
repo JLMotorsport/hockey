@@ -2340,6 +2340,24 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     });
   });
 
+  describe('price preview (0038)', () => {
+    it('shows managers what Monday would do, and nobody else', async () => {
+      const boss = await signUp('prices-admin@example.com', 'Prices Admin');
+      await service.from('profiles').update({ is_admin: true }).eq('id', boss.id);
+      const fan = await signUp('prices-fan@example.com', 'Prices Fan');
+      expect((await fan.db.rpc('price_preview')).error).not.toBeNull();
+      const { data, error } = await boss.db.rpc('price_preview');
+      expect(error).toBeNull();
+      for (const r of data ?? []) {
+        const diff = r.points - Number(r.average);
+        const step =
+          diff >= 4 ? 3 : diff >= 2 ? 2 : diff >= 0.5 ? 1 : diff <= -3 ? -2 : diff <= -1 ? -1 : 0;
+        expect(r.new_price).toBe(Math.min(130, Math.max(35, r.old_price + step)));
+      }
+      await service.from('profiles').update({ is_admin: false }).eq('id', boss.id);
+    });
+  });
+
   describe('linking hand-added players to England Hockey (0036)', () => {
     it('links one letter out, but not when two hand-added players are that close', async () => {
       const sides = (await service.from('sides').select('id').order('sort_order')).data!;

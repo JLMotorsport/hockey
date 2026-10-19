@@ -33,6 +33,8 @@ export function AdminLayout() {
       short: 'Players',
       count: status.toPosition.length,
     },
+    // Monday's price changes, live over the weekend (0038).
+    { to: '/managers/prices', label: "Monday's prices", short: 'Prices' },
     {
       to: '/managers/identify',
       label: 'Identify players',
