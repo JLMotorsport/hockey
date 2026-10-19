@@ -1710,7 +1710,9 @@ describe.skipIf(!configured)('league database', () => {
 
     it('banks unused free transfers, up to the cap, and takes -4 for each extra', async () => {
       const banker = await signUp('banker@example.com', 'Bank XI');
-      const gws = (await anon.from('gameweeks').select('id, deadline').order('start_date')).data!;
+      const gws = (
+        await anon.from('gameweeks').select('id, deadline, start_date').order('start_date')
+      ).data!;
       const [g0, g1, g2, g3] = gws;
       const squadA = [...xi(), ...subs()];
       const others = (await service.from('players').select('id').order('id'))
@@ -1742,6 +1744,12 @@ describe.skipIf(!configured)('league database', () => {
       await service.from('league_settings').update({ max_free_transfers: 3 }).eq('id', 1);
       expect((await summary(g2!.id))!.free).toBe(3);
       await service.from('league_settings').update({ max_free_transfers: 5 }).eq('id', 1);
+
+      // Scoring restarted at g1: a fresh start for everyone, so a squad from
+      // before it banks nothing from g1 (0037): two, not four, in g2.
+      await service.from('league_settings').update({ scoring_from: g1!.start_date }).eq('id', 1);
+      expect((await summary(g2!.id))!.free).toBe(2);
+      await service.from('league_settings').update({ scoring_from: null }).eq('id', 1);
 
       // The league table takes the hit off that gameweek, once it's locked.
       const total = async () =>
