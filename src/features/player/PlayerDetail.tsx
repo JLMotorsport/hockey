@@ -17,6 +17,9 @@ import {
 } from '@/lib/queries';
 import { breakdown, POSITION_NAMES, type Position } from '@/lib/scoring';
 import { formatPrice } from '@/lib/squad';
+import { FdrBadge, RunChip } from '@/features/league/Difficulty';
+import { difficulty, sideRun } from '@/lib/fdr';
+import { useDifficulty } from '@/lib/useDifficulty';
 
 function lines(m: PlayerMatch, position: Position) {
   return breakdown({
@@ -65,6 +68,7 @@ export function PlayerDetail({
   const trend = usePriceTrend();
   const history = usePlayerHistory(playerId);
   const fixtures = useFixtures();
+  const fdr = useDifficulty();
   const player = players.data?.find((p) => p.id === playerId);
   if (!player || history.isLoading) return <Loading />;
 
@@ -125,6 +129,22 @@ export function PlayerDetail({
   const nextFixture = next
     ? (fixtures.data ?? []).find((f) => f.side_id === player.side_id && f.gameweek_id === next.id)
     : undefined;
+  // Fixture difficulty (when it's shown): the next game's, and the next three.
+  const showFdr = fdr.show && fdr.places.size > 0 && Boolean(next);
+  const nextPlace = nextFixture ? fdr.places.get(nextFixture.id) : undefined;
+  const nextRating =
+    showFdr && nextFixture && nextPlace
+      ? difficulty(nextPlace.position, nextPlace.teams, nextFixture.is_home, nextPlace.ours)
+      : null;
+  const runWeeks = next ? all.filter((g) => g.start_date >= next.start_date).slice(0, 3) : [];
+  const run = showFdr
+    ? sideRun(
+        fixtures.data ?? [],
+        player.side_id,
+        runWeeks.map((g) => g.id),
+        fdr.places,
+      )
+    : [];
 
   return (
     <div className="space-y-5">
@@ -172,14 +192,39 @@ export function PlayerDetail({
                   .join(' and ')}`}
           </span>
           {nextFixture && (
-            <span className="muted ml-auto">{formatWeekdayTime(nextFixture.kickoff)}</span>
+            <span className="muted ml-auto whitespace-nowrap">
+              {formatWeekdayTime(nextFixture.kickoff)}
+            </span>
           )}
+          {nextRating && <FdrBadge rating={nextRating} />}
         </p>
       )}
 
+      {run.length > 0 && (
+        <div className="flex items-center gap-2 px-1">
+          <span className="w-[4.2rem] shrink-0 font-display text-xs font-bold uppercase tracking-wider text-ink-soft">
+            Next 3
+          </span>
+          <div className="grid flex-1 grid-cols-3 gap-[5px]">
+            {run.map((cell, i) => (
+              <span key={i} className="flex flex-col items-center gap-0.5">
+                <span className="w-full">
+                  <RunChip cell={cell} compact />
+                </span>
+                <span className="font-display text-[0.65rem] font-bold text-ink-soft">
+                  {gameweekLabel(runWeeks[i]!, all).split(' ')[0]}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start gap-2 px-1 text-sm">
-        <span className="pt-0.5 font-display text-xs font-bold uppercase tracking-wider text-ink-soft">
-          Last {recent.length || ''} weeks
+        <span
+          className={`pt-0.5 font-display text-xs font-bold uppercase tracking-wider text-ink-soft ${run.length ? 'w-[4.2rem] shrink-0' : ''}`}
+        >
+          {run.length ? `Last ${recent.length || ''}` : `Last ${recent.length || ''} weeks`}
         </span>
         {recent.length ? (
           <ul className="flex gap-1" aria-label={recent.map((r) => r.name).join(', ')}>
