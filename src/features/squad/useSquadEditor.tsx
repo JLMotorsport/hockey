@@ -683,6 +683,9 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
             key: `t-${pos}${i}`,
             position: pos,
             name: null,
+            // An invisible price pill keeps the empty shirt level with the others.
+            heading: '',
+            headingPill: true,
             onClick: () => setPicker({ positions: [pos] }),
           })),
         ],

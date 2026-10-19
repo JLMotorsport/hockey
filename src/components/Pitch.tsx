@@ -379,7 +379,7 @@ export function PlayerSpot({
         <span
           className={
             slot.headingPill
-              ? 'mb-0.5 rounded bg-black/55 px-1.5 font-display text-xs font-bold text-white'
+              ? `mb-0.5 rounded bg-black/55 px-1.5 font-display text-xs font-bold text-white ${slot.heading ? '' : 'invisible'}`
               : `font-display font-extrabold uppercase tracking-wider text-[#1b6e41] ${compact ? 'mb-1 text-[0.6rem] leading-tight sm:mb-0.5 sm:text-xs' : 'mb-0.5 text-xs'}`
           }
         >
