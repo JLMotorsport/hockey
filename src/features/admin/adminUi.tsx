@@ -108,7 +108,7 @@ export function PageHead({
 /** A row of chips that scrolls sideways on a phone. */
 export function ChipRow({ children }: { children: ReactNode }) {
   return (
-    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-wrap lg:px-0">
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 pt-0.5 lg:mx-0 lg:flex-wrap lg:px-0">
       {children}
     </div>
   );

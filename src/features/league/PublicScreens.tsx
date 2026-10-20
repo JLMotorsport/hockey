@@ -133,7 +133,7 @@ export function TableScreen() {
       ) : (
         <>
           <div
-            className="mb-3 flex gap-1.5 overflow-x-auto pb-1"
+            className="mb-3 flex gap-1.5 overflow-x-auto p-0.5 pb-1"
             role="tablist"
             aria-label="Leagues"
           >
@@ -228,7 +228,8 @@ export function PlayersScreen() {
         </label>
         <div className="flex items-center gap-1.5">
           <div
-            className="flex flex-1 gap-1.5 overflow-x-auto"
+            // A little padding so the chips' outlines aren't clipped by the scroll.
+            className="flex flex-1 gap-1.5 overflow-x-auto p-0.5"
             role="radiogroup"
             aria-label="Position"
           >
@@ -239,14 +240,14 @@ export function PlayersScreen() {
                 role="radio"
                 aria-checked={pos === p}
                 onClick={() => setPos(p)}
-                className={`min-h-[36px] shrink-0 rounded-full px-3 font-display text-sm font-bold ${pos === p ? 'bg-[#16181d] text-white dark:bg-ink dark:text-paper' : 'bg-surface ring-1 ring-line'}`}
+                className={`min-h-tap shrink-0 rounded-full px-3.5 font-display text-sm font-bold ${pos === p ? 'bg-[#16181d] text-white dark:bg-ink dark:text-paper' : 'bg-surface ring-1 ring-line'}`}
               >
                 {p || 'All'}
               </button>
             ))}
           </div>
           <select
-            className="input-inline min-h-[36px] max-w-[8rem]"
+            className="input-inline min-h-tap max-w-[8rem]"
             aria-label="Side"
             value={side}
             onChange={(e) => setSide(e.target.value)}
