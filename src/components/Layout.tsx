@@ -137,7 +137,9 @@ export function Layout({ children }: { children?: ReactNode } = {}) {
             <Outlet />
           ) : (
             <>
-              <main className="mx-auto max-w-5xl px-4 pb-10 lg:max-w-[75rem] lg:px-5">{children ?? <Outlet />}</main>
+              <main className="mx-auto max-w-5xl px-4 pb-10 lg:max-w-[75rem] lg:px-5">
+                {children ?? <Outlet />}
+              </main>
               <footer className="muted mx-auto hidden max-w-5xl px-4 pb-8 text-xs sm:block lg:max-w-[75rem] lg:px-5">
                 Fixtures, line-ups, goals and cards from England Hockey.
               </footer>
