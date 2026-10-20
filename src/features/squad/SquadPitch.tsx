@@ -29,6 +29,7 @@ export function SquadPitch({
   compact = false,
   live = false,
   fieldClass,
+  wide = false,
 }: {
   rows: SquadRow[];
   players: Player[];
@@ -50,6 +51,8 @@ export function SquadPitch({
    */
   live?: boolean;
   fieldClass?: string;
+  /** A PC: fills its column. */
+  wide?: boolean;
 }) {
   const fixtures = useFixtures();
   // For a past gameweek, tag each player with the side they actually played for.
@@ -139,7 +142,9 @@ export function SquadPitch({
   return (
     <>
       {chip && (
-        <p className="mx-auto mb-2 w-full max-w-[26rem] rounded-xl bg-[#16181d] px-3 py-2 text-center font-display text-sm font-bold uppercase tracking-wide text-white">
+        <p
+          className={`mx-auto mb-2 w-full rounded-xl ${wide ? '' : 'max-w-[26rem]'} bg-[#16181d] px-3 py-2 text-center font-display text-sm font-bold uppercase tracking-wide text-white`}
+        >
           {chipName(chip.chip)} played{sideName ? `: ${sideName}` : ''}
         </p>
       )}
@@ -148,6 +153,7 @@ export function SquadPitch({
         bench={benched.length ? benched.map(slotFor) : undefined}
         compact={compact}
         fieldClass={fieldClass}
+        wide={wide}
       />
       {open && (
         <PlayerSheet

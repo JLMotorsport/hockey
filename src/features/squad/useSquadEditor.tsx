@@ -603,14 +603,15 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
   const focused = pool.find((p) => p.id === focus);
   const focusedSlot = focused ? benchSlot(focused.id) : -1;
   const swapping = swapFrom !== null ? poolById.get(swapFrom) : undefined;
-  const choices = picker
-    ? pool
-        .filter((p) => picker.positions.includes(p.position) && !inSquad(p.id) && p.active)
-        .sort(
-          (a, b) =>
-            (points.data?.get(b.id) ?? 0) - (points.data?.get(a.id) ?? 0) || b.price - a.price,
-        )
-    : [];
+  /** Who can fill a place in these positions: active, not already picked, best first. */
+  const candidatesFor = (positions: Position[]) =>
+    pool
+      .filter((p) => positions.includes(p.position) && !inSquad(p.id) && p.active)
+      .sort(
+        (a, b) =>
+          (points.data?.get(b.id) ?? 0) - (points.data?.get(a.id) ?? 0) || b.price - a.price,
+      );
+  const choices = picker ? candidatesFor(picker.positions) : [];
 
   // Transfers: the 15 by position, price above each, empty slots up to FPL's
   // 2 GK, 5 DEF, 5 MID, 3 FWD while the squad isn't full.
@@ -780,6 +781,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     statColumns,
     statPoints,
     run,
+    candidatesFor,
     problemsOpen,
     setProblemsOpen,
     picker,

@@ -533,8 +533,11 @@ function PitchV2({
   compact = false,
   variant = 'plate',
   fieldClass,
+  wide = false,
 }: {
   rows: Record<Position, PitchSlot[]>;
+  /** A PC: fills its column rather than stopping at a phone's width. */
+  wide?: boolean;
   /** 'card': FPL's player cards (Pick team); 'plate': shirt over a name plate. */
   variant?: 'plate' | 'card';
   /** Height of the field, overriding compact's (a page with other chrome around it). */
@@ -553,7 +556,7 @@ function PitchV2({
       className={
         fit
           ? 'h-full w-full overflow-hidden bg-[#1b6e41]'
-          : 'mx-auto w-full max-w-[26rem] overflow-hidden rounded-2xl bg-[#1b6e41] shadow-card'
+          : `mx-auto w-full overflow-hidden rounded-2xl bg-[#1b6e41] shadow-card ${wide ? '' : 'max-w-[26rem]'}`
       }
     >
       <PitchField

@@ -2,7 +2,8 @@ import { chipName } from '@/lib/chips';
 import { useQueries } from '@tanstack/react-query';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { defaultGameweek } from '@/lib/gameweek';
-import { liveGameweek, ordinal } from '@/lib/home';
+import { liveGameweek, ordinal, weekSpread } from '@/lib/home';
+import { useWide } from '@/lib/useWide';
 import { ArrowButton } from './ArrowButton';
 import { ErrorText, Loading } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -41,6 +42,7 @@ export function DashboardScreen() {
   const userId = session?.user.id;
   const [params, setParams] = useSearchParams();
   const transitionClick = useTransitionClick();
+  const wide = useWide();
   // Past gameweeks plus the one being picked for, oldest first.
   const browsable = next ? [...locked, next] : locked;
   const viewing =
@@ -98,7 +100,7 @@ export function DashboardScreen() {
     ? Math.max(0, Math.ceil((new Date(next.deadline).getTime() - Date.now()) / 86_400_000))
     : 0;
 
-  return (
+  const scoreboard = (
     <>
       {/* Scoreboard: the week you're looking at, big, with arrows either side. */}
       {viewing ? (
@@ -160,7 +162,10 @@ export function DashboardScreen() {
           <h1 className="m-0 text-3xl leading-none">{profile?.team_name}</h1>
         </section>
       )}
-
+    </>
+  );
+  const pitch = (
+    <>
       {viewing && (
         <section className="mb-4">
           {viewedRows.length > 0 ? (
@@ -176,6 +181,9 @@ export function DashboardScreen() {
               // The live weekend: each player's fixture until their match has synced.
               live={!viewingUpcoming && viewing.id === liveGw?.id}
               compact
+              wide={wide}
+              // A PC: the pitch fills the window's height beside the right-hand column.
+              fieldClass={wide ? 'h-[max(28rem,calc(100dvh-21rem))]' : undefined}
             />
           ) : (
             <div className="card text-center">
@@ -191,8 +199,11 @@ export function DashboardScreen() {
           )}
         </section>
       )}
-      {!viewing && <p className="muted">No gameweeks yet.</p>}
-
+    </>
+  );
+  const noWeeks = <>{!viewing && <p className="muted">No gameweeks yet.</p>}</>;
+  const season = (
+    <>
       {weekTotals.length > 0 && (
         <section className="card">
           <h2>Your season</h2>
@@ -221,7 +232,10 @@ export function DashboardScreen() {
           )}
         </section>
       )}
-
+    </>
+  );
+  const totw = (
+    <>
       {last && (
         <Link
           to="/team-of-the-week"
@@ -247,7 +261,10 @@ export function DashboardScreen() {
           </svg>
         </Link>
       )}
-
+    </>
+  );
+  const nextBar = (
+    <>
       {/* What's next, always in view: sits on the tab bar on phones. */}
       {next && (
         <>
@@ -277,6 +294,95 @@ export function DashboardScreen() {
           <div className="h-16 sm:hidden" />
         </>
       )}
+    </>
+  );
+
+  // A PC: the scoreboard and pitch on the left, the week and season beside it.
+  if (wide) {
+    const counted = viewingUpcoming
+      ? []
+      : [...viewedRows]
+          .filter((r) => r.counts)
+          .sort((x, y) => y.points - x.points)
+          .slice(0, 5);
+    const name = (id: number) => players.data?.find((pl) => pl.id === id);
+    const isLatest = viewing?.id === last?.id;
+    const spread = weekSpread(table.data ?? []);
+    return (
+      <div className="grid grid-cols-[40rem_minmax(0,1fr)] items-start gap-5 pt-5 [&_.hero]:mt-0">
+        <div>
+          {scoreboard}
+          {pitch}
+          {noWeeks}
+        </div>
+        <div className="flex flex-col gap-4 [&>*]:!mb-0 [&>*]:!mt-0">
+          {viewing && !viewingUpcoming && (
+            <section className="card">
+              <h2>{viewedLabel}</h2>
+              <div className="grid grid-cols-3 gap-2.5">
+                {(
+                  [
+                    [squadTotal(viewedRows) - viewedHit, 'Your points', true],
+                    ...(isLatest
+                      ? ([
+                          [spread.average, 'Average', false],
+                          [spread.highest, 'Highest', false],
+                        ] as const)
+                      : []),
+                  ] as const
+                ).map(([value, label, mine]) => (
+                  <div
+                    key={label}
+                    className={`flex flex-col items-center rounded-xl py-3 ${mine ? 'bg-brand text-white' : 'bg-black/[0.04] dark:bg-[#1f232c]'}`}
+                  >
+                    <span className="display-num text-[2.1rem] leading-none">{value}</span>
+                    <span className="text-sm font-semibold">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+          {counted.length > 0 && (
+            <section className="card">
+              <h2>Your players this week</h2>
+              <ul>
+                {counted.map((r) => {
+                  const pl = name(r.player_id);
+                  return (
+                    <li
+                      key={r.player_id}
+                      className="flex min-h-[2.5rem] items-center gap-2.5 border-t border-line first:border-0"
+                    >
+                      <span className="w-9 shrink-0 rounded-md bg-[#16181d] py-0.5 text-center font-display text-xs font-bold text-white">
+                        {sides.data?.find((sd) => sd.id === pl?.side_id)?.short_name}
+                      </span>
+                      <span className="flex-1 font-semibold">
+                        {pl?.name}
+                        {r.is_captain && ' (C)'}
+                      </span>
+                      <span className="font-extrabold">{r.points}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+          {season}
+          {totw}
+          {nextBar}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {scoreboard}
+      {pitch}
+      {noWeeks}
+      {season}
+      {totw}
+      {nextBar}
     </>
   );
 }

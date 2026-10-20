@@ -4,7 +4,6 @@ import { Link, Navigate } from 'react-router-dom';
 import { CalendarIcon, PitchIcon, SwapIcon } from '@/components/icons';
 import { ErrorText, Loading } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { formatDeadline } from '@/lib/format';
 import { countdown, liveGameweek, myPlace, ordinal, weekSpread } from '@/lib/home';
 import {
   nextOpenGameweek,
@@ -14,6 +13,7 @@ import {
   useLeagueTable,
   usePlayers,
   useProfileSides,
+  useFixtures,
   useSettings,
   useSides,
   useSquad,
@@ -22,6 +22,12 @@ import { useTransitionClick } from '@/lib/navTransition';
 import { inLeague, type LeagueKey } from '@/lib/table';
 import { SquadPitch } from '@/features/squad/SquadPitch';
 import { NoTeamPrompt } from '@/components/NoTeamPrompt';
+import { useWide } from '@/lib/useWide';
+import { FdrBadge } from '@/features/league/Difficulty';
+import { useDifficulty } from '@/lib/useDifficulty';
+import { difficulty, placeLine } from '@/lib/fdr';
+import { opponentName } from '@/lib/form';
+import { formatDeadline, formatWeekdayTime } from '@/lib/format';
 
 /** The minute, so the countdown keeps up. */
 function useNow(ms = 60_000) {
@@ -54,6 +60,7 @@ export function HomeScreen() {
   const liveHit = useQuery(transferSummaryQuery(userId, live?.id)).data?.hit ?? 0;
   const nextSquad = useSquad(userId, next?.id);
   const transitionClick = useTransitionClick();
+  const wide = useWide();
   // Loaded now so Pick Team and Transfers open straight away.
   useSettings();
   usePreviousSquadWarm(userId, all, next?.id);
@@ -69,6 +76,7 @@ export function HomeScreen() {
   const mySide = (sides.data ?? []).find((s) => s.id === profile?.side_id);
   const rows = table.data ?? [];
   const spread = weekSpread(rows);
+  const me = rows.find((r) => r.user_id === userId);
   const hasSquad = (nextSquad.data?.length ?? 0) > 0;
   const sideList = sides.data ?? [];
   const sideMap = sideOf.data ?? new Map<string, number | null>();
@@ -100,6 +108,14 @@ export function HomeScreen() {
             {mySide && ` · plays for ${mySide.short_name}`}
           </span>
         </span>
+        {wide && me && (
+          <span className="flex flex-col items-end">
+            <span className="display-num text-[2.1rem] leading-none">{me.total}</span>
+            <span className="text-xs text-white/85">
+              points, {ordinal(me.rank)} of {rows.length}
+            </span>
+          </span>
+        )}
         <span aria-hidden="true" className="text-2xl">
           →
         </span>
@@ -108,9 +124,8 @@ export function HomeScreen() {
     </>
   );
 
-  return (
-    <div className="-mx-2 pt-2.5 sm:mx-auto sm:max-w-[26rem]">
-      <NoTeamPrompt />
+  const mainCard = (
+    <>
       {live ? (
         <section className="rounded-[1.1rem] bg-[#b5222a] px-3 pb-3 pt-4 text-white">
           {teamHead}
@@ -161,7 +176,7 @@ export function HomeScreen() {
             <p className="mb-3 mt-0 text-center text-xs text-white/80">
               {countdown(next.deadline, now)}
             </p>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 lg:grid lg:grid-cols-3">
               <CardButton to={hasSquad ? '/squad' : '/transfers'} icon={<PitchIcon />}>
                 {hasSquad ? 'Pick Team' : 'Pick your squad'}
               </CardButton>
@@ -175,7 +190,10 @@ export function HomeScreen() {
           </section>
         )
       )}
-
+    </>
+  );
+  const liveNext = (
+    <>
       {/* While a gameweek is live, the next one's buttons stay in reach. */}
       {live && next && (
         <section className="mt-2.5 rounded-[0.9rem] bg-surface px-3.5 pb-3 pt-3.5 shadow-card dark:shadow-none">
@@ -202,7 +220,10 @@ export function HomeScreen() {
           </div>
         </section>
       )}
-
+    </>
+  );
+  const links = (
+    <>
       {/* FPL's links, as far as hockey has them (no fixture difficulty or set pieces). */}
       <nav
         aria-label="More"
@@ -232,7 +253,10 @@ export function HomeScreen() {
           </Link>
         ))}
       </nav>
-
+    </>
+  );
+  const leaguesCard = (
+    <>
       <section className="mt-2.5 rounded-[0.9rem] bg-surface px-4 pb-2 pt-3.5 shadow-card dark:shadow-none">
         <h2 className="mb-2 font-sans text-[1.3rem] font-extrabold normal-case tracking-normal [font-stretch:100%]">
           Leagues
@@ -264,6 +288,35 @@ export function HomeScreen() {
           </p>
         )}
       </section>
+    </>
+  );
+
+  // A PC: your team and this gameweek's games on the left, leagues and links on the right.
+  if (wide)
+    return (
+      <div className="grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] items-start gap-5 pt-5 [&_section]:mt-0 [&_nav]:mt-0">
+        <div className="flex flex-col gap-4">
+          <NoTeamPrompt />
+          {mainCard}
+          {liveNext}
+          {next && (
+            <GameweekGames gameweekId={next.id} label={`Gameweek ${number(next.id)} games`} />
+          )}
+        </div>
+        <div className="flex flex-col gap-4">
+          {leaguesCard}
+          {links}
+        </div>
+      </div>
+    );
+
+  return (
+    <div className="-mx-2 pt-2.5 sm:mx-auto sm:max-w-[26rem]">
+      <NoTeamPrompt />
+      {mainCard}
+      {liveNext}
+      {links}
+      {leaguesCard}
     </div>
   );
 }
@@ -302,4 +355,56 @@ function usePreviousSquadWarm(
     ? [...all].reverse().find((g) => g.start_date < next.start_date)
     : undefined;
   useSquad(userId, previous?.id);
+}
+
+/** PC Home: each side's game in a gameweek, with its difficulty when that's shown. */
+function GameweekGames({ gameweekId, label }: { gameweekId: number; label: string }) {
+  const fixtures = useFixtures();
+  const sides = useSides();
+  const fdr = useDifficulty();
+  const games = (fixtures.data ?? []).filter((f) => f.gameweek_id === gameweekId);
+  return (
+    <section className="rounded-[0.9rem] bg-surface px-4 pb-1.5 pt-3.5 shadow-card dark:shadow-none">
+      <div className="mb-1 flex items-baseline justify-between">
+        <h2 className="m-0">{label}</h2>
+        <Link to="/fixtures" className="text-sm font-semibold">
+          All fixtures
+        </Link>
+      </div>
+      <ul>
+        {(sides.data ?? []).map((side) => {
+          const f = games.find((g) => g.side_id === side.id);
+          const place = f && fdr.show ? fdr.places.get(f.id) : undefined;
+          const rated =
+            f && place ? difficulty(place.position, place.teams, f.is_home, place.ours) : null;
+          return (
+            <li
+              key={side.id}
+              className="flex min-h-tap items-center gap-3 border-t border-line py-1.5"
+            >
+              <span className="w-9 shrink-0 rounded-md bg-[#16181d] py-0.5 text-center font-display text-sm font-bold text-white">
+                {side.short_name}
+              </span>
+              {f ? (
+                <>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate font-semibold">
+                      {opponentName(f.opponent)} ({f.is_home ? 'H' : 'A'})
+                    </span>
+                    {rated && <span className="muted text-xs">{placeLine(f.is_home, place)}</span>}
+                  </span>
+                  <span className="muted whitespace-nowrap text-sm tabular-nums">
+                    {formatWeekdayTime(f.kickoff)}
+                  </span>
+                  {rated && <FdrBadge rating={rated} />}
+                </>
+              ) : (
+                <span className="muted flex-1">No game</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }

@@ -23,6 +23,7 @@ export function PlayerPicker({
   showPosition,
   nextFor,
   run = null,
+  inline = false,
   onPick,
   onStats,
   onClose,
@@ -40,9 +41,11 @@ export function PlayerPicker({
   nextFor: (p: SquadPlayer) => string;
   /** Fixture difficulty over the next three gameweeks, when it's shown. */
   run?: { labels: string[]; of: (p: SquadPlayer) => RunCell[] } | null;
+  /** A PC: a panel beside the pitch, not a full screen. No close when nothing's being replaced. */
+  inline?: boolean;
   onPick: (id: number) => void;
   onStats: (id: number) => void;
-  onClose: () => void;
+  onClose?: () => void;
 }) {
   const [search, setSearch] = useState('');
   const [side, setSide] = useState('');
@@ -81,14 +84,15 @@ export function PlayerPicker({
   const sideShort = new Map(sides.map((s) => [s.id, s.short_name]));
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    if (inline) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose?.();
     window.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
-  }, [onClose]);
+  }, [onClose, inline]);
 
   const term = search.trim().toLowerCase();
   const list = candidates
@@ -99,34 +103,57 @@ export function PlayerPicker({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-paper"
-      role="dialog"
-      aria-modal="true"
+      className={
+        inline
+          ? 'flex max-h-[calc(100dvh-16rem)] min-h-[24rem] flex-col overflow-y-auto rounded-2xl bg-surface shadow-card dark:shadow-none'
+          : 'fixed inset-0 z-50 flex flex-col overflow-y-auto bg-paper'
+      }
+      role={inline ? 'region' : 'dialog'}
+      aria-modal={inline ? undefined : true}
       aria-label={title}
     >
-      <div className="sticky top-0 z-20 bg-paper px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+      <div
+        className={`sticky top-0 z-20 px-4 pb-2 ${inline ? 'bg-surface pt-3' : 'bg-paper pt-[max(0.5rem,env(safe-area-inset-top))]'}`}
+      >
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Back"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface shadow-card"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
-          </button>
-          <h2 className="m-0 flex-1 text-center">{title}</h2>
-          <span className="w-11" />
+          {inline ? (
+            <>
+              <h2 className="m-0 flex-1">{title}</h2>
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="min-h-tap rounded-full px-3 text-sm font-bold text-ink-soft"
+                >
+                  Cancel
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Back"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface shadow-card"
+              >
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M15 6l-6 6 6 6" />
+                </svg>
+              </button>
+              <h2 className="m-0 flex-1 text-center">{title}</h2>
+              <span className="w-11" />
+            </>
+          )}
         </div>
         <p
           className={`mt-2 rounded-xl px-3 py-2 text-center font-display text-lg font-extrabold uppercase text-white ${bank < 0 ? 'bg-[#7a0b0b]' : 'bg-gradient-to-r from-brand to-brand-dark'}`}
