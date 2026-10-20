@@ -1,4 +1,11 @@
-import { useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { signOut } from '@/lib/push';
@@ -35,12 +42,19 @@ function useAlsoActive(to: string) {
   );
 }
 
+type Guard = (e: { preventDefault: () => void }) => void;
+
+// Pick team's unsaved-changes check, handed up by its tab bar so the top nav
+// (shown above Pick team on wider screens) asks before leaving too.
+const NavGuard = createContext<MutableRefObject<Guard | undefined> | null>(null);
+
 function TopLink({ to, children }: { to: string; children: string }) {
   const transitionClick = useTransitionClick();
   const also = useAlsoActive(to);
+  const guard = useContext(NavGuard);
   return (
     <NavLink
-      onClick={transitionClick(to, 'swap')}
+      onClick={transitionClick(to, 'swap', (e) => guard?.current?.(e))}
       end={to === '/'}
       to={to}
       className={({ isActive }) =>
@@ -51,8 +65,6 @@ function TopLink({ to, children }: { to: string; children: string }) {
     </NavLink>
   );
 }
-
-type Guard = (e: { preventDefault: () => void }) => void;
 
 function Tab({
   to,
@@ -83,116 +95,126 @@ function Tab({
 }
 
 export function Layout({ children }: { children?: ReactNode } = {}) {
-  const { session, profile } = useAuth();
   const v2 = useUiVersion() === 'v2';
   const { pathname } = useLocation();
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  const guard = useRef<Guard | undefined>(undefined);
 
   // Pick team and Transfers (V2): full screens of their own, their title bar in
   // this same red header (the same element, so it never leaves the screen).
   const own = v2 && !children && ownTitleBar(pathname);
 
   return (
-    <HeaderSlot.Provider value={slot}>
-      <div className={own ? '' : 'min-h-screen pb-20 sm:pb-0'}>
-        {/* The same header on every page (Pick team's title goes into the slot), so
+    <NavGuard.Provider value={guard}>
+      <HeaderSlot.Provider value={slot}>
+        <div className={own ? '' : 'min-h-screen pb-20 sm:pb-0'}>
+          {/* The same header on every page (Pick team's title goes into the slot), so
             it never leaves the screen and iPhone keeps the status bar red. */}
-        <header className="sticky top-0 z-30 bg-brand text-white shadow-md">
+          <header className="sticky top-0 z-30 bg-brand text-white shadow-md">
+            {own ? (
+              <>
+                {/* Phones get the tab bar; wider screens have none, so the usual nav sits above. */}
+                <div className="hidden sm:block">
+                  <HeaderRow />
+                </div>
+                <div ref={setSlot} className="mx-auto max-w-[26rem] px-2" />
+              </>
+            ) : (
+              <>
+                {/* Still being built: BETA and the build in the bar's top-right corner on phones. */}
+                <span
+                  title={`Build ${BUILD_COMMIT}`}
+                  className="pointer-events-none absolute right-3 top-[3px] font-display text-[0.65rem] font-bold uppercase leading-none tracking-widest text-white opacity-70 sm:hidden"
+                >
+                  Beta <span className="font-sans tracking-normal tabular-nums">{BUILD_LABEL}</span>
+                </span>
+                <HeaderRow />
+              </>
+            )}
+          </header>
+
           {own ? (
-            <div ref={setSlot} className="mx-auto max-w-[26rem] px-2" />
+            <Outlet />
           ) : (
             <>
-              {/* Still being built: BETA and the build in the bar's top-right corner on phones. */}
-              <span
-                title={`Build ${BUILD_COMMIT}`}
-                className="pointer-events-none absolute right-3 top-[3px] font-display text-[0.65rem] font-bold uppercase leading-none tracking-widest text-white opacity-70 sm:hidden"
-              >
-                Beta <span className="font-sans tracking-normal tabular-nums">{BUILD_LABEL}</span>
-              </span>
-              <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5">
-                <Link
-                  to="/"
-                  className="flex items-center gap-2.5 text-white no-underline hover:no-underline"
-                >
-                  <Crest className="h-10 w-10" />
-                  <span className="font-display leading-none">
-                    <span className="block text-xl font-extrabold uppercase tracking-tight">
-                      Fantasy Hockey
-                      {/* On wider screens the corner holds the menu, so BETA sits by the title. */}
-                      <span
-                        title={`Build ${BUILD_COMMIT}`}
-                        className="ml-2 hidden align-top text-[0.7rem] font-bold tracking-widest opacity-70 sm:inline"
-                      >
-                        Beta
-                        <span className="ml-1 font-sans tracking-normal tabular-nums">
-                          {BUILD_LABEL}
-                        </span>
-                      </span>
-                    </span>
-                    <span className="block text-xs font-semibold uppercase tracking-widest text-white/80">
-                      Felixstowe HC
-                    </span>
-                  </span>
-                </Link>
-                {/* Testing: switch between this morning's design and the redesign. */}
-                <div className="ml-auto mt-2 sm:ml-0 sm:mt-0">
-                  <VersionSwitch />
-                </div>
-                <nav className="hidden flex-wrap items-center gap-1 sm:flex">
-                  {session && v2 && <TopLink to="/">Home</TopLink>}
-                  {session && <TopLink to="/dashboard">{v2 ? 'Points' : 'My team'}</TopLink>}
-                  {session && <TopLink to="/squad">{v2 ? 'Pick Team' : 'Pick'}</TopLink>}
-                  <TopLink to="/table">Table</TopLink>
-                  <TopLink to="/team-of-the-week">TOTW</TopLink>
-                  <TopLink to="/players">Players</TopLink>
-                  <TopLink to="/fixtures">Fixtures</TopLink>
-                  <TopLink to="/rules">Rules</TopLink>
-                  {(profile?.is_admin || profile?.is_super) && (
-                    <TopLink to="/managers">Managers</TopLink>
-                  )}
-                  {session ? (
-                    <>
-                      <TopLink to="/account">Account</TopLink>
-                      <button
-                        type="button"
-                        className="rounded-full px-3 py-1.5 font-display text-[0.95rem] font-bold uppercase tracking-wide text-white/80 hover:text-white"
-                        onClick={() => void signOut()}
-                      >
-                        Log out
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <TopLink to="/login">Log in</TopLink>
-                      <Link to="/register" className="btn btn-light btn-sm ml-1">
-                        Join
-                      </Link>
-                    </>
-                  )}
-                </nav>
-                {!session && (
-                  <Link to="/register" className="btn btn-light btn-sm sm:hidden">
-                    Join
-                  </Link>
-                )}
-              </div>
+              <main className="mx-auto max-w-5xl px-4 pb-10">{children ?? <Outlet />}</main>
+              <footer className="muted mx-auto hidden max-w-5xl px-4 pb-8 text-xs sm:block">
+                Fixtures, line-ups, goals and cards from England Hockey.
+              </footer>
+              <PhoneTabBar />
             </>
           )}
-        </header>
+        </div>
+      </HeaderSlot.Provider>
+    </NavGuard.Provider>
+  );
+}
 
-        {own ? (
-          <Outlet />
+/** The crest, version switch and top nav: the header on wider screens. */
+function HeaderRow() {
+  const { session, profile } = useAuth();
+  const v2 = useUiVersion() === 'v2';
+  return (
+    <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5">
+      <Link to="/" className="flex items-center gap-2.5 text-white no-underline hover:no-underline">
+        <Crest className="h-10 w-10" />
+        <span className="font-display leading-none">
+          <span className="block text-xl font-extrabold uppercase tracking-tight">
+            Fantasy Hockey
+            {/* On wider screens the corner holds the menu, so BETA sits by the title. */}
+            <span
+              title={`Build ${BUILD_COMMIT}`}
+              className="ml-2 hidden align-top text-[0.7rem] font-bold tracking-widest opacity-70 sm:inline"
+            >
+              Beta
+              <span className="ml-1 font-sans tracking-normal tabular-nums">{BUILD_LABEL}</span>
+            </span>
+          </span>
+          <span className="block text-xs font-semibold uppercase tracking-widest text-white/80">
+            Felixstowe HC
+          </span>
+        </span>
+      </Link>
+      {/* Testing: switch between this morning's design and the redesign. */}
+      <div className="ml-auto mt-2 sm:ml-0 sm:mt-0">
+        <VersionSwitch />
+      </div>
+      <nav className="hidden flex-wrap items-center gap-1 sm:flex">
+        {session && v2 && <TopLink to="/">Home</TopLink>}
+        {session && <TopLink to="/dashboard">{v2 ? 'Points' : 'My team'}</TopLink>}
+        {session && <TopLink to="/squad">{v2 ? 'Pick Team' : 'Pick'}</TopLink>}
+        <TopLink to="/table">Table</TopLink>
+        <TopLink to="/team-of-the-week">TOTW</TopLink>
+        <TopLink to="/players">Players</TopLink>
+        <TopLink to="/fixtures">Fixtures</TopLink>
+        <TopLink to="/rules">Rules</TopLink>
+        {(profile?.is_admin || profile?.is_super) && <TopLink to="/managers">Managers</TopLink>}
+        {session ? (
+          <>
+            <TopLink to="/account">Account</TopLink>
+            <button
+              type="button"
+              className="rounded-full px-3 py-1.5 font-display text-[0.95rem] font-bold uppercase tracking-wide text-white/80 hover:text-white"
+              onClick={() => void signOut()}
+            >
+              Log out
+            </button>
+          </>
         ) : (
           <>
-            <main className="mx-auto max-w-5xl px-4 pb-10">{children ?? <Outlet />}</main>
-            <footer className="muted mx-auto hidden max-w-5xl px-4 pb-8 text-xs sm:block">
-              Fixtures, line-ups, goals and cards from England Hockey.
-            </footer>
-            <PhoneTabBar />
+            <TopLink to="/login">Log in</TopLink>
+            <Link to="/register" className="btn btn-light btn-sm ml-1">
+              Join
+            </Link>
           </>
         )}
-      </div>
-    </HeaderSlot.Provider>
+      </nav>
+      {!session && (
+        <Link to="/register" className="btn btn-light btn-sm sm:hidden">
+          Join
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -205,6 +227,8 @@ export function PhoneTabBar({ guard }: { guard?: Guard } = {}) {
   const v2 = useUiVersion() === 'v2';
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const navGuard = useContext(NavGuard);
+  if (navGuard) navGuard.current = guard;
   const go = (to: string) => {
     setMenuOpen(false);
     navigate(to);
