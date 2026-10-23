@@ -61,6 +61,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // When each person last used the app (the super user's Users page): on opening the
+  // app and coming back to it, at most every 10 minutes. Silent if it fails.
+  useEffect(() => {
+    if (!supabase || !userId) return;
+    let last = 0;
+    const touch = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - last < 600_000) return;
+      last = Date.now();
+      void supabase!.rpc('touch_last_seen').then(
+        () => undefined,
+        () => undefined,
+      );
+    };
+    touch();
+    document.addEventListener('visibilitychange', touch);
+    return () => document.removeEventListener('visibilitychange', touch);
+  }, [userId]);
+
   const value: AuthState = {
     session,
     profile: profileQuery.data ?? null,

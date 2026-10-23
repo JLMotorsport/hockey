@@ -4,8 +4,15 @@ import { Sheet } from '@/components/Sheet';
 import { Loading, Notices, type Notice } from '@/components/ui';
 import { sameTeamName } from '@/lib/account';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { formatShortDate } from '@/lib/format';
-import { keys, useAdminUsers, useLeagueTable, useProfileSides, useSides } from '@/lib/queries';
+import { formatLastUsed, formatShortDate } from '@/lib/format';
+import {
+  keys,
+  useAdminUsers,
+  useLastSeen,
+  useLeagueTable,
+  useProfileSides,
+  useSides,
+} from '@/lib/queries';
 import { errorLines, requireSupabase } from '@/lib/supabase';
 import { PageHead, SideTag, Toggle, panel } from './adminUi';
 
@@ -14,6 +21,9 @@ export function UsersScreen() {
   // Only the super user makes or removes managers (the database enforces it).
   const canAppoint = Boolean(profile?.is_super);
   const users = useAdminUsers();
+  // When each person last used the app: only the super user sees it.
+  const seen = useLastSeen(canAppoint);
+  const [byLastUsed, setByLastUsed] = useState(false);
   const table = useLeagueTable();
   const profileSides = useProfileSides();
   const sides = useSides();
@@ -30,6 +40,7 @@ export function UsersScreen() {
   const sideName = new Map((sides.data ?? []).map((s) => [s.id, s.short_name]));
   const all = users.data ?? [];
   const q = search.trim().toLowerCase();
+  const lastSeen = seen.data ?? new Map<string, string>();
   const list = all.filter(
     (u) =>
       !q ||
@@ -37,6 +48,14 @@ export function UsersScreen() {
       u.team_name.toLowerCase().includes(q) ||
       u.email.toLowerCase().includes(q),
   );
+  if (byLastUsed)
+    list.sort((a, b) => (lastSeen.get(b.id) ?? '').localeCompare(lastSeen.get(a.id) ?? ''));
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const activeWeek = [...lastSeen.values()].filter((t) => t >= weekAgo).length;
+  const lastUsed = (id: string) => {
+    const t = lastSeen.get(id);
+    return t ? `Last used ${formatLastUsed(t)}` : 'Not used since tracking started';
+  };
 
   async function toggle(id: string, value: boolean, name: string) {
     const { error } = await requireSupabase().rpc('set_admin', { p_user: id, p_value: value });
@@ -75,8 +94,18 @@ export function UsersScreen() {
     <>
       <PageHead
         title="Users"
-        sub={`${all.length} signed up · ${managers} ${managers === 1 ? 'manager' : 'managers'}${superUser ? ` · super user: ${superUser.display_name}` : ''}`}
+        sub={`${all.length} signed up · ${managers} ${managers === 1 ? 'manager' : 'managers'}${superUser ? ` · super user: ${superUser.display_name}` : ''}${canAppoint && seen.data ? ` · ${activeWeek} used the app in the last 7 days` : ''}`}
       >
+        {canAppoint && seen.data && (
+          <button
+            type="button"
+            aria-pressed={byLastUsed}
+            onClick={() => setByLastUsed(!byLastUsed)}
+            className={`min-h-tap shrink-0 rounded-full px-4 text-sm font-bold ring-1 lg:min-h-[40px] ${byLastUsed ? 'bg-ink text-surface ring-ink' : 'ring-line'}`}
+          >
+            Sort by last used
+          </button>
+        )}
         <input
           type="search"
           placeholder="Search name or team"
@@ -121,6 +150,13 @@ export function UsersScreen() {
                     {u.email} · joined {formatShortDate(u.created_at.slice(0, 10))}
                   </span>
                 </span>
+                {canAppoint && seen.data && (
+                  <span
+                    className={`block truncate text-xs font-semibold ${lastSeen.has(u.id) ? 'text-ink-soft' : 'text-[#b3261e] dark:text-[#ff8a97]'}`}
+                  >
+                    {lastUsed(u.id)}
+                  </span>
+                )}
               </span>
               <span className="hidden truncate text-[15px] lg:block">{u.team_name}</span>
               <span className="hidden lg:block">

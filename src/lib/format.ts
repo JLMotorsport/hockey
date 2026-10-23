@@ -87,3 +87,27 @@ export function shortName(name: string): string {
   if (parts.length < 2) return parts[0] ?? name;
   return `${parts[0]![0]}. ${parts.slice(1).join(' ')}`;
 }
+
+const ukDay = new Intl.DateTimeFormat('en-CA', { timeZone: UK });
+const hourMinute = new Intl.DateTimeFormat('en-GB', {
+  timeZone: UK,
+  hour: '2-digit',
+  minute: '2-digit',
+});
+const weekdayShort = new Intl.DateTimeFormat('en-GB', { timeZone: UK, weekday: 'short' });
+
+/** Days between two UK calendar dates (b after a). */
+function ukDaysBetween(a: Date, b: Date): number {
+  const day = (d: Date) => Date.parse(`${ukDay.format(d)}T00:00:00Z`);
+  return Math.round((day(b) - day(a)) / 86_400_000);
+}
+
+/** When someone last used the app: "Today 14:02", "Yesterday 19:40", "Tue 08:15", "17 Oct". */
+export function formatLastUsed(iso: string, now = new Date()): string {
+  const at = new Date(iso);
+  const days = ukDaysBetween(at, now);
+  if (days <= 0) return `Today ${hourMinute.format(at)}`;
+  if (days === 1) return `Yesterday ${hourMinute.format(at)}`;
+  if (days < 7) return `${weekdayShort.format(at)} ${hourMinute.format(at)}`;
+  return shortDate.format(at);
+}

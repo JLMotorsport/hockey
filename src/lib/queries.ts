@@ -293,6 +293,22 @@ export function useProfile(id: string | undefined) {
   });
 }
 
+/** When each person last used the app: the super user only (0039), else empty. */
+export function useLastSeen(enabled: boolean) {
+  return useQuery({
+    queryKey: ['lastSeen'],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await requireSupabase().rpc('last_seen_all');
+      if (error) {
+        if (missingRpc(error)) return new Map<string, string>();
+        throw new Error(error.message);
+      }
+      return new Map((data ?? []).map((r) => [r.user_id, r.seen_at]));
+    },
+  });
+}
+
 export function useAdminUsers() {
   return useQuery({
     queryKey: keys.adminUsers,

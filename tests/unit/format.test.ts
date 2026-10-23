@@ -1,4 +1,4 @@
-import { gameweekLabel, shortName, toUkInputValue } from '@/lib/format';
+import { formatLastUsed, gameweekLabel, shortName, toUkInputValue } from '@/lib/format';
 import { lockedGameweeks, nextOpenGameweek } from '@/lib/queries';
 import { parsePlayerLines } from '@/lib/players';
 
@@ -54,5 +54,22 @@ describe('shortName', () => {
     expect(shortName('Rebecca El-Mahraoui')).toBe('R. El-Mahraoui');
     expect(shortName('Name withheld #5 (M3)')).toBe('Withheld #5');
     expect(shortName('Name withheld #b27e (W2)')).toBe('Withheld #b27e');
+  });
+});
+
+describe('last used', () => {
+  const now = new Date('2026-10-23T20:00:00Z'); // Fri 21:00 in the UK
+  it('says today, yesterday, the weekday, then the date, in UK time', () => {
+    expect(formatLastUsed('2026-10-23T13:02:00Z', now)).toBe('Today 14:02');
+    expect(formatLastUsed('2026-10-22T18:40:00Z', now)).toBe('Yesterday 19:40');
+    expect(formatLastUsed('2026-10-20T07:15:00Z', now)).toBe('Tue 08:15');
+    expect(formatLastUsed('2026-10-17T10:00:00Z', now)).toBe('Sat 11:00');
+    expect(formatLastUsed('2026-10-16T10:00:00Z', now)).toBe('16 Oct');
+  });
+  it('goes by the UK date, not 24 hours', () => {
+    // 23:30 UK on Thursday is "Yesterday" by 00:30 Friday.
+    expect(formatLastUsed('2026-10-22T22:30:00Z', new Date('2026-10-22T23:30:00Z'))).toBe(
+      'Yesterday 23:30',
+    );
   });
 });

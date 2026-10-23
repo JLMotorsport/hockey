@@ -896,6 +896,29 @@ export type Database = {
           },
         ];
       };
+      user_last_seen: {
+        Row: {
+          seen_at: string;
+          user_id: string;
+        };
+        Insert: {
+          seen_at?: string;
+          user_id: string;
+        };
+        Update: {
+          seen_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'user_last_seen_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: true;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       vapid_keys: {
         Row: {
           id: number;
@@ -1047,6 +1070,13 @@ export type Database = {
       in_late_entry: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_super: { Args: Record<PropertyKey, never>; Returns: boolean };
+      last_seen_all: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          seen_at: string;
+          user_id: string;
+        }[];
+      };
       league_points: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -1226,6 +1256,7 @@ export type Database = {
       };
       squad_source_gameweek: { Args: { p_gameweek: number; p_user: string }; Returns: number };
       teams_without_squad: { Args: Record<PropertyKey, never>; Returns: string[] };
+      touch_last_seen: { Args: Record<PropertyKey, never>; Returns: undefined };
       transfer_hit: { Args: { p_gameweek: number; p_user: string }; Returns: number };
       transfer_summary: {
         Args: { p_gameweek: number; p_user: string };

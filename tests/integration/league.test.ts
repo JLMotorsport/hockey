@@ -2340,6 +2340,41 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     });
   });
 
+  describe('last used (0039)', () => {
+    it('records when someone uses the app, shown only to the super user', async () => {
+      const fan = await signUp('seen-fan@example.com', 'Seen Fan');
+      const admin = await signUp('seen-admin@example.com', 'Seen Admin');
+      await service.from('profiles').update({ is_admin: true }).eq('id', admin.id);
+      expect((await fan.db.rpc('touch_last_seen')).error).toBeNull();
+      const { data: row } = await service
+        .from('user_last_seen')
+        .select('seen_at')
+        .eq('user_id', fan.id)
+        .single();
+      expect(row?.seen_at).toBeTruthy();
+      // Within 10 minutes a second visit doesn't write.
+      await fan.db.rpc('touch_last_seen');
+      const { data: again } = await service
+        .from('user_last_seen')
+        .select('seen_at')
+        .eq('user_id', fan.id)
+        .single();
+      expect(again?.seen_at).toBe(row?.seen_at);
+      // A player and a manager see nobody's; the table itself is closed.
+      expect((await fan.db.rpc('last_seen_all')).data).toEqual([]);
+      expect((await admin.db.rpc('last_seen_all')).data).toEqual([]);
+      expect((await fan.db.from('user_last_seen').select('*')).data ?? []).toEqual([]);
+      // The super user sees everyone's.
+      await service.from('profiles').update({ is_super: true }).eq('id', admin.id);
+      const { data } = await admin.db.rpc('last_seen_all');
+      expect(data?.some((r) => r.user_id === fan.id)).toBe(true);
+      await service
+        .from('profiles')
+        .update({ is_super: false, is_admin: false })
+        .eq('id', admin.id);
+    });
+  });
+
   describe('price preview (0038)', () => {
     it('shows managers what Monday would do, and nobody else', async () => {
       const boss = await signUp('prices-admin@example.com', 'Prices Admin');
