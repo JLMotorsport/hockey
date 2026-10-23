@@ -12,6 +12,7 @@ import {
   useLeagueTable,
   useProfileSides,
   useSides,
+  useTeamsWithoutSquad,
 } from '@/lib/queries';
 import { errorLines, requireSupabase } from '@/lib/supabase';
 import { PageHead, SideTag, Toggle, panel } from './adminUi';
@@ -24,6 +25,9 @@ export function UsersScreen() {
   // When each person last used the app: only the super user sees it.
   const seen = useLastSeen(canAppoint);
   const [byLastUsed, setByLastUsed] = useState(false);
+  // Squads carry over, so a saved squad once means a team that scores.
+  const noTeam = useTeamsWithoutSquad();
+  const [onlyNoTeam, setOnlyNoTeam] = useState(false);
   const table = useLeagueTable();
   const profileSides = useProfileSides();
   const sides = useSides();
@@ -41,12 +45,14 @@ export function UsersScreen() {
   const all = users.data ?? [];
   const q = search.trim().toLowerCase();
   const lastSeen = seen.data ?? new Map<string, string>();
+  const without = noTeam.data ?? new Set<string>();
   const list = all.filter(
     (u) =>
-      !q ||
-      u.display_name.toLowerCase().includes(q) ||
-      u.team_name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q),
+      (!onlyNoTeam || without.has(u.id)) &&
+      (!q ||
+        u.display_name.toLowerCase().includes(q) ||
+        u.team_name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)),
   );
   if (byLastUsed)
     list.sort((a, b) => (lastSeen.get(b.id) ?? '').localeCompare(lastSeen.get(a.id) ?? ''));
@@ -54,7 +60,7 @@ export function UsersScreen() {
   const activeWeek = [...lastSeen.values()].filter((t) => t >= weekAgo).length;
   const lastUsed = (id: string) => {
     const t = lastSeen.get(id);
-    return t ? `Last used ${formatLastUsed(t)}` : 'Not used since tracking started';
+    return t ? `Last used ${formatLastUsed(t)}` : 'Not used since 23 Oct';
   };
 
   async function toggle(id: string, value: boolean, name: string) {
@@ -94,8 +100,16 @@ export function UsersScreen() {
     <>
       <PageHead
         title="Users"
-        sub={`${all.length} signed up · ${managers} ${managers === 1 ? 'manager' : 'managers'}${superUser ? ` · super user: ${superUser.display_name}` : ''}${canAppoint && seen.data ? ` · ${activeWeek} used the app in the last 7 days` : ''}`}
+        sub={`${all.length} signed up · ${managers} ${managers === 1 ? 'manager' : 'managers'}${superUser ? ` · super user: ${superUser.display_name}` : ''}${canAppoint && seen.data ? ` · ${activeWeek} used the app in the last 7 days` : ''} · ${all.length - without.size} with a team saved`}
       >
+        <button
+          type="button"
+          aria-pressed={onlyNoTeam}
+          onClick={() => setOnlyNoTeam(!onlyNoTeam)}
+          className={`min-h-tap shrink-0 rounded-full px-4 text-sm font-bold ring-1 lg:min-h-[40px] ${onlyNoTeam ? 'bg-ink text-surface ring-ink' : 'ring-line'}`}
+        >
+          No team yet ({without.size})
+        </button>
         {canAppoint && seen.data && (
           <button
             type="button"
@@ -150,13 +164,25 @@ export function UsersScreen() {
                     {u.email} · joined {formatShortDate(u.created_at.slice(0, 10))}
                   </span>
                 </span>
-                {canAppoint && seen.data && (
-                  <span
-                    className={`block truncate text-xs font-semibold ${lastSeen.has(u.id) ? 'text-ink-soft' : 'text-[#b3261e] dark:text-[#ff8a97]'}`}
-                  >
-                    {lastUsed(u.id)}
-                  </span>
-                )}
+                <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs font-semibold">
+                  {without.has(u.id) ? (
+                    <span className="shrink-0 text-[#b3261e] dark:text-[#ff8a97]">
+                      ✗ No team yet
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-[#1f7a4d] dark:text-[#7fd6a2]">
+                      ✓ Team saved
+                    </span>
+                  )}
+                  {canAppoint && seen.data && (
+                    <span
+                      className={`basis-full lg:basis-auto ${lastSeen.has(u.id) ? 'text-ink-soft' : 'text-[#b3261e] dark:text-[#ff8a97]'}`}
+                    >
+                      <span className="hidden lg:inline">· </span>
+                      {lastUsed(u.id)}
+                    </span>
+                  )}
+                </span>
               </span>
               <span className="hidden truncate text-[15px] lg:block">{u.team_name}</span>
               <span className="hidden lg:block">
