@@ -506,10 +506,11 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
       )}
     </>
   );
+  // Over the page title, not the bench (on a phone the bench sits at the bottom).
   const swapEl = (
     <>
       {swapping && (
-        <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-[25rem] items-center justify-between gap-2 rounded-xl bg-[#16181d] px-3 py-2 text-sm font-semibold text-white shadow-card">
+        <div className="fixed inset-x-4 top-[calc(0.75rem+env(safe-area-inset-top))] z-30 mx-auto flex max-w-[25rem] items-center justify-between gap-2 rounded-xl bg-[#16181d] px-3 py-2 text-sm font-semibold text-white shadow-card">
           <span>
             {swapStuck
               ? `No one can swap with ${swapping.name} and keep an allowed formation`
