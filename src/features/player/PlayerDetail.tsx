@@ -124,18 +124,20 @@ export function PlayerDetail({
   const next = nextOpenGameweek(all);
   const nextLabel = next ? fixtureLabel(fixtures.data ?? [], player.side_id, next.id) : null;
   const nextGames = next
-    ? (fixtures.data ?? []).filter((f) => f.side_id === player.side_id && f.gameweek_id === next.id)
+    ? (fixtures.data ?? [])
+        .filter((f) => f.side_id === player.side_id && f.gameweek_id === next.id)
+        .sort((x, y) => x.kickoff.localeCompare(y.kickoff))
     : [];
-  const nextFixture = next
-    ? (fixtures.data ?? []).find((f) => f.side_id === player.side_id && f.gameweek_id === next.id)
-    : undefined;
-  // Fixture difficulty (when it's shown): the next game's, and the next three.
+  const nextFixture = nextGames[0];
+  // Fixture difficulty (when it's shown): each of the next games (sometimes two), and the next three.
   const showFdr = fdr.show && fdr.places.size > 0 && Boolean(next);
-  const nextPlace = nextFixture ? fdr.places.get(nextFixture.id) : undefined;
-  const nextRating =
-    showFdr && nextFixture && nextPlace
-      ? difficulty(nextPlace.position, nextPlace.teams, nextFixture.is_home, nextPlace.ours)
-      : null;
+  const nextRatings = showFdr
+    ? nextGames.flatMap((f) => {
+        const place = fdr.places.get(f.id);
+        const rating = place && difficulty(place.position, place.teams, f.is_home, place.ours);
+        return rating ? [rating] : [];
+      })
+    : [];
   const runWeeks = next ? all.filter((g) => g.start_date >= next.start_date).slice(0, 3) : [];
   const run = showFdr
     ? sideRun(
@@ -196,7 +198,9 @@ export function PlayerDetail({
               {formatWeekdayTime(nextFixture.kickoff)}
             </span>
           )}
-          {nextRating && <FdrBadge rating={nextRating} />}
+          {nextRatings.map((rating, i) => (
+            <FdrBadge key={i} rating={rating} />
+          ))}
         </p>
       )}
 

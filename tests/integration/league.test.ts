@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseTeamFeed } from '../../supabase/functions/_shared/ehFixtures.ts';
 import { points, type StatLine } from '@/lib/scoring';
+import { namesClose } from '@/lib/pitcheroMatch';
 import type { Database } from '@/types/database';
 
 const URL = process.env.SUPABASE_TEST_URL;
@@ -1768,7 +1769,7 @@ describe.skipIf(!configured)('league database', () => {
       expect(await summary(g2!.id)).toEqual({ used: 5, free: 4, hit: 0 });
       expect(await total()).toBe(noHit);
       // It's for that gameweek only, and nobody can see or add one from the app.
-      expect((await banker.db.from('transfer_hit_waivers').select('*')).data ?? []).toEqual([]);
+      expect((await banker.db.from('transfer_hit_waivers').select('*')).error).not.toBeNull();
       expect(
         (
           await banker.db
@@ -2412,6 +2413,28 @@ describe.skipIf(!configured)('fixes from the code review', () => {
   });
 
   describe('linking hand-added players to England Hockey (0036)', () => {
+    it('names_close (0041) agrees with the app, and keeps Tom and Tim Smith apart', async () => {
+      const pairs: [string, string][] = [
+        ['Denis Keegan', 'Dennis Keegan'],
+        ['Hannah Garrod', 'Hanna Garrod'],
+        ['Tom Smith', 'Tim Smith'],
+        ['Dan Smith', 'Dani Smith'],
+        ['Zach Goode', 'Zack Goode'],
+        ['Jonathan Smith', 'Jonathan Smyth'],
+        ['Johnson-Last', 'Johnson Last'],
+        ['Sophie Leigh-Pearson', 'Sophie Leigh Pearson'],
+        ['Matt Souter', 'Matthew Souter'],
+        ['', 'Denis Keegan'],
+      ];
+      for (const [a, b] of pairs) {
+        const { data } = await service.rpc('names_close', { p_a: a, p_b: b });
+        expect([a, b, data]).toEqual([a, b, namesClose(a, b)]);
+      }
+      expect((await service.rpc('names_close', { p_a: 'Tom Smith', p_b: 'Tim Smith' })).data).toBe(
+        false,
+      );
+    });
+
     it('links one letter out, but not when two hand-added players are that close', async () => {
       const sides = (await service.from('sides').select('id').order('sort_order')).data!;
       const m4 = sides[3]!.id;

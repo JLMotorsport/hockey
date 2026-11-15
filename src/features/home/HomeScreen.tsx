@@ -372,37 +372,44 @@ function GameweekGames({ gameweekId, label }: { gameweekId: number; label: strin
         </Link>
       </div>
       <ul>
-        {(sides.data ?? []).map((side) => {
-          const f = games.find((g) => g.side_id === side.id);
-          const place = f && fdr.show ? fdr.places.get(f.id) : undefined;
-          const rated =
-            f && place ? difficulty(place.position, place.teams, f.is_home, place.ours) : null;
-          return (
-            <li
-              key={side.id}
-              className="flex min-h-tap items-center gap-3 border-t border-line py-1.5"
-            >
-              <span className="w-9 shrink-0 rounded-md bg-[#16181d] py-0.5 text-center font-display text-sm font-bold text-white">
-                {side.short_name}
-              </span>
-              {f ? (
-                <>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate font-semibold">
-                      {opponentName(f.opponent)} ({f.is_home ? 'H' : 'A'})
+        {(sides.data ?? []).flatMap((side) => {
+          // Every game the side plays this gameweek (sometimes two), or No game.
+          const theirs = games
+            .filter((g) => g.side_id === side.id)
+            .sort((x, y) => x.kickoff.localeCompare(y.kickoff));
+          return (theirs.length ? theirs : [null]).map((f) => {
+            const place = f && fdr.show ? fdr.places.get(f.id) : undefined;
+            const rated =
+              f && place ? difficulty(place.position, place.teams, f.is_home, place.ours) : null;
+            return (
+              <li
+                key={f ? `f${f.id}` : `s${side.id}`}
+                className="flex min-h-tap items-center gap-3 border-t border-line py-1.5"
+              >
+                <span className="w-9 shrink-0 rounded-md bg-[#16181d] py-0.5 text-center font-display text-sm font-bold text-white">
+                  {side.short_name}
+                </span>
+                {f ? (
+                  <>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate font-semibold">
+                        {opponentName(f.opponent)} ({f.is_home ? 'H' : 'A'})
+                      </span>
+                      {rated && (
+                        <span className="muted text-xs">{placeLine(f.is_home, place)}</span>
+                      )}
                     </span>
-                    {rated && <span className="muted text-xs">{placeLine(f.is_home, place)}</span>}
-                  </span>
-                  <span className="muted whitespace-nowrap text-sm tabular-nums">
-                    {formatWeekdayTime(f.kickoff)}
-                  </span>
-                  {rated && <FdrBadge rating={rated} />}
-                </>
-              ) : (
-                <span className="muted flex-1">No game</span>
-              )}
-            </li>
-          );
+                    <span className="muted whitespace-nowrap text-sm tabular-nums">
+                      {formatWeekdayTime(f.kickoff)}
+                    </span>
+                    {rated && <FdrBadge rating={rated} />}
+                  </>
+                ) : (
+                  <span className="muted flex-1">No game</span>
+                )}
+              </li>
+            );
+          });
         })}
       </ul>
     </section>

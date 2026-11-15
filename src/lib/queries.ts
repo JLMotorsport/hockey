@@ -111,7 +111,12 @@ export function useTeamsWithoutSquad() {
     queryKey: ['teams-without-squad'],
     queryFn: async () => {
       const { data, error } = await requireSupabase().rpc('teams_without_squad');
-      if (error) return new Set<string>();
+      if (error) {
+        // Before 0023: nobody is shown as missing a team. Any other failure is an
+        // error, not "everyone has a team" (the Users page would say so).
+        if (missingRpc(error)) return new Set<string>();
+        throw new Error(error.message);
+      }
       return new Set<string>(data ?? []);
     },
   });

@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ErrorText, Loading, Notices, PosBadge, type Notice } from '@/components/ui';
 import { formatDayTime, gameweekLabel } from '@/lib/format';
 import { opponentName } from '@/lib/form';
-import { mapPosition, nameKey, namesClose, sameName } from '@/lib/pitcheroMatch';
+import { mapPosition, namesClose, sameName } from '@/lib/pitcheroMatch';
 import {
   keys,
   useFixtureDetail,
@@ -152,9 +152,11 @@ export function MatchScreen() {
 
   // Pitchero's sheet, matched against named players who played here.
   const sheet = (evidence.data?.sheets ?? []).filter((r) => r.fixture_id === fixture.id);
-  const playedKeys = new Set(
-    playedList.filter((p) => !p.name_withheld).map((p) => nameKey(p.name)),
-  );
+  // Already on the sheet: the same name, or one letter out (as the add button
+  // matches), not just the same initial and surname (Tom and Tim Smith).
+  const playedNamed = playedList.filter((p) => !p.name_withheld);
+  const onSheet = (name: string) =>
+    playedNamed.some((p) => sameName(p.name, name) || namesClose(p.name, name));
   const unnamedHere = playedList.filter((p) => p.name_withheld).length;
 
   async function save() {
@@ -197,13 +199,15 @@ export function MatchScreen() {
    * them to this side first if the app has never seen them.
    */
   async function playedFromPitchero(name: string, position: string | null) {
-    const key = nameKey(name);
+    const key = name.trim().toLowerCase();
     if (adding.has(key)) return;
     // The same player under the same name, or one letter out (Denis /
     // Dennis), as the sync links them (0036); not just the initial.
     const named = all.filter((p) => !p.name_withheld);
     const exact = named.filter((p) => sameName(p.name, name));
-    const close = named.filter((p) => namesClose(p.name, name));
+    // One letter out only for players added by hand: anyone already linked to
+    // England Hockey is a known, different person (as the sync, 0036).
+    const close = named.filter((p) => p.eh_member_id === null && namesClose(p.name, name));
     const known =
       exact.find((p) => p.side_id === fixture.side_id) ??
       exact[0] ??
@@ -667,10 +671,10 @@ export function MatchScreen() {
             </p>
           </div>
           {sheet.map((r) => {
-            const matched = playedKeys.has(nameKey(r.name));
+            const matched = onSheet(r.name);
             const unused = r.starter === false;
             const canAdd = !matched && !unused;
-            const busy = adding.has(nameKey(r.name));
+            const busy = adding.has(r.name.trim().toLowerCase());
             return (
               <div
                 key={r.name}

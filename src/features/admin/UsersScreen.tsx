@@ -45,10 +45,12 @@ export function UsersScreen() {
   const all = users.data ?? [];
   const q = search.trim().toLowerCase();
   const lastSeen = seen.data ?? new Map<string, string>();
+  // Only once it's known: while loading, or if it failed, nobody is ticked either way.
+  const teamsKnown = noTeam.isSuccess;
   const without = noTeam.data ?? new Set<string>();
   const list = all.filter(
     (u) =>
-      (!onlyNoTeam || without.has(u.id)) &&
+      (!onlyNoTeam || !teamsKnown || without.has(u.id)) &&
       (!q ||
         u.display_name.toLowerCase().includes(q) ||
         u.team_name.toLowerCase().includes(q) ||
@@ -60,7 +62,7 @@ export function UsersScreen() {
   const activeWeek = [...lastSeen.values()].filter((t) => t >= weekAgo).length;
   const lastUsed = (id: string) => {
     const t = lastSeen.get(id);
-    return t ? `Last used ${formatLastUsed(t)}` : 'Not used since 23 Oct';
+    return t ? `Last used ${formatLastUsed(t)}` : 'Not used yet';
   };
 
   async function toggle(id: string, value: boolean, name: string) {
@@ -100,16 +102,18 @@ export function UsersScreen() {
     <>
       <PageHead
         title="Users"
-        sub={`${all.length} signed up · ${managers} ${managers === 1 ? 'manager' : 'managers'}${superUser ? ` · super user: ${superUser.display_name}` : ''}${canAppoint && seen.data ? ` · ${activeWeek} used the app in the last 7 days` : ''} · ${all.length - without.size} with a team saved`}
+        sub={`${all.length} signed up · ${managers} ${managers === 1 ? 'manager' : 'managers'}${superUser ? ` · super user: ${superUser.display_name}` : ''}${canAppoint && seen.data ? ` · ${activeWeek} used the app in the last 7 days` : ''}${teamsKnown ? ` · ${all.length - without.size} with a team saved` : ''}`}
       >
-        <button
-          type="button"
-          aria-pressed={onlyNoTeam}
-          onClick={() => setOnlyNoTeam(!onlyNoTeam)}
-          className={`min-h-tap shrink-0 rounded-full px-4 text-sm font-bold ring-1 lg:min-h-[40px] ${onlyNoTeam ? 'bg-ink text-surface ring-ink' : 'ring-line'}`}
-        >
-          No team yet ({without.size})
-        </button>
+        {teamsKnown && (
+          <button
+            type="button"
+            aria-pressed={onlyNoTeam}
+            onClick={() => setOnlyNoTeam(!onlyNoTeam)}
+            className={`min-h-tap shrink-0 rounded-full px-4 text-sm font-bold ring-1 lg:min-h-[40px] ${onlyNoTeam ? 'bg-ink text-surface ring-ink' : 'ring-line'}`}
+          >
+            No team yet ({without.size})
+          </button>
+        )}
         {canAppoint && seen.data && (
           <button
             type="button"
@@ -165,7 +169,7 @@ export function UsersScreen() {
                   </span>
                 </span>
                 <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs font-semibold">
-                  {without.has(u.id) ? (
+                  {!teamsKnown ? null : without.has(u.id) ? (
                     <span className="shrink-0 text-[#b3261e] dark:text-[#ff8a97]">
                       ✗ No team yet
                     </span>

@@ -62,22 +62,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   // When each person last used the app (the super user's Users page): on opening the
-  // app and coming back to it, at most every 10 minutes. Silent if it fails.
+  // app and coming back to it, at most every 10 minutes. Waits for the profile (a new
+  // sign-up has none at first, so nothing would be written); a failure tries again next time.
+  const hasProfile = Boolean(profileQuery.data);
   useEffect(() => {
-    if (!supabase || !userId) return;
+    if (!supabase || !userId || !hasProfile) return;
     let last = 0;
     const touch = () => {
       if (document.visibilityState !== 'visible' || Date.now() - last < 600_000) return;
       last = Date.now();
       void supabase!.rpc('touch_last_seen').then(
-        () => undefined,
-        () => undefined,
+        ({ error }) => {
+          if (error) last = 0;
+        },
+        () => {
+          last = 0;
+        },
       );
     };
     touch();
     document.addEventListener('visibilitychange', touch);
     return () => document.removeEventListener('visibilitychange', touch);
-  }, [userId]);
+  }, [userId, hasProfile]);
 
   const value: AuthState = {
     session,

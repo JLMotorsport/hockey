@@ -165,21 +165,34 @@ export function suggestPositions(
 
 const letters = (name: string) => name.toLowerCase().replace(/[^a-z]/g, '');
 
-/**
- * Two names the same but for at most one letter added, missing or changed
- * (Denis / Dennis), ignoring spaces, hyphens and capitals. Short names (under
- * 8 letters) must match exactly. The same rule as names_close() (0036).
- */
-export function namesClose(a: string, b: string): boolean {
-  const x = letters(a);
-  const y = letters(b);
-  if (!x || !y) return false;
-  if (x === y) return true;
-  if (Math.min(x.length, y.length) < 8 || Math.abs(x.length - y.length) > 1) return false;
+/** One letter added, missing or changed (already lower case, letters only). */
+function oneLetterOut(x: string, y: string): boolean {
+  if (Math.abs(x.length - y.length) > 1) return false;
   let i = 0;
   while (i < Math.min(x.length, y.length) && x[i] === y[i]) i += 1;
   if (x.length === y.length) return x.slice(i + 1) === y.slice(i + 1);
   return x.length > y.length ? x.slice(i + 1) === y.slice(i) : x.slice(i) === y.slice(i + 1);
+}
+
+/** First name(s) and surname (the last word), each as letters only. */
+const parts = (name: string) => {
+  const words = name.trim().split(/\s+/);
+  return { first: letters(words.slice(0, -1).join(' ')), last: letters(words.at(-1) ?? '') };
+};
+
+/**
+ * The same person spelt slightly differently (Denis / Dennis Keegan): the same
+ * surname exactly, and first names one letter apart, both at least 5 letters,
+ * so Tom / Tim or Dan / Dani Smith (often brothers and sisters) stay apart.
+ * Spaces, hyphens and capitals are ignored. The same rule as names_close() (0041).
+ */
+export function namesClose(a: string, b: string): boolean {
+  if (sameName(a, b)) return true;
+  const x = parts(a);
+  const y = parts(b);
+  if (!x.last || x.last !== y.last) return false;
+  if (Math.min(x.first.length, y.first.length) < 5) return false;
+  return oneLetterOut(x.first, y.first);
 }
 
 /** The same name, ignoring spaces, hyphens and capitals. */
