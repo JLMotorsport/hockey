@@ -11,7 +11,7 @@ name: Deploy Supabase functions
 on:
   push:
     branches: [main]
-    paths: ['supabase/functions/**']
+    paths: ['supabase/functions/**', '.github/workflows/deploy-functions.yml']
   workflow_dispatch:
 
 concurrency:
@@ -45,15 +45,16 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           EH_SYNC_SECRET: ${{ secrets.EH_SYNC_SECRET }}
-        run: supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" "EH_SYNC_SECRET=$EH_SYNC_SECRET"
+        # --yes: the CLI asks before changing a secret, and a workflow can't answer.
+        run: supabase secrets set --yes --project-ref "$SUPABASE_PROJECT_REF" "EH_SYNC_SECRET=$EH_SYNC_SECRET"
 
       - name: Deploy eh-sync
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy eh-sync --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
+        run: supabase functions deploy eh-sync --yes --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
 
       # Deadline reminders (phone notifications); checks its own callers, as eh-sync.
       - name: Deploy reminders
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy reminders --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
+        run: supabase functions deploy reminders --yes --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
