@@ -161,6 +161,7 @@ export function AvailabilityUpload({ players, sides }: { players: Player[]; side
           saving={saving}
           onConfirm={() => void confirm()}
           onClose={() => setPreview(null)}
+          onDate={(d) => setPreview({ ...preview, date: d })}
         />
       )}
     </section>
@@ -176,6 +177,7 @@ function AvailabilityCheck({
   saving,
   onConfirm,
   onClose,
+  onDate,
 }: {
   date: string | null;
   rows: Matched[];
@@ -185,6 +187,8 @@ function AvailabilityCheck({
   saving: boolean;
   onConfirm: () => void;
   onClose: () => void;
+  /** The file name had no date: the manager picks the day. */
+  onDate: (day: string) => void;
 }) {
   const inGame = rows.filter((r) => r.player);
   const mine = (r: Matched) => flags.get(r.player!.id)?.source === 'manager';
@@ -237,10 +241,14 @@ function AvailabilityCheck({
     <Sheet title="Check before flagging" onClose={onClose}>
       <div className="flex flex-col gap-3">
         {!date ? (
-          <p className="m-0 rounded-xl bg-[#fff4e5] px-3 py-2.5 text-sm text-[#6b3d00] dark:bg-[#2b2113] dark:text-[#f5d9a8]">
-            The file name doesn&apos;t say which day it&apos;s for. Upload the file as Pitchero
-            exported it (its name ends with the date).
-          </p>
+          <label className="flex flex-col gap-1.5 rounded-xl bg-[#fff4e5] px-3 py-2.5 text-sm text-[#6b3d00] dark:bg-[#2b2113] dark:text-[#f5d9a8]">
+            The file name doesn&apos;t say which day it&apos;s for. Which Saturday is it?
+            <input
+              type="date"
+              className="input !mt-0"
+              onChange={(e) => e.target.value && onDate(e.target.value)}
+            />
+          </label>
         ) : (
           <p
             className={`m-0 flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm ${gw && !past ? 'bg-[#e6f4ec] text-[#155c39] dark:bg-[#13261b] dark:text-[#bdeacf]' : 'bg-[#fff4e5] text-[#6b3d00] dark:bg-[#2b2113] dark:text-[#f5d9a8]'}`}

@@ -49,6 +49,8 @@ describe('Pitchero availability', () => {
 
   it('reads the date from the file name, and refuses other files', () => {
     expect(exportDate('availability-felixstowehockeyclub2-2026-11-21.csv')).toBe('2026-11-21');
+    expect(exportDate('availability-felixstowehockeyclub2-2026-11-21_1.csv')).toBe('2026-11-21');
+    expect(exportDate('availability-felixstowehockeyclub2-2026-11-21 (1).csv')).toBe('2026-11-21');
     expect(exportDate('track_and_trace.csv')).toBeNull();
     expect(() => readAvailability('date,time\n2026-11-10,20:00')).toThrow();
   });

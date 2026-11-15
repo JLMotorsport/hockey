@@ -53,9 +53,13 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ''));
 }
 
-/** The day an export is for, from Pitchero's file name ("availability-...-2026-11-21.csv"). */
+/**
+ * The day an export is for, from Pitchero's file name: the last date in it, so
+ * "availability-...-2026-11-21.csv" and a browser's "...-2026-11-21_1.csv" or
+ * "...-2026-11-21 (1).csv" all work.
+ */
 export function exportDate(fileName: string): string | null {
-  return /(\d{4}-\d{2}-\d{2})\.csv$/i.exec(fileName)?.[1] ?? null;
+  return [...fileName.matchAll(/(\d{4}-\d{2}-\d{2})/g)].at(-1)?.[1] ?? null;
 }
 
 const NO_ANSWER = new Set(['', 'not set', 'not asked']);
