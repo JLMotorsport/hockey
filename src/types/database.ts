@@ -988,14 +988,17 @@ export type Database = {
       training_attendance: {
         Row: {
           player_id: number;
+          session: number;
           trained_on: string;
         };
         Insert: {
           player_id: number;
+          session?: number;
           trained_on: string;
         };
         Update: {
           player_id?: number;
+          session?: number;
           trained_on?: string;
         };
         Relationships: [
@@ -1422,6 +1425,10 @@ export type Database = {
       set_stats_lock: { Args: { p_fixture_id: number; p_locked: boolean }; Returns: undefined };
       set_training_day: {
         Args: { p_day: string; p_player: number; p_trained: boolean };
+        Returns: undefined;
+      };
+      set_training_session: {
+        Args: { p_day: string; p_player: number; p_session: number; p_trained: boolean };
         Returns: undefined;
       };
       squad_fits_quota: { Args: { p_ids: number[] }; Returns: boolean };

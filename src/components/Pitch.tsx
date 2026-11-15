@@ -395,22 +395,23 @@ export function PlayerSpot({
           className={`${compact ? 'h-8 w-8' : 'h-12 w-12'} drop-shadow sm:h-14 sm:w-14`}
         />
         {(slot.captain || slot.badge) && (
-          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#16181d] font-display text-xs font-bold text-white ring-2 ring-white">
+          <span className="absolute -right-1.5 -top-[3px] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#16181d] font-display text-[9px] font-bold leading-none text-white ring-[1.5px] ring-white">
             {slot.badge ?? 'C'}
-          </span>
-        )}
-        {slot.name && slot.flag && (
-          <span
-            aria-hidden="true"
-            className={`absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[0.8rem] font-black ring-2 ring-white ${slot.flag === 'out' ? 'bg-[#d91414] text-white' : 'bg-[#ffb020] text-[#14181f]'}`}
-          >
-            !
           </span>
         )}
       </span>
       {slot.name ? (
         <span className={`relative ${compact ? 'mt-1' : 'mt-1.5'} flex w-full flex-1 flex-col`}>
           {/* Side tag sits on the plate's top-right corner, leaving the name the full width. */}
+          {/* A flag mirrors it on the top-left corner, keeping the shirt clear for C / V. */}
+          {slot.flag && (
+            <span
+              aria-hidden="true"
+              className={`absolute -top-[0.95rem] left-0.5 z-10 rounded px-1.5 text-[0.62rem] font-black leading-[1.15rem] shadow sm:text-[0.7rem] ${slot.flag === 'out' ? 'bg-[#d91414] text-white' : 'bg-[#ffb020] text-[#14181f]'}`}
+            >
+              !
+            </span>
+          )}
           {slot.tag && (
             <span className="absolute -top-[0.95rem] right-0.5 z-10 rounded bg-[#16181d] px-1 font-display text-[0.62rem] font-bold leading-[1.15rem] text-white shadow sm:text-[0.7rem]">
               {slot.tag}
@@ -419,7 +420,7 @@ export function PlayerSpot({
           <span className="flex w-full flex-1 flex-col overflow-hidden rounded-md text-center shadow">
             {/* Full name always: it wraps rather than being cut off. */}
             <span
-              className={`flex flex-1 items-center justify-center bg-white px-0.5 pb-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] [overflow-wrap:break-word] sm:text-xs ${slot.tag ? (compact ? 'pt-1.5 sm:pt-2' : 'pt-2') : 'pt-0.5'}`}
+              className={`flex flex-1 items-center justify-center bg-white px-0.5 pb-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] [overflow-wrap:break-word] sm:text-xs ${slot.tag || slot.flag ? (compact ? 'pt-1.5 sm:pt-2' : 'pt-2') : 'pt-0.5'}`}
             >
               {slot.fitName ? (
                 <FitText max={11} className="[font-stretch:85%]">

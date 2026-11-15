@@ -2548,10 +2548,10 @@ describe.skipIf(!configured)('fixes from the code review', () => {
       const admin = await signUp('training-admin@example.com', 'Training Admin');
       await service.from('profiles').update({ is_admin: true }).eq('id', admin.id);
       const rows = [
-        ...['2024-02-06', '2024-02-07', '2024-02-08'].map((d) => ({
-          player_id: m1,
-          trained_on: d,
-        })),
+        // m1 at all six sessions (two a day): capped at 5 (0048).
+        ...['2024-02-06', '2024-02-07', '2024-02-08'].flatMap((d) =>
+          [1, 2].map((session) => ({ player_id: m1, trained_on: d, session })),
+        ),
         { player_id: m2, trained_on: '2024-02-06' },
         { player_id: m3, trained_on: '2024-02-08' },
         { player_id: m5, trained_on: '2024-02-07' },
@@ -2564,7 +2564,7 @@ describe.skipIf(!configured)('fixes from the code review', () => {
           p_aliases: [{ alias: 'trainernickname', player_id: m2 }],
         });
       expect((await upload(fan.db)).error).not.toBeNull();
-      expect((await upload(admin.db)).data).toBe(6);
+      expect((await upload(admin.db)).data).toBe(9);
       expect(
         (
           await admin.db
@@ -2586,8 +2586,8 @@ describe.skipIf(!configured)('fixes from the code review', () => {
             .eq('gameweek_id', gw)
             .single()
         ).data!.points ?? 0;
-      // Captain didn't play: subbed off for m5, keeps 2 training (capped, single).
-      expect(row(m1)).toMatchObject({ counts: false, sub: 'off', training: 2, doubled: false });
+      // Captain didn't play: subbed off for m5, keeps 5 training (capped, single).
+      expect(row(m1)).toMatchObject({ counts: false, sub: 'off', training: 5, doubled: false });
       // The vice takes the armband: match points and training, doubled.
       expect(row(m2)).toMatchObject({
         doubled: true,
@@ -2614,31 +2614,28 @@ describe.skipIf(!configured)('fixes from the code review', () => {
       ).data!;
       expect(cached.points).toBe(total);
 
-      // A manager marks a missed check-in by hand (0046); a player can't.
-      expect(
-        (
-          await fan.db.rpc('set_training_day', {
-            p_player: m3,
-            p_day: '2024-02-07',
-            p_trained: true,
-          })
-        ).error,
-      ).not.toBeNull();
-      await admin.db.rpc('set_training_day', {
-        p_player: m3,
-        p_day: '2024-02-07',
-        p_trained: true,
-      });
+      // A manager marks a missed check-in by hand (0048), for the other
+      // session the same day; a player can't.
+      const mark = (db: Db, on: boolean) =>
+        db.rpc('set_training_session', {
+          p_player: m3,
+          p_day: '2024-02-08',
+          p_session: 2,
+          p_trained: on,
+        });
+      expect((await mark(fan.db, true)).error).not.toBeNull();
+      expect((await mark(admin.db, true)).error).toBeNull();
       expect(
         (await fan.db.rpc('squad_for', { p_user: fan.id, p_gameweek: gw })).data!.find(
           (r) => r.player_id === m3,
         )!.training,
       ).toBe(2);
-      await admin.db.rpc('set_training_day', {
-        p_player: m3,
-        p_day: '2024-02-07',
-        p_trained: false,
-      });
+      await mark(admin.db, false);
+      expect(
+        (await fan.db.rpc('squad_for', { p_user: fan.id, p_gameweek: gw })).data!.find(
+          (r) => r.player_id === m3,
+        )!.training,
+      ).toBe(1);
 
       // Uploading a day again replaces only that day.
       await admin.db.rpc('apply_training', { p_days: ['2024-02-06'], p_rows: [], p_aliases: [] });
@@ -2646,7 +2643,7 @@ describe.skipIf(!configured)('fixes from the code review', () => {
         (await service.from('training_attendance').select('trained_on').eq('player_id', m1))
           .data!.map((r) => r.trained_on)
           .sort(),
-      ).toEqual(['2024-02-07', '2024-02-08']);
+      ).toEqual(['2024-02-07', '2024-02-07', '2024-02-08', '2024-02-08']);
 
       await service
         .from('league_settings')
@@ -2689,8 +2686,9 @@ describe.skipIf(!configured)('fixes from the code review', () => {
           .order('id')
       ).data!.map((p) => p.id) as [number, number];
       await service.from('training_attendance').insert([
-        { player_id: dup, trained_on: '2024-03-05' },
-        { player_id: keep, trained_on: '2024-03-07' },
+        { player_id: dup, trained_on: '2024-03-05', session: 1 },
+        { player_id: dup, trained_on: '2024-03-07', session: 2 },
+        { player_id: keep, trained_on: '2024-03-07', session: 1 },
       ]);
       await service.from('player_status').insert({
         player_id: dup,
@@ -2706,7 +2704,11 @@ describe.skipIf(!configured)('fixes from the code review', () => {
       const days = (
         await service.from('training_attendance').select('trained_on').eq('player_id', keep)
       ).data!;
-      expect(days.map((d) => d.trained_on).sort()).toEqual(['2024-03-05', '2024-03-07']);
+      expect(days.map((d) => d.trained_on).sort()).toEqual([
+        '2024-03-05',
+        '2024-03-07',
+        '2024-03-07',
+      ]);
       expect(
         (await service.from('player_status').select('note').eq('player_id', keep).single()).data,
       ).toEqual({

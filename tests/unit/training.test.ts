@@ -29,14 +29,44 @@ describe('training check-ins', () => {
     expect(() => readCheckIns('"First name","Last name"\nA,B')).toThrow();
   });
 
-  it('gives a point a day, at most 2, inside the window', () => {
+  it('gives a point a session, at most 5, inside the window', () => {
     // Deadlines Sat 7 Nov and Sat 14 Nov: GW10 is after the 7th, up to the 14th.
-    expect(trainingPoints(['2026-11-10'], '2026-11-07', '2026-11-14')).toBe(1);
-    expect(trainingPoints(['2026-11-10', '2026-11-10'], '2026-11-07', '2026-11-14')).toBe(1);
-    expect(
-      trainingPoints(['2026-11-08', '2026-11-10', '2026-11-12'], '2026-11-07', '2026-11-14'),
-    ).toBe(2);
-    expect(trainingPoints(['2026-11-07', '2026-11-15'], '2026-11-07', '2026-11-14')).toBe(0);
+    const t = (trained_on: string, session = 1) => ({ trained_on, session });
+    expect(trainingPoints([t('2026-11-10')], '2026-11-07', '2026-11-14')).toBe(1);
+    // Both Tuesday sessions: 2. The same session twice: still 1.
+    expect(trainingPoints([t('2026-11-10'), t('2026-11-10', 2)], '2026-11-07', '2026-11-14')).toBe(
+      2,
+    );
+    expect(trainingPoints([t('2026-11-10'), t('2026-11-10')], '2026-11-07', '2026-11-14')).toBe(1);
+    const all = [
+      t('2026-11-08'),
+      t('2026-11-08', 2),
+      t('2026-11-10'),
+      t('2026-11-10', 2),
+      t('2026-11-12'),
+    ];
+    expect(trainingPoints(all, '2026-11-07', '2026-11-14')).toBe(5);
+    expect(trainingPoints([...all, t('2026-11-13')], '2026-11-07', '2026-11-14')).toBe(5);
+    expect(trainingPoints([t('2026-11-07'), t('2026-11-15')], '2026-11-07', '2026-11-14')).toBe(0);
+  });
+
+  it("numbers a day's sessions by start time", async () => {
+    const { withSessions } = await import('@/lib/training');
+    const out = withSessions([
+      { date: '2026-11-10', time: '20:00', name: 'A' },
+      { date: '2026-11-10', time: '19:00', name: 'B' },
+      { date: '2026-11-12', time: '20:00', name: 'C' },
+      { date: '2026-11-12', time: '', name: 'D' },
+    ]);
+    expect(out.map((c) => c.session)).toEqual([2, 1, 1, 1]);
+  });
+
+  it('has two sessions on Sunday and Tuesday, one on Thursday', async () => {
+    const { sessionsOn } = await import('@/lib/training');
+    expect(sessionsOn('2026-11-15')).toBe(2);
+    expect(sessionsOn('2026-11-17')).toBe(2);
+    expect(sessionsOn('2026-11-19')).toBe(1);
+    expect(sessionsOn('2026-11-19', 2)).toBe(2);
   });
 
   it('puts a training day in the gameweek whose deadline comes next', () => {

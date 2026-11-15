@@ -1,10 +1,11 @@
 // Training points (0044) from Pitchero's track and trace export: who checked
-// in to a training session (Tuesday, Thursday, Sunday). Each day trained between one gameweek's
-// deadline and the next is a point for that gameweek, at most 2. The same
-// rule as training_points() in the database. Pure, so it can be unit tested.
+// in to a training session (two on Tuesday, one on Thursday, two on Sunday).
+// Each session trained between one gameweek's deadline and the next is a point
+// for that gameweek, at most 5 (0048). The same rule as training_points() in
+// the database. Pure, so it can be unit tested.
 import { parseCsv } from './pitcheroAvailability';
 
-export const TRAINING_CAP = 2;
+export const TRAINING_CAP = 5;
 
 export interface CheckIn {
   /** UK date, "2026-11-10". */
@@ -62,10 +63,40 @@ export function gameweekForDay<G extends { id: number; deadline: string }>(
     .find((g) => ukDate(g.deadline) >= day);
 }
 
-/** Points from the days trained in a gameweek's window, as training_points(). */
-export function trainingPoints(days: string[], after: string | null, upTo: string): number {
-  const inWindow = new Set(days.filter((d) => d <= upTo && (after === null || d > after)));
+/** One session trained: a UK date and which session that day (1 = the earlier). */
+export interface Session {
+  trained_on: string;
+  session: number;
+}
+
+/** Points from the sessions trained in a gameweek's window, as training_points(). */
+export function trainingPoints(sessions: Session[], after: string | null, upTo: string): number {
+  const inWindow = new Set(
+    sessions
+      .filter((s) => s.trained_on <= upTo && (after === null || s.trained_on > after))
+      .map((s) => `${s.trained_on}#${s.session}`),
+  );
   return Math.min(TRAINING_CAP, inWindow.size);
+}
+
+/**
+ * Which session each check-in was: per day, the earliest start time is 1, the
+ * next 2. A check-in without a time is session 1.
+ */
+export function withSessions<C extends { date: string; time: string }>(
+  checkIns: C[],
+): (C & { session: number })[] {
+  const times = new Map<string, string[]>();
+  for (const c of checkIns) {
+    const list = times.get(c.date) ?? [];
+    if (c.time && !list.includes(c.time)) list.push(c.time);
+    times.set(c.date, list);
+  }
+  for (const list of times.values()) list.sort();
+  return checkIns.map((c) => ({
+    ...c,
+    session: c.time ? times.get(c.date)!.indexOf(c.time) + 1 : 1,
+  }));
 }
 
 const words = (name: string) =>
@@ -89,6 +120,12 @@ export function likelySame(a: string, b: string): boolean {
 
 /** The club's training days: Sunday, Tuesday and Thursday (getUTCDay numbers). */
 export const TRAINING_WEEKDAYS = [0, 2, 4];
+
+/** Sessions a day: two on Sunday and Tuesday, one on Thursday or any other day. */
+export function sessionsOn(day: string, seen = 0): number {
+  const weekday = new Date(`${day}T12:00:00Z`).getUTCDay();
+  return Math.max(weekday === 0 || weekday === 2 ? 2 : 1, seen);
+}
 
 /**
  * The scheduled training days in a gameweek's window: after the previous

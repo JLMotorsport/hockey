@@ -97,7 +97,7 @@ export function PlayerDetail({
   const season = matches.reduce((sum, m) => sum + total(lines(m, player.position)), 0);
   const thisWeek = gameweekId ? matches.filter((m) => m.fixture?.gameweek_id === gameweekId) : [];
   const gw = all.find((g) => g.id === gameweekId);
-  // Training that gameweek (0044): days checked in since the last deadline, at most 2.
+  // Training that gameweek (0048): sessions checked in since the last deadline, at most 5.
   const trainingFrom = settings.data?.training_from ?? null;
   const previous = gw
     ? [...all]
@@ -108,6 +108,7 @@ export function PlayerDetail({
   const daysTrained =
     gw && trainingFrom && gw.start_date >= trainingFrom
       ? trained
+          .map((d) => d.trained_on)
           .filter(
             (d) =>
               d <= ukToday(new Date(gw.deadline)) &&
@@ -115,6 +116,11 @@ export function PlayerDetail({
           )
           .sort()
       : [];
+  // "Tue 10 Nov ×2" for both of a day's sessions.
+  const trainedDays = [...new Set(daysTrained)].map((d) => {
+    const n = daysTrained.filter((x) => x === d).length;
+    return n > 1 ? `${dayName(d)} ×${n}` : dayName(d);
+  });
   const trainingPts = Math.min(TRAINING_CAP, daysTrained.length);
 
   // Points per gameweek for the history strip.
@@ -361,8 +367,7 @@ export function PlayerDetail({
           {trainingPts > 0 && (
             <ul className="mb-3 flex flex-wrap gap-1.5">
               <li className="rounded-full bg-[#e6f4ec] px-2.5 py-1 text-sm font-semibold text-[#155c39] dark:bg-[#13261b] dark:text-[#8ee0b0]">
-                Training ({daysTrained.slice(0, TRAINING_CAP).map(dayName).join(', ')}) +
-                {trainingPts}
+                Training ({trainedDays.join(', ')}) +{trainingPts}
               </li>
             </ul>
           )}

@@ -21,7 +21,9 @@ import {
   gameweekForDay,
   readCheckIns,
   scheduledDays,
+  sessionsOn,
   TRAINING_CAP,
+  withSessions,
   type CheckIn,
 } from '@/lib/training';
 import { PageHead, panel } from './adminUi';
@@ -36,7 +38,8 @@ const dayName = (day: string) => fmt.format(new Date(`${day}T12:00:00Z`));
 const ukDate = (iso: string) => ukToday(new Date(iso));
 
 interface Upload {
-  checkIns: CheckIn[];
+  /** Each with its session that day (1 = the earlier start time). */
+  checkIns: (CheckIn & { session: number })[];
   ignored: number;
 }
 
@@ -79,7 +82,7 @@ export function TrainingScreen() {
     try {
       const everything = readCheckIns(await file.text());
       const counted = countedCheckIns(everything);
-      setUpload({ checkIns: counted, ignored: everything.length - counted.length });
+      setUpload({ checkIns: withSessions(counted), ignored: everything.length - counted.length });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That file couldn’t be read.');
     }
@@ -89,7 +92,7 @@ export function TrainingScreen() {
     <>
       <PageHead
         title="Training"
-        sub={`+1 a day for checking in to training (Tuesday, Thursday, Sunday) between deadlines, up to ${TRAINING_CAP} a gameweek. Sunday counts for the next gameweek.${fromGw ? ` Counts from GW${number(fromGw.id)} (${dayName(fromGw.start_date)}).` : ''}`}
+        sub={`+1 for each training session checked in to between deadlines (two on Tuesday and Sunday, one on Thursday), up to ${TRAINING_CAP} a gameweek. Sunday counts for the next gameweek.${fromGw ? ` Counts from GW${number(fromGw.id)} (${dayName(fromGw.start_date)}).` : ''}`}
       />
       <section className={`${panel} mb-4 flex flex-col gap-2.5 p-4`}>
         <p className="m-0 text-sm leading-relaxed text-ink-soft">
@@ -262,9 +265,9 @@ function TrainingCheck({
     setSaving(true);
     setError(null);
     const rows = upload.checkIns
-      .map((c) => ({ player: playerFor(c.name), trained_on: c.date }))
+      .map((c) => ({ player: playerFor(c.name), trained_on: c.date, session: c.session }))
       .filter((r) => r.player)
-      .map((r) => ({ player_id: r.player!.id, trained_on: r.trained_on }));
+      .map((r) => ({ player_id: r.player!.id, trained_on: r.trained_on, session: r.session }));
     const newAliases = [...links]
       .filter(([, id]) => id !== null)
       .map(([name, id]) => ({ alias: aliasKey(name), player_id: id }));
@@ -460,7 +463,7 @@ function WeekTraining({
   players: Player[];
   sideShort: Map<number, string>;
   sideOrder: Map<number, number>;
-  days: { player_id: number; trained_on: string }[];
+  days: { player_id: number; trained_on: string; session: number }[];
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -481,8 +484,16 @@ function WeekTraining({
       ...(extraDay ? [extraDay] : []),
     ]),
   ].sort();
+  // Each day's sessions: two on Sunday and Tuesday, one on Thursday (more if
+  // check-ins say so).
+  const slots = sessions.flatMap((day) => {
+    const seen = Math.max(0, ...inWeek.filter((d) => d.trained_on === day).map((d) => d.session));
+    const n = sessionsOn(day, seen);
+    return Array.from({ length: n }, (_, i) => ({ day, session: i + 1, of: n }));
+  });
+  const key = (day: string, session: number) => `${day}#${session}`;
   const trainedOn = (id: number) =>
-    new Set(inWeek.filter((d) => d.player_id === id).map((d) => d.trained_on));
+    new Set(inWeek.filter((d) => d.player_id === id).map((d) => key(d.trained_on, d.session)));
   const term = search.trim().toLowerCase();
   const everyone = players
     .filter((p) => p.active)
@@ -496,12 +507,13 @@ function WeekTraining({
     .filter((p) => !term || p.name.toLowerCase().includes(term))
     .filter((p) => show === 'all' || (show === 'trained') === trainedOn(p.id).size > 0);
 
-  async function toggle(p: Player, day: string, on: boolean) {
-    setBusy(`${p.id}:${day}`);
+  async function toggle(p: Player, day: string, session: number, on: boolean) {
+    setBusy(`${p.id}:${key(day, session)}`);
     setError(null);
-    const { error: err } = await requireSupabase().rpc('set_training_day', {
+    const { error: err } = await requireSupabase().rpc('set_training_session', {
       p_player: p.id,
       p_day: day,
+      p_session: session,
       p_trained: on,
     });
     setBusy(null);
@@ -515,7 +527,8 @@ function WeekTraining({
         <p className="m-0 text-sm text-ink-soft">
           {trained.length} of {everyone.length} trained
           {sessions.length ? ` · ${sessions.map(dayName).join(', ')}` : ''}
-          {counts ? '' : ' · before training points, so nothing scores'}. Tap a day to change it.
+          {counts ? '' : ' · before training points, so nothing scores'}. Tap a session to change
+          it.
         </p>
         <input
           type="search"
@@ -568,7 +581,7 @@ function WeekTraining({
                 key={p.id}
                 className="flex flex-col gap-1.5 border-t border-line px-3 py-2 first:border-0"
               >
-                {/* Name on its own line, the session days in a row under it (room on a phone). */}
+                {/* Name on its own line, the sessions in a row under it (room on a phone). */}
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="min-w-0 truncate font-bold">
                     {p.name}{' '}
@@ -584,24 +597,37 @@ function WeekTraining({
                 </span>
                 <span
                   className="grid gap-1.5"
-                  style={{ gridTemplateColumns: `repeat(${sessions.length}, minmax(0, 1fr))` }}
+                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(3.6rem, 1fr))' }}
                 >
-                  {sessions.map((day) => {
-                    const did = on.has(day);
+                  {slots.map(({ day, session, of }) => {
+                    const did = on.has(key(day, session));
+                    const which =
+                      of > 1
+                        ? session === 1
+                          ? '1st'
+                          : session === 2
+                            ? '2nd'
+                            : `${session}th`
+                        : '';
                     return (
                       <button
-                        key={day}
+                        key={key(day, session)}
                         type="button"
                         aria-pressed={did}
-                        aria-label={`${p.name} trained ${dayName(day)}`}
+                        aria-label={`${p.name} trained ${dayName(day)}${which ? `, ${which} session` : ''}`}
                         disabled={busy !== null}
-                        onClick={() => void toggle(p, day, !did)}
-                        className={`flex min-h-tap items-center justify-center gap-1 rounded-[10px] px-1 text-sm font-bold disabled:opacity-60 ${did ? 'bg-[#1f7a4d] text-white' : 'ring-1 ring-line'}`}
+                        onClick={() => void toggle(p, day, session, !did)}
+                        className={`flex min-h-tap flex-col items-center justify-center rounded-[10px] px-0.5 text-[0.8rem] font-bold leading-tight disabled:opacity-60 ${did ? 'bg-[#1f7a4d] text-white' : 'ring-1 ring-line'}`}
                       >
-                        <span aria-hidden="true">
-                          {busy === `${p.id}:${day}` ? '…' : did ? '✓' : '+'}
+                        <span className="whitespace-nowrap">
+                          {dayName(day).split(' ').slice(0, 2).join(' ')}
                         </span>
-                        {dayName(day).split(' ').slice(0, 2).join(' ')}
+                        <span className="whitespace-nowrap text-[0.7rem] font-semibold opacity-90">
+                          <span aria-hidden="true">
+                            {busy === `${p.id}:${key(day, session)}` ? '…' : did ? '✓' : '+'}
+                          </span>
+                          {which && ` ${which}`}
+                        </span>
                       </button>
                     );
                   })}

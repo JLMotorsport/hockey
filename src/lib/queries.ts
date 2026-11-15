@@ -329,7 +329,7 @@ export function usePlayerFlags() {
   });
 }
 
-/** The days a player checked in to training (0044); empty before it. */
+/** The training sessions a player checked in to (0048); empty before it. */
 export function usePlayerTraining(playerId: number | undefined) {
   return useQuery({
     queryKey: ['training', playerId ?? 0],
@@ -337,10 +337,10 @@ export function usePlayerTraining(playerId: number | undefined) {
     queryFn: async () => {
       const { data, error } = await requireSupabase()
         .from('training_attendance')
-        .select('trained_on')
+        .select('trained_on, session')
         .eq('player_id', playerId!);
-      if (error) return [] as string[];
-      return (data ?? []).map((r) => r.trained_on);
+      if (error) return [] as { trained_on: string; session: number }[];
+      return data ?? [];
     },
   });
 }
@@ -352,7 +352,7 @@ export function useTrainingAdmin() {
     queryFn: async () => {
       const db = requireSupabase();
       const [days, aliases] = await Promise.all([
-        db.from('training_attendance').select('player_id, trained_on'),
+        db.from('training_attendance').select('player_id, trained_on, session'),
         db.from('player_aliases').select('alias, player_id'),
       ]);
       return {
