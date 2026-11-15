@@ -2674,6 +2674,56 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     });
   });
 
+  describe('merging two players keeps training and flags (0047)', () => {
+    it('moves check-ins, the flag and linked names to the kept player', async () => {
+      const side = (await service.from('sides').select('id').order('sort_order').limit(1).single())
+        .data!.id;
+      const [keep, dup] = (
+        await service
+          .from('players')
+          .insert([
+            { name: 'Natasha Mergetest', position: 'DEF', side_id: side, price: 50 },
+            { name: 'Tasha Mergetest', position: 'DEF', side_id: side, price: 50 },
+          ])
+          .select('id')
+          .order('id')
+      ).data!.map((p) => p.id) as [number, number];
+      await service.from('training_attendance').insert([
+        { player_id: dup, trained_on: '2024-03-05' },
+        { player_id: keep, trained_on: '2024-03-07' },
+      ]);
+      await service
+        .from('player_status')
+        .insert({
+          player_id: dup,
+          status: 'out',
+          note: 'Holiday',
+          set_at: new Date().toISOString(),
+        });
+      await service.from('player_aliases').insert({ alias: 'tashmergetest', player_id: dup });
+      const admin = await signUp('merge-admin@example.com', 'Merge Admin');
+      await service.from('profiles').update({ is_admin: true }).eq('id', admin.id);
+      expect((await admin.db.rpc('merge_players', { p_from: dup, p_into: keep })).error).toBeNull();
+
+      const days = (
+        await service.from('training_attendance').select('trained_on').eq('player_id', keep)
+      ).data!;
+      expect(days.map((d) => d.trained_on).sort()).toEqual(['2024-03-05', '2024-03-07']);
+      expect(
+        (await service.from('player_status').select('note').eq('player_id', keep).single()).data,
+      ).toEqual({
+        note: 'Holiday',
+      });
+      const aliases = (await service.from('player_aliases').select('alias').eq('player_id', keep))
+        .data!;
+      expect(aliases.map((a) => a.alias).sort()).toEqual(['tashamergetest', 'tashmergetest']);
+      expect((await service.from('players').select('id').eq('id', dup)).data).toEqual([]);
+
+      await service.from('profiles').update({ is_admin: false }).eq('id', admin.id);
+      await service.from('players').delete().eq('id', keep);
+    });
+  });
+
   describe('last used (0039)', () => {
     it('records when someone uses the app, shown only to the super user', async () => {
       const fan = await signUp('seen-fan@example.com', 'Seen Fan');
