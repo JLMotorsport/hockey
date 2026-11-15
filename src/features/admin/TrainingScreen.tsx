@@ -50,6 +50,8 @@ export function TrainingScreen() {
   const settings = useSettings();
   const training = useTrainingAdmin();
   const [upload, setUpload] = useState<Upload | null>(null);
+  // A gameweek's full list: everyone in the game, trained or not, editable.
+  const [openGw, setOpenGw] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   if (players.isLoading || gameweeks.isLoading || training.isLoading) return <Loading />;
@@ -86,7 +88,7 @@ export function TrainingScreen() {
     <>
       <PageHead
         title="Training"
-        sub={`+1 a day for checking in to General Club Training between deadlines, up to ${TRAINING_CAP} a gameweek.${fromGw ? ` Counts from GW${number(fromGw.id)} (${dayName(fromGw.start_date)}).` : ''}`}
+        sub={`+1 a day for checking in to training (Tuesday, Thursday, Sunday) between deadlines, up to ${TRAINING_CAP} a gameweek. Sunday counts for the next gameweek.${fromGw ? ` Counts from GW${number(fromGw.id)} (${dayName(fromGw.start_date)}).` : ''}`}
       />
       <section className={`${panel} mb-4 flex flex-col gap-2.5 p-4`}>
         <p className="m-0 text-sm leading-relaxed text-ink-soft">
@@ -134,9 +136,11 @@ export function TrainingScreen() {
           const sessions = [...new Set(inWeek.map((d) => d.trained_on))].sort();
           const counts = Boolean(from && g.start_date >= from);
           return (
-            <div
+            <button
+              type="button"
               key={g.id}
-              className={`flex min-h-[58px] items-center gap-3 px-4 py-2 ${i ? 'border-t border-line' : ''}`}
+              onClick={() => setOpenGw(g.id)}
+              className={`flex min-h-[58px] w-full items-center gap-3 px-4 py-2 text-left ${i ? 'border-t border-line' : ''}`}
             >
               <span className="w-12 font-display text-base font-extrabold uppercase">
                 GW{number(g.id)}
@@ -155,7 +159,10 @@ export function TrainingScreen() {
                     : `Deadline ${formatDeadline(g.deadline)}`}
                 </span>
               </span>
-            </div>
+              <span aria-hidden="true" className="text-xl text-ink-soft">
+                ›
+              </span>
+            </button>
           );
         })}
       </section>
@@ -171,10 +178,26 @@ export function TrainingScreen() {
             return g ? `GW${number(g.id)}` : 'no gameweek yet';
           }}
           onClose={() => setUpload(null)}
-          onSaved={(text) => {
+          onSaved={(text, firstDay) => {
             setUpload(null);
             setDone(text);
+            // Straight on to the week's full list, to check and fix by hand.
+            const g = firstDay ? gameweekForDay(firstDay, all, ukDate) : undefined;
+            if (g) setOpenGw(g.id);
           }}
+        />
+      )}
+      {openGw !== null && (
+        <WeekTraining
+          gameweek={all.find((g) => g.id === openGw)!}
+          previous={all[all.findIndex((g) => g.id === openGw) - 1]}
+          number={number(openGw)}
+          counts={Boolean(from && (all.find((g) => g.id === openGw)?.start_date ?? '') >= from)}
+          players={players.data ?? []}
+          sideShort={new Map((sides.data ?? []).map((s) => [s.id, s.short_name]))}
+          sideOrder={new Map((sides.data ?? []).map((s) => [s.id, s.sort_order]))}
+          days={days}
+          onClose={() => setOpenGw(null)}
         />
       )}
     </>
@@ -196,7 +219,8 @@ function TrainingCheck({
   aliases: Map<string, number>;
   label: (day: string) => string;
   onClose: () => void;
-  onSaved: (text: string) => void;
+  /** After saving: the message, and the first day the file covered. */
+  onSaved: (text: string, firstDay?: string) => void;
 }) {
   const queryClient = useQueryClient();
   // Names linked by hand this time: a player id, or null for "not in the game".
@@ -254,7 +278,7 @@ function TrainingCheck({
       return;
     }
     await queryClient.invalidateQueries();
-    onSaved(`${matched.length} trained saved for ${weeks.join(' and ')}.`);
+    onSaved(`${matched.length} trained saved for ${weeks.join(' and ')}.`, sessionDays[0]);
   }
 
   const pill = (p: Player) => (
@@ -269,9 +293,10 @@ function TrainingCheck({
         <p className="m-0 flex items-start gap-2 rounded-xl bg-[#e6f4ec] px-3 py-2.5 text-sm text-[#155c39] dark:bg-[#13261b] dark:text-[#bdeacf]">
           <span aria-hidden="true">✓</span>
           <span>
-            <b>General Club Training, {sessionDays.map(dayName).join(', ') || 'no sessions'}</b>{' '}
-            counts for <b>{weeks.join(' and ') || 'nothing'}</b>.
-            {upload.ignored > 0 && ` ${upload.ignored} check-ins to other sessions are left out.`}
+            <b>Training, {sessionDays.map(dayName).join(', ') || 'no sessions'}</b> counts for{' '}
+            <b>{weeks.join(' and ') || 'nothing'}</b>.
+            {upload.ignored > 0 &&
+              ` ${upload.ignored} check-ins to matches or other events are left out.`}
           </span>
         </p>
         <div className="grid grid-cols-4 gap-1.5 text-center">
@@ -407,6 +432,171 @@ function TrainingCheck({
         >
           Cancel
         </button>
+      </div>
+    </Sheet>
+  );
+}
+
+/**
+ * One gameweek's training, everyone in the game: who trained on which session
+ * day, and who didn't. Tap a day to mark it by hand (a missed check-in).
+ */
+function WeekTraining({
+  gameweek,
+  previous,
+  number,
+  counts,
+  players,
+  sideShort,
+  sideOrder,
+  days,
+  onClose,
+}: {
+  gameweek: { id: number; deadline: string };
+  previous?: { deadline: string };
+  number: number;
+  counts: boolean;
+  players: Player[];
+  sideShort: Map<number, string>;
+  sideOrder: Map<number, number>;
+  days: { player_id: number; trained_on: string }[];
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [show, setShow] = useState<'all' | 'trained' | 'not'>('all');
+  const [extraDay, setExtraDay] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const last = ukDate(gameweek.deadline);
+  const first = previous ? ukDate(previous.deadline) : null;
+  const inWeek = days.filter((d) => d.trained_on <= last && (!first || d.trained_on > first));
+  const sessions = [
+    ...new Set([...inWeek.map((d) => d.trained_on), ...(extraDay ? [extraDay] : [])]),
+  ].sort();
+  const trainedOn = (id: number) =>
+    new Set(inWeek.filter((d) => d.player_id === id).map((d) => d.trained_on));
+  const term = search.trim().toLowerCase();
+  const everyone = players
+    .filter((p) => p.active)
+    .sort(
+      (a, b) =>
+        (sideOrder.get(a.side_id) ?? 0) - (sideOrder.get(b.side_id) ?? 0) ||
+        a.name.localeCompare(b.name),
+    );
+  const trained = everyone.filter((p) => trainedOn(p.id).size > 0);
+  const list = everyone
+    .filter((p) => !term || p.name.toLowerCase().includes(term))
+    .filter((p) => show === 'all' || (show === 'trained') === trainedOn(p.id).size > 0);
+
+  async function toggle(p: Player, day: string, on: boolean) {
+    setBusy(`${p.id}:${day}`);
+    setError(null);
+    const { error: err } = await requireSupabase().rpc('set_training_day', {
+      p_player: p.id,
+      p_day: day,
+      p_trained: on,
+    });
+    setBusy(null);
+    if (err) setError(errorLines(err).join(' '));
+    else await queryClient.invalidateQueries({ queryKey: ['training-admin'] });
+  }
+
+  return (
+    <Sheet title={`GW${number} training`} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <p className="m-0 text-sm text-ink-soft">
+          {trained.length} of {everyone.length} trained
+          {sessions.length ? ` · ${sessions.map(dayName).join(', ')}` : ''}
+          {counts ? '' : ' · before training points, so nothing scores'}. Tap a day to change it.
+        </p>
+        <input
+          type="search"
+          placeholder="Search players"
+          aria-label="Search players"
+          className="input !mt-0"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <div className="flex gap-1.5" role="radiogroup" aria-label="Show">
+          {(
+            [
+              ['all', `All (${everyone.length})`],
+              ['trained', `Trained (${trained.length})`],
+              ['not', `Didn't (${everyone.length - trained.length})`],
+            ] as const
+          ).map(([key, text]) => (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={show === key}
+              onClick={() => setShow(key)}
+              className={`min-h-tap rounded-full px-3.5 text-sm font-bold ${show === key ? 'bg-ink text-surface' : 'ring-1 ring-line'}`}
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+        {sessions.length === 0 && (
+          <label className="flex flex-col gap-1.5 rounded-xl bg-paper px-3 py-2.5 text-sm">
+            No check-ins for this week yet. Which day was training?
+            <input
+              type="date"
+              className="input !mt-0"
+              min={first ?? undefined}
+              max={last}
+              onChange={(e) => e.target.value && setExtraDay(e.target.value)}
+            />
+          </label>
+        )}
+        {error && (
+          <p className="m-0 text-sm font-semibold text-[#b3261e] dark:text-[#ff8a97]">{error}</p>
+        )}
+        <ul className="m-0 overflow-hidden rounded-xl bg-paper">
+          {list.map((p) => {
+            const on = trainedOn(p.id);
+            return (
+              <li
+                key={p.id}
+                className="flex min-h-[56px] items-center gap-2 border-t border-line px-3 py-1.5 first:border-0"
+              >
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-bold">
+                    {p.name}{' '}
+                    <span className="font-display text-xs font-extrabold text-brand">
+                      {sideShort.get(p.side_id)}
+                    </span>
+                  </span>
+                  <span
+                    className={`text-xs ${on.size ? 'text-[#1f7a4d] dark:text-[#7fd6a2]' : 'text-ink-soft'}`}
+                  >
+                    {on.size ? `Trained · +${Math.min(TRAINING_CAP, on.size)}` : "Didn't train"}
+                  </span>
+                </span>
+                {sessions.map((day) => {
+                  const did = on.has(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      aria-pressed={did}
+                      aria-label={`${p.name} trained ${dayName(day)}`}
+                      disabled={busy !== null}
+                      onClick={() => void toggle(p, day, !did)}
+                      className={`flex min-h-tap min-w-[3.75rem] flex-col items-center justify-center rounded-[10px] px-1.5 text-[0.7rem] font-bold leading-tight disabled:opacity-60 ${did ? 'bg-[#1f7a4d] text-white' : 'ring-1 ring-line'}`}
+                    >
+                      <span aria-hidden="true" className="text-sm">
+                        {busy === `${p.id}:${day}` ? '…' : did ? '✓' : '+'}
+                      </span>
+                      {dayName(day).split(' ').slice(0, 2).join(' ')}
+                    </button>
+                  );
+                })}
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </Sheet>
   );

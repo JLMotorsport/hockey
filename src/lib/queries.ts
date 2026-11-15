@@ -329,7 +329,7 @@ export function usePlayerFlags() {
   });
 }
 
-/** The days a player checked in to General Club Training (0044); empty before it. */
+/** The days a player checked in to training (0044); empty before it. */
 export function usePlayerTraining(playerId: number | undefined) {
   return useQuery({
     queryKey: ['training', playerId ?? 0],

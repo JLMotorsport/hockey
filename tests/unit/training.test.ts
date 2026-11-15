@@ -7,23 +7,25 @@ import {
 } from '@/lib/training';
 
 const csv = [
-  '﻿date,time,type,event,firstname,lastname,location,end',
+  '\uFEFFdate,time,type,event,firstname,lastname,location,end',
   '2026-11-10,19:00,training,"General Club Training",Ann,Able,"Felixstowe HC",20:00',
   '2026-11-10,20:00,training,"General Club Training",Bob,Baker,"Felixstowe HC",21:30',
-  '2026-11-15,10:00,training,"Development Training",Cat,Cole,"Felixstowe HC",11:00',
+  '2026-11-12,20:00,training,"Thursday Training",Cat,Cole,"Felixstowe HC",21:30',
+  '2026-11-14,14:00,match,"FHC Mens 1st XI v March",Dan,Dale,"Felixstowe HC",16:00',
 ].join('\n');
 
 describe('training check-ins', () => {
-  it('reads the export and keeps only General Club Training', () => {
+  it('reads the export and keeps every training session, not matches', () => {
     const all = readCheckIns(csv);
-    expect(all).toHaveLength(3);
+    expect(all).toHaveLength(4);
     expect(all[0]).toEqual({
       date: '2026-11-10',
       time: '19:00',
+      type: 'training',
       event: 'General Club Training',
       name: 'Ann Able',
     });
-    expect(countedCheckIns(all).map((c) => c.name)).toEqual(['Ann Able', 'Bob Baker']);
+    expect(countedCheckIns(all).map((c) => c.name)).toEqual(['Ann Able', 'Bob Baker', 'Cat Cole']);
     expect(() => readCheckIns('"First name","Last name"\nA,B')).toThrow();
   });
 

@@ -1,16 +1,17 @@
 // Training points (0044) from Pitchero's track and trace export: who checked
-// in to General Club Training. Each day trained between one gameweek's
+// in to a training session (Tuesday, Thursday, Sunday). Each day trained between one gameweek's
 // deadline and the next is a point for that gameweek, at most 2. The same
 // rule as training_points() in the database. Pure, so it can be unit tested.
 import { parseCsv } from './pitcheroAvailability';
 
-export const TRAINING_EVENT = /general club training/i;
 export const TRAINING_CAP = 2;
 
 export interface CheckIn {
   /** UK date, "2026-11-10". */
   date: string;
   time: string;
+  /** Pitchero's type: "training", or a match or event. */
+  type: string;
   event: string;
   name: string;
 }
@@ -19,23 +20,30 @@ export interface CheckIn {
 export function readCheckIns(text: string): CheckIn[] {
   const [head, ...body] = parseCsv(text);
   const col = (name: string) => (head ?? []).findIndex((h) => h.trim().toLowerCase() === name);
-  const [date, time, event, first, last] = ['date', 'time', 'event', 'firstname', 'lastname'].map(
-    col,
-  );
+  const [date, time, type, event, first, last] = [
+    'date',
+    'time',
+    'type',
+    'event',
+    'firstname',
+    'lastname',
+  ].map(col);
   if ([date, event, first, last].some((i) => i === undefined || i < 0))
     throw new Error('This isn’t a Pitchero track and trace export.');
   return body
     .map((r) => ({
       date: (r[date!] ?? '').trim(),
       time: (r[time!] ?? '').trim(),
+      type: type !== undefined && type >= 0 ? (r[type] ?? '').trim() : '',
       event: (r[event!] ?? '').trim(),
       name: `${(r[first!] ?? '').trim()} ${(r[last!] ?? '').trim()}`.trim(),
     }))
     .filter((c) => /^\d{4}-\d{2}-\d{2}$/.test(c.date) && c.name);
 }
 
-/** The check-ins that count: General Club Training only. */
-export const countedCheckIns = (all: CheckIn[]) => all.filter((c) => TRAINING_EVENT.test(c.event));
+/** The check-ins that count: any training session (Pitchero's type "training"), not matches or socials. */
+export const countedCheckIns = (all: CheckIn[]) =>
+  all.filter((c) => (c.type ? /^training$/i.test(c.type) : /training/i.test(c.event)));
 
 /** A name as an alias key: letters only, lower case (as player_aliases). */
 export const aliasKey = (name: string) => name.toLowerCase().replace(/[^a-z]/g, '');

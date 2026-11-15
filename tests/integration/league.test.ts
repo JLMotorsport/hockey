@@ -2614,6 +2614,32 @@ describe.skipIf(!configured)('fixes from the code review', () => {
       ).data!;
       expect(cached.points).toBe(total);
 
+      // A manager marks a missed check-in by hand (0046); a player can't.
+      expect(
+        (
+          await fan.db.rpc('set_training_day', {
+            p_player: m3,
+            p_day: '2024-02-07',
+            p_trained: true,
+          })
+        ).error,
+      ).not.toBeNull();
+      await admin.db.rpc('set_training_day', {
+        p_player: m3,
+        p_day: '2024-02-07',
+        p_trained: true,
+      });
+      expect(
+        (await fan.db.rpc('squad_for', { p_user: fan.id, p_gameweek: gw })).data!.find(
+          (r) => r.player_id === m3,
+        )!.training,
+      ).toBe(2);
+      await admin.db.rpc('set_training_day', {
+        p_player: m3,
+        p_day: '2024-02-07',
+        p_trained: false,
+      });
+
       // Uploading a day again replaces only that day.
       await admin.db.rpc('apply_training', { p_days: ['2024-02-06'], p_rows: [], p_aliases: [] });
       expect(
