@@ -8,6 +8,7 @@ import {
   useProfileSides,
   useFixtures,
   useGameweeks,
+  usePlayerFlags,
   usePlayers,
   useSettings,
   useSides,
@@ -22,6 +23,7 @@ import { MonthView } from './MonthView';
 import { CupView } from './CupView';
 import { DifficultyGrid, FdrBadge, PreviewStrip } from './Difficulty';
 import { difficulty, placeLine } from '@/lib/fdr';
+import { flagShort, type PlayerFlag } from '@/lib/playerStatus';
 import { useDifficulty } from '@/lib/useDifficulty';
 import { PlayerSheet } from '@/features/player/PlayerDetail';
 import { MatchSheet } from './MatchSheet';
@@ -182,9 +184,11 @@ export function PlayersScreen() {
   const sortParam = params.get('sort');
   const [open, setOpen] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [pos, setPos] = useState<Position | ''>('');
+  // A position, or 'flagged': injured and unavailable players (0042).
+  const [pos, setPos] = useState<Position | '' | 'flagged'>('');
   const [side, setSide] = useState('');
   const players = usePlayers();
+  const flags = usePlayerFlags().data ?? new Map<number, PlayerFlag>();
   const sides = useSides();
   const fixtures = useFixtures();
   const gameweeks = useGameweeks();
@@ -196,7 +200,7 @@ export function PlayersScreen() {
   const term = search.trim().toLowerCase();
   const list = (players.data ?? [])
     .filter((p) => p.active)
-    .filter((p) => !pos || p.position === pos)
+    .filter((p) => !pos || (pos === 'flagged' ? flags.has(p.id) : p.position === pos))
     .filter((p) => !side || String(p.side_id) === side)
     .filter((p) => !term || p.name.toLowerCase().includes(term));
 
@@ -233,16 +237,28 @@ export function PlayersScreen() {
             role="radiogroup"
             aria-label="Position"
           >
-            {(['', ...POSITIONS] as const).map((p) => (
+            {(['', ...POSITIONS, 'flagged'] as const).map((p) => (
               <button
                 key={p || 'all'}
                 type="button"
                 role="radio"
                 aria-checked={pos === p}
                 onClick={() => setPos(p)}
-                className={`min-h-tap shrink-0 rounded-full px-3.5 font-display text-sm font-bold ${pos === p ? 'bg-[#16181d] text-white dark:bg-ink dark:text-paper' : 'bg-surface ring-1 ring-line'}`}
+                className={`flex min-h-tap shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 font-display text-sm font-bold ${pos === p ? 'bg-[#16181d] text-white dark:bg-ink dark:text-paper' : 'bg-surface ring-1 ring-line'}`}
               >
-                {p || 'All'}
+                {p === 'flagged' ? (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="flex h-4 w-4 items-center justify-center rounded-full bg-[#d91414] text-[0.65rem] font-black text-white"
+                    >
+                      !
+                    </span>
+                    Injured / unavailable ({flags.size})
+                  </>
+                ) : (
+                  p || 'All'
+                )}
               </button>
             ))}
           </div>
@@ -266,6 +282,11 @@ export function PlayersScreen() {
         columns={columns}
         defaultSort={sortParam === 'change' ? 'change' : 'pts'}
         tiebreak={(p) => points(p.id)}
+        empty={
+          pos === 'flagged'
+            ? 'Nobody is flagged injured or unavailable right now.'
+            : 'No players match.'
+        }
         lead={(p) => {
           const nextLabel = next ? fixtureLabel(fixtures.data ?? [], p.side_id, next.id) : null;
           return (
@@ -277,6 +298,13 @@ export function PlayersScreen() {
               <span className="truncate font-bold">{p.name}</span>
               <span className="muted flex min-w-0 items-center gap-1 text-xs">
                 <PosBadge position={p.position} />
+                {flags.get(p.id) && (
+                  <span
+                    className={`shrink-0 rounded px-1.5 text-[0.7rem] font-extrabold ${flags.get(p.id)!.status === 'out' ? 'bg-[#d91414] text-white' : 'bg-[#ffb020] text-[#14181f]'}`}
+                  >
+                    {flagShort(flags.get(p.id)!)}
+                  </span>
+                )}
                 <span className="truncate">
                   {sideShort.get(p.side_id)}
                   {nextLabel && ` · ${nextLabel}`}
