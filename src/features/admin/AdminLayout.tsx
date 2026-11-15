@@ -35,6 +35,8 @@ export function AdminLayout() {
     },
     // Monday's price changes, live over the weekend (0038).
     { to: '/managers/prices', label: "Monday's prices", short: 'Prices' },
+    // Training check-ins from Pitchero (0044).
+    { to: '/managers/training', label: 'Training', short: 'Training' },
     {
       to: '/managers/identify',
       label: 'Identify players',

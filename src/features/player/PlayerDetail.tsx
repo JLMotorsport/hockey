@@ -12,6 +12,8 @@ import {
   usePlayerHistory,
   usePlayers,
   usePlayerFlags,
+  usePlayerTraining,
+  useSettings,
   usePriceTrend,
   useSides,
   type PlayerMatch,
@@ -22,6 +24,8 @@ import { FdrBadge, RunChip } from '@/features/league/Difficulty';
 import { difficulty, sideRun } from '@/lib/fdr';
 import { useDifficulty } from '@/lib/useDifficulty';
 import { flagHead, flagLine } from '@/lib/playerStatus';
+import { TRAINING_CAP } from '@/lib/training';
+import { ukToday } from '@/lib/gameweek';
 
 function lines(m: PlayerMatch, position: Position) {
   return breakdown({
@@ -39,6 +43,15 @@ function lines(m: PlayerMatch, position: Position) {
 }
 
 const total = (items: [string, number][]) => items.reduce((sum, [, p]) => sum + p, 0);
+
+const weekday = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'UTC',
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+});
+/** "2026-11-10" -> "Tue 10 Nov". */
+const dayName = (day: string) => weekday.format(new Date(`${day}T12:00:00Z`));
 
 export interface TeamPoints {
   points: number;
@@ -72,6 +85,8 @@ export function PlayerDetail({
   const fixtures = useFixtures();
   const fdr = useDifficulty();
   const flag = usePlayerFlags().data?.get(playerId);
+  const trained = usePlayerTraining(playerId).data ?? [];
+  const settings = useSettings();
   const player = players.data?.find((p) => p.id === playerId);
   if (!player || history.isLoading) return <Loading />;
 
@@ -82,6 +97,25 @@ export function PlayerDetail({
   const season = matches.reduce((sum, m) => sum + total(lines(m, player.position)), 0);
   const thisWeek = gameweekId ? matches.filter((m) => m.fixture?.gameweek_id === gameweekId) : [];
   const gw = all.find((g) => g.id === gameweekId);
+  // Training that gameweek (0044): days checked in since the last deadline, at most 2.
+  const trainingFrom = settings.data?.training_from ?? null;
+  const previous = gw
+    ? [...all]
+        .filter((g) => g.start_date < gw.start_date)
+        .sort((a, b) => a.deadline.localeCompare(b.deadline))
+        .at(-1)
+    : undefined;
+  const daysTrained =
+    gw && trainingFrom && gw.start_date >= trainingFrom
+      ? trained
+          .filter(
+            (d) =>
+              d <= ukToday(new Date(gw.deadline)) &&
+              (!previous || d > ukToday(new Date(previous.deadline))),
+          )
+          .sort()
+      : [];
+  const trainingPts = Math.min(TRAINING_CAP, daysTrained.length);
 
   // Points per gameweek for the history strip.
   const byWeek = new Map<number, number>();
@@ -323,6 +357,14 @@ export function PlayerDetail({
             })
           ) : (
             <p className="muted text-sm">Didn&apos;t play this gameweek.</p>
+          )}
+          {trainingPts > 0 && (
+            <ul className="mb-3 flex flex-wrap gap-1.5">
+              <li className="rounded-full bg-[#e6f4ec] px-2.5 py-1 text-sm font-semibold text-[#155c39] dark:bg-[#13261b] dark:text-[#8ee0b0]">
+                Training ({daysTrained.slice(0, TRAINING_CAP).map(dayName).join(', ')}) +
+                {trainingPts}
+              </li>
+            </ul>
           )}
           {teamPoints && teamPoints.reasons.length > 0 && thisWeek.length > 0 && (
             <p className="text-sm font-semibold">

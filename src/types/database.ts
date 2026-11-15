@@ -281,6 +281,7 @@ export type Database = {
           max_per_side: number;
           scoring_from: string | null;
           squad_size: number;
+          training_from: string | null;
           transfer_hit: number;
           transfers_per_gameweek: number;
         };
@@ -295,6 +296,7 @@ export type Database = {
           max_per_side?: number;
           scoring_from?: string | null;
           squad_size?: number;
+          training_from?: string | null;
           transfer_hit?: number;
           transfers_per_gameweek?: number;
         };
@@ -309,6 +311,7 @@ export type Database = {
           max_per_side?: number;
           scoring_from?: string | null;
           squad_size?: number;
+          training_from?: string | null;
           transfer_hit?: number;
           transfers_per_gameweek?: number;
         };
@@ -561,6 +564,29 @@ export type Database = {
             columns: ['fixture_id'];
             isOneToOne: false;
             referencedRelation: 'fixtures';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      player_aliases: {
+        Row: {
+          alias: string;
+          player_id: number;
+        };
+        Insert: {
+          alias: string;
+          player_id: number;
+        };
+        Update: {
+          alias?: string;
+          player_id?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'player_aliases_player_id_fkey';
+            columns: ['player_id'];
+            isOneToOne: false;
+            referencedRelation: 'players';
             referencedColumns: ['id'];
           },
         ];
@@ -941,6 +967,29 @@ export type Database = {
           },
         ];
       };
+      training_attendance: {
+        Row: {
+          player_id: number;
+          trained_on: string;
+        };
+        Insert: {
+          player_id: number;
+          trained_on: string;
+        };
+        Update: {
+          player_id?: number;
+          trained_on?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'training_attendance_player_id_fkey';
+            columns: ['player_id'];
+            isOneToOne: false;
+            referencedRelation: 'players';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       transfer_hit_waivers: {
         Row: {
           gameweek_id: number;
@@ -1108,6 +1157,10 @@ export type Database = {
       apply_due_price_changes: { Args: Record<PropertyKey, never>; Returns: Json };
       apply_pitchero_availability: { Args: { p_flags: Json }; Returns: number };
       apply_price_changes: { Args: { p_gameweek: number }; Returns: number };
+      apply_training: {
+        Args: { p_aliases: Json; p_days: string[]; p_rows: Json };
+        Returns: number;
+      };
       bank_before_next: { Args: Record<PropertyKey, never>; Returns: number };
       call_eh_sync: { Args: Record<PropertyKey, never>; Returns: boolean };
       call_reminders: { Args: Record<PropertyKey, never>; Returns: boolean };
@@ -1319,6 +1372,7 @@ export type Database = {
           player_id: number;
           points: number;
           sub: string;
+          training: number;
         }[];
       };
       squad_lineup: {
@@ -1334,11 +1388,13 @@ export type Database = {
           player_id: number;
           points: number;
           sub: string;
+          training: number;
         }[];
       };
       squad_source_gameweek: { Args: { p_gameweek: number; p_user: string }; Returns: number };
       teams_without_squad: { Args: Record<PropertyKey, never>; Returns: string[] };
       touch_last_seen: { Args: Record<PropertyKey, never>; Returns: undefined };
+      training_points: { Args: { p_gameweek: number; p_player: number }; Returns: number };
       transfer_hit: { Args: { p_gameweek: number; p_user: string }; Returns: number };
       transfer_summary: {
         Args: { p_gameweek: number; p_user: string };

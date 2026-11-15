@@ -19,7 +19,11 @@ export type SquadRow = Database['public']['Functions']['squad_for']['Returns'][n
 
 /** A squad's score: the starting 11 after auto-subs (captain already doubled). */
 export function squadTotal(rows: SquadRow[] | null | undefined): number {
-  return (rows ?? []).reduce((sum, r) => sum + (r.counts ? r.points : 0), 0);
+  // A starter who didn't play keeps their training point (0044), as league_table().
+  return (rows ?? []).reduce(
+    (sum, r) => sum + (r.counts ? r.points : r.bench_order === null ? (r.training ?? 0) : 0),
+    0,
+  );
 }
 
 // Supabase returns errors rather than throwing; TanStack Query wants a throw.
@@ -321,6 +325,42 @@ export function usePlayerFlags() {
         if (isActive(flag)) flags.set(r.player_id, flag);
       }
       return flags;
+    },
+  });
+}
+
+/** The days a player checked in to General Club Training (0044); empty before it. */
+export function usePlayerTraining(playerId: number | undefined) {
+  return useQuery({
+    queryKey: ['training', playerId ?? 0],
+    enabled: Boolean(playerId),
+    queryFn: async () => {
+      const { data, error } = await requireSupabase()
+        .from('training_attendance')
+        .select('trained_on')
+        .eq('player_id', playerId!);
+      if (error) return [] as string[];
+      return (data ?? []).map((r) => r.trained_on);
+    },
+  });
+}
+
+/** Managers: every check-in (0044), and the Pitchero names linked to players. */
+export function useTrainingAdmin() {
+  return useQuery({
+    queryKey: ['training-admin'],
+    queryFn: async () => {
+      const db = requireSupabase();
+      const [days, aliases] = await Promise.all([
+        db.from('training_attendance').select('player_id, trained_on'),
+        db.from('player_aliases').select('alias, player_id'),
+      ]);
+      return {
+        days: days.error ? [] : (days.data ?? []),
+        aliases: new Map(
+          (aliases.error ? [] : (aliases.data ?? [])).map((a) => [a.alias, a.player_id]),
+        ),
+      };
     },
   });
 }

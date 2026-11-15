@@ -2472,6 +2472,167 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     });
   });
 
+  describe('training points (0044)', () => {
+    it('scores a day each, up to 2, for starters and subs, doubled for the captain', async () => {
+      const settingsBefore = (
+        await service.from('league_settings').select('training_from').eq('id', 1).single()
+      ).data!;
+      await service.from('league_settings').update({ training_from: '2024-01-01' }).eq('id', 1);
+      const side = (await service.from('sides').select('id').order('sort_order').limit(1).single())
+        .data!.id;
+      const fx = (
+        await service
+          .from('fixtures')
+          .insert({
+            side_id: side,
+            kickoff: '2024-02-10T14:00:00+00:00',
+            opponent: 'Training Opp',
+            gameweek_id: 0,
+            goals_for: 1,
+            goals_against: 0,
+          })
+          .select('id, gameweek_id')
+          .single()
+      ).data!;
+      const gw = fx.gameweek_id;
+      const shape = [
+        'GK',
+        'DEF',
+        'DEF',
+        'DEF',
+        'DEF',
+        'MID',
+        'MID',
+        'MID',
+        'MID',
+        'FWD',
+        'FWD',
+        'GK',
+        'DEF',
+        'MID',
+        'FWD',
+      ];
+      const made = (
+        await service
+          .from('players')
+          .insert(
+            shape.map((position, i) => ({
+              name: `Trainer ${i}`,
+              position,
+              side_id: side,
+              price: 50,
+            })),
+          )
+          .select('id')
+          .order('id')
+      ).data!.map((p) => p.id);
+      const [m1, m2, m3] = [made[5]!, made[6]!, made[7]!];
+      const m5 = made[13]!;
+      const fan = await signUp('training-fan@example.com', 'Training Fan');
+      await service.from('picks').insert(
+        made.map((player_id, i) => ({
+          user_id: fan.id,
+          gameweek_id: gw,
+          player_id,
+          is_captain: player_id === m1,
+          is_vice: player_id === m2,
+          bench_order: i < 11 ? null : i - 10,
+        })),
+      );
+      // Every starter but m1 (captain) and m3 played; on the bench only m5.
+      const played = made.filter((id, i) => (i < 11 && id !== m1 && id !== m3) || id === m5);
+      await service
+        .from('performances')
+        .insert(played.map((player_id) => ({ fixture_id: fx.id, player_id })));
+
+      const admin = await signUp('training-admin@example.com', 'Training Admin');
+      await service.from('profiles').update({ is_admin: true }).eq('id', admin.id);
+      const rows = [
+        ...['2024-02-06', '2024-02-07', '2024-02-08'].map((d) => ({
+          player_id: m1,
+          trained_on: d,
+        })),
+        { player_id: m2, trained_on: '2024-02-06' },
+        { player_id: m3, trained_on: '2024-02-08' },
+        { player_id: m5, trained_on: '2024-02-07' },
+      ];
+      const days = ['2024-02-06', '2024-02-07', '2024-02-08'];
+      const upload = (db: Db) =>
+        db.rpc('apply_training', {
+          p_days: days,
+          p_rows: rows,
+          p_aliases: [{ alias: 'trainernickname', player_id: m2 }],
+        });
+      expect((await upload(fan.db)).error).not.toBeNull();
+      expect((await upload(admin.db)).data).toBe(6);
+      expect(
+        (
+          await admin.db
+            .from('player_aliases')
+            .select('player_id')
+            .eq('alias', 'trainernickname')
+            .single()
+        ).data,
+      ).toEqual({ player_id: m2 });
+
+      const squad = (await fan.db.rpc('squad_for', { p_user: fan.id, p_gameweek: gw })).data!;
+      const row = (id: number) => squad.find((r) => r.player_id === id)!;
+      const match = async (id: number) =>
+        (
+          await service
+            .from('player_gameweek_points')
+            .select('points')
+            .eq('player_id', id)
+            .eq('gameweek_id', gw)
+            .single()
+        ).data!.points ?? 0;
+      // Captain didn't play: subbed off for m5, keeps 2 training (capped, single).
+      expect(row(m1)).toMatchObject({ counts: false, sub: 'off', training: 2, doubled: false });
+      // The vice takes the armband: match points and training, doubled.
+      expect(row(m2)).toMatchObject({
+        doubled: true,
+        training: 1,
+        points: ((await match(m2)) + 1) * 2,
+      });
+      // A starter who didn't play and had no sub left: just the training point.
+      expect(row(m3)).toMatchObject({ counts: true, played: false, points: 1 });
+      expect(row(m5)).toMatchObject({ sub: 'on', points: (await match(m5)) + 1 });
+
+      const total =
+        squad.reduce((n, r) => n + (r.counts ? r.points : 0), 0) +
+        squad
+          .filter((r) => !r.counts && r.bench_order === null)
+          .reduce((n, r) => n + r.training, 0);
+      await anon.rpc('league_table');
+      const cached = (
+        await service
+          .from('league_cache')
+          .select('points')
+          .eq('user_id', fan.id)
+          .eq('gameweek_id', gw)
+          .single()
+      ).data!;
+      expect(cached.points).toBe(total);
+
+      // Uploading a day again replaces only that day.
+      await admin.db.rpc('apply_training', { p_days: ['2024-02-06'], p_rows: [], p_aliases: [] });
+      expect(
+        (await service.from('training_attendance').select('trained_on').eq('player_id', m1))
+          .data!.map((r) => r.trained_on)
+          .sort(),
+      ).toEqual(['2024-02-07', '2024-02-08']);
+
+      await service
+        .from('league_settings')
+        .update({ training_from: settingsBefore.training_from })
+        .eq('id', 1);
+      await service.from('profiles').update({ is_admin: false }).eq('id', admin.id);
+      await service.from('picks').delete().eq('user_id', fan.id);
+      await service.from('players').delete().in('id', made);
+      await service.from('fixtures').delete().eq('id', fx.id);
+    });
+  });
+
   describe('last used (0039)', () => {
     it('records when someone uses the app, shown only to the super user', async () => {
       const fan = await signUp('seen-fan@example.com', 'Seen Fan');
