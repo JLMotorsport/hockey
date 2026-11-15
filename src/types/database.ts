@@ -415,6 +415,24 @@ export type Database = {
           },
         ];
       };
+      manager_reminder_log: {
+        Row: {
+          day: string;
+          sent_at: string;
+          slot: string;
+        };
+        Insert: {
+          day: string;
+          sent_at?: string;
+          slot: string;
+        };
+        Update: {
+          day?: string;
+          sent_at?: string;
+          slot?: string;
+        };
+        Relationships: [];
+      };
       one_off_runs: {
         Row: {
           name: string;
@@ -1026,6 +1044,35 @@ export type Database = {
           },
         ];
       };
+      upload_log: {
+        Row: {
+          at: string;
+          by_user: string | null;
+          id: number;
+          kind: string;
+        };
+        Insert: {
+          at?: string;
+          by_user?: string | null;
+          id?: never;
+          kind: string;
+        };
+        Update: {
+          at?: string;
+          by_user?: string | null;
+          id?: never;
+          kind?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'upload_log_by_user_fkey';
+            columns: ['by_user'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       user_last_seen: {
         Row: {
           seen_at: string;
@@ -1232,6 +1279,21 @@ export type Database = {
         }[];
       };
       log_account_removal: { Args: { p_user: string }; Returns: undefined };
+      manager_phones: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          auth: string;
+          endpoint: string;
+          p256dh: string;
+        }[];
+      };
+      manager_uploads_missing: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          availability: boolean;
+          training: boolean;
+        }[];
+      };
       merge_players: {
         Args: { p_from: number; p_into: number; p_same_person?: boolean };
         Returns: undefined;

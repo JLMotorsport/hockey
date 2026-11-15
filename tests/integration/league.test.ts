@@ -2633,6 +2633,21 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     });
   });
 
+  describe('Sunday uploads nudge (0045)', () => {
+    it('knows when both uploads are done, and only the server can ask', async () => {
+      const admin = await signUp('nudge-admin@example.com', 'Nudge Admin');
+      await service.from('profiles').update({ is_admin: true }).eq('id', admin.id);
+      await admin.db.rpc('apply_training', { p_days: [], p_rows: [], p_aliases: [] });
+      await admin.db.rpc('apply_pitchero_availability', { p_flags: [] });
+      expect((await service.rpc('manager_uploads_missing')).data).toEqual([
+        { training: false, availability: false },
+      ]);
+      expect((await admin.db.rpc('manager_uploads_missing')).error).not.toBeNull();
+      expect((await admin.db.rpc('manager_phones')).error).not.toBeNull();
+      await service.from('profiles').update({ is_admin: false }).eq('id', admin.id);
+    });
+  });
+
   describe('last used (0039)', () => {
     it('records when someone uses the app, shown only to the super user', async () => {
       const fan = await signUp('seen-fan@example.com', 'Seen Fan');

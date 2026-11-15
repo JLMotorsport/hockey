@@ -1,4 +1,10 @@
-import { dueKind, reminderText, ukTime } from '../../supabase/functions/_shared/reminders';
+import {
+  dueKind,
+  managerSlot,
+  managerText,
+  reminderText,
+  ukTime,
+} from '../../supabase/functions/_shared/reminders';
 
 describe('deadline reminders', () => {
   const deadline = new Date('2026-10-24T09:30:00Z'); // Sat 10:30 UK (BST)
@@ -33,5 +39,27 @@ describe('deadline reminders', () => {
     expect(
       reminderText('soon', 7, deadline, { has_squad: false, free: 2, no_game: [] }).body,
     ).toMatch(/haven't picked a team/);
+  });
+});
+
+describe("managers' Sunday nudge", () => {
+  it('is due at 4pm and 8pm UK on a Sunday, with the next hour as a retry', () => {
+    expect(managerSlot(new Date('2026-11-22T16:05:00Z'))).toBe('sun4'); // GMT
+    expect(managerSlot(new Date('2026-11-22T17:05:00Z'))).toBe('sun4');
+    expect(managerSlot(new Date('2026-11-22T20:05:00Z'))).toBe('sun8');
+    expect(managerSlot(new Date('2026-11-22T15:05:00Z'))).toBeNull();
+    expect(managerSlot(new Date('2026-11-21T16:05:00Z'))).toBeNull(); // Saturday
+    expect(managerSlot(new Date('2027-05-23T15:05:00Z'))).toBe('sun4'); // 4pm BST
+  });
+  it('says what is missing, and nothing when both are done', () => {
+    expect(managerText('sun4', { training: true, availability: true })).toEqual({
+      title: 'Sunday uploads due',
+      body: "Training and availability haven't been uploaded from Pitchero yet.",
+      url: '/managers/training',
+    });
+    expect(managerText('sun8', { training: false, availability: true })?.body).toBe(
+      "Availability hasn't been uploaded from Pitchero yet.",
+    );
+    expect(managerText('sun4', { training: false, availability: false })).toBeNull();
   });
 });

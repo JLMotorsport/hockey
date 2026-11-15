@@ -12,7 +12,7 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
-import { dueKind, reminderText } from '../_shared/reminders.ts';
+import { dueKind, managerSlot, managerText, reminderText } from '../_shared/reminders.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -89,8 +89,41 @@ async function sender(admin: Admin) {
   };
 }
 
-/** The scheduled run: send a reminder if one is due for the next gameweek. */
+/** The scheduled run: the players' deadline reminder, and the managers' Sunday nudge. */
 async function scheduled(admin: Admin): Promise<Record<string, unknown>> {
+  return { players: await deadlineReminder(admin), managers: await managerReminder(admin) };
+}
+
+/**
+ * Sunday at 4pm, and 8pm: tell the super user if the week's training or
+ * availability hasn't been uploaded since Saturday's deadline (0045).
+ */
+async function managerReminder(admin: Admin): Promise<Record<string, unknown>> {
+  const now = new Date();
+  const slot = managerSlot(now);
+  if (!slot) return { due: false };
+  const { data: missing, error } = await admin.rpc('manager_uploads_missing');
+  if (error) return { due: false, why: error.message };
+  const text = managerText(slot, missing?.[0] ?? { training: false, availability: false });
+  if (!text) return { due: false, why: 'all uploaded' };
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(now);
+  const logged = await admin.from('manager_reminder_log').insert({ day, slot });
+  if (logged.error) return { due: false, why: 'already sent' };
+  try {
+    const { data: phones, error: phonesError } = await admin.rpc('manager_phones');
+    if (phonesError) throw new Error(phonesError.message);
+    const send = await sender(admin);
+    let sent = 0;
+    for (const p of phones ?? []) if (await send(p, { ...text, tag: `managers-${day}` })) sent += 1;
+    return { due: slot, sent };
+  } catch (err) {
+    await admin.from('manager_reminder_log').delete().eq('day', day).eq('slot', slot);
+    throw err;
+  }
+}
+
+/** Send a reminder if one is due for the next gameweek. */
+async function deadlineReminder(admin: Admin): Promise<Record<string, unknown>> {
   const { data: gws } = await admin
     .from('gameweeks')
     .select('id, start_date, deadline')

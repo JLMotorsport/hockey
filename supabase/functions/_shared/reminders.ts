@@ -75,3 +75,39 @@ export function reminderText(
   }
   return { title, body: `${parts.join('. ')}.` };
 }
+
+export type ManagerSlot = 'sun4' | 'sun8';
+
+/**
+ * The super user's Sunday nudge (0045): 4pm, and again at 8pm, UK time. The job
+ * runs a few minutes past each hour; the hour after is a retry if that run
+ * failed (manager_reminder_log keeps each to once a Sunday).
+ */
+export function managerSlot(now: Date): ManagerSlot | null {
+  const sunday =
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short' }).format(
+      now,
+    ) === 'Sun';
+  if (!sunday) return null;
+  const { hour } = ukTime(now);
+  if (hour === 16 || hour === 17) return 'sun4';
+  if (hour === 20 || hour === 21) return 'sun8';
+  return null;
+}
+
+/** What the managers' nudge says, for whatever is still to upload; null when nothing is. */
+export function managerText(
+  slot: ManagerSlot,
+  missing: { training: boolean; availability: boolean },
+): { title: string; body: string; url: string } | null {
+  const jobs = [missing.training && 'training', missing.availability && 'availability'].filter(
+    (j): j is string => Boolean(j),
+  );
+  if (!jobs.length) return null;
+  const what = jobs.join(' and ');
+  return {
+    title: slot === 'sun4' ? 'Sunday uploads due' : 'Sunday uploads still to do',
+    body: `${what[0]!.toUpperCase()}${what.slice(1)} ${jobs.length > 1 ? "haven't" : "hasn't"} been uploaded from Pitchero yet.`,
+    url: missing.training ? '/managers/training' : '/managers/players',
+  };
+}
