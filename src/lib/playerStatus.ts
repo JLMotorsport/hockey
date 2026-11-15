@@ -33,14 +33,20 @@ const weekdayDayMonth = new Intl.DateTimeFormat('en-GB', {
 });
 const asDate = (day: string) => new Date(`${day}T12:00:00Z`);
 
-/** For a list: "Out until 5 Dec", "Out", "Doubtful". */
+/** For a list: "Out until 5 Dec", "Out", "Doubtful"; from Pitchero, "Out GW11". */
 export function flagShort(flag: PlayerFlag): string {
   const word = flag.status === 'out' ? 'Out' : 'Doubtful';
+  const gw = flag.source === 'pitchero' ? /GW\d+/.exec(flag.note ?? '')?.[0] : undefined;
+  if (gw) return `${word} ${gw}`;
   return flag.back_by ? `${word} until ${dayMonth.format(asDate(flag.back_by))}` : word;
 }
 
-/** The headline on the player sheet: "Out: broken finger". */
+/**
+ * The headline on the player sheet: "Out: broken finger". From Pitchero, the
+ * note says it all: "Unavailable for GW11 (Sat 21 Nov)".
+ */
 export function flagHead(flag: PlayerFlag): string {
+  if (flag.source === 'pitchero' && flag.note?.trim()) return flag.note.trim();
   const word = flag.status === 'out' ? 'Out' : 'Doubtful';
   return flag.note?.trim() ? `${word}: ${flag.note.trim()}` : word;
 }
@@ -60,6 +66,9 @@ export function flaggedAgo(setAt: string, now = new Date()): string {
 
 /** The second line on the player sheet: "Expected back Sat 5 Dec · flagged 2 days ago". */
 export function flagLine(flag: PlayerFlag, now = new Date()): string {
+  // Pitchero flags are for one gameweek: no "expected back", just where it's from.
+  if (flag.source === 'pitchero')
+    return `From Pitchero availability · updated ${flaggedAgo(flag.set_at, now)}`;
   const back = flag.back_by
     ? `Expected back ${weekdayDayMonth.format(asDate(flag.back_by))} · `
     : '';

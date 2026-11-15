@@ -77,8 +77,13 @@ export function AvailabilityUpload({ players, sides }: { players: Player[]; side
 
   async function confirm() {
     if (!preview?.date) return;
-    const today = dayOf(ukToday());
     const back_by = plusTwo(preview.date);
+    // "Unavailable for GW11 (Sat 21 Nov)": players see the gameweek it's for.
+    const sorted = [...(gameweeks.data ?? [])].sort((a, b) =>
+      a.start_date.localeCompare(b.start_date),
+    );
+    const gwIndex = sorted.findIndex((g) => g.start_date === preview.date);
+    const when = gwIndex >= 0 ? `GW${gwIndex + 1} (${dayOf(preview.date)})` : dayOf(preview.date);
     const toFlag = preview.rows.filter(
       (r) => r.flag && r.player && flags.get(r.player.id)?.source !== 'manager',
     );
@@ -87,7 +92,7 @@ export function AvailabilityUpload({ players, sides }: { players: Player[]; side
       p_flags: toFlag.map((r) => ({
         player_id: r.player!.id,
         status: r.flag!,
-        note: r.flag === 'out' ? `Unavailable (Pitchero, ${today})` : `Pitchero, ${today}`,
+        note: `${r.flag === 'out' ? 'Unavailable' : 'Doubtful'} for ${when}`,
         back_by,
       })),
     });
@@ -311,9 +316,9 @@ function AvailabilityCheck({
           </p>
         )}
         <p className="m-0 text-xs leading-relaxed text-ink-soft">
-          Players see only Out or Doubtful with &ldquo;Pitchero&rdquo; and today&apos;s date, never
-          which match or the notes people wrote. The last upload&apos;s flags are replaced. Flags
-          you set by hand are never changed. These clear on the Monday after.
+          Players see only &ldquo;Unavailable&rdquo; or &ldquo;Doubtful&rdquo; for the gameweek,
+          never which match or the notes people wrote. The last upload&apos;s flags are replaced.
+          Flags you set by hand are never changed. These clear on the Monday after.
         </p>
         <button
           type="button"

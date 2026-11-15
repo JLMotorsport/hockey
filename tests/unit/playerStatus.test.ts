@@ -44,4 +44,18 @@ describe('player flags', () => {
       false,
     );
   });
+  it('words a Pitchero flag by its gameweek, with no expected back', () => {
+    const p = flag({
+      source: 'pitchero',
+      note: 'Unavailable for GW11 (Sat 21 Nov)',
+      back_by: '2026-11-23',
+      set_at: '2026-11-15T19:00:00Z',
+    });
+    expect(flagHead(p)).toBe('Unavailable for GW11 (Sat 21 Nov)');
+    expect(flagLine(p, now)).toBe('From Pitchero availability · updated today');
+    expect(flagShort(p)).toBe('Out GW11');
+    expect(flagShort({ ...p, status: 'doubtful', note: 'Doubtful for GW11 (Sat 21 Nov)' })).toBe(
+      'Doubtful GW11',
+    );
+  });
 });
