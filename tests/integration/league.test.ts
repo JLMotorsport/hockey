@@ -2692,14 +2692,12 @@ describe.skipIf(!configured)('fixes from the code review', () => {
         { player_id: dup, trained_on: '2024-03-05' },
         { player_id: keep, trained_on: '2024-03-07' },
       ]);
-      await service
-        .from('player_status')
-        .insert({
-          player_id: dup,
-          status: 'out',
-          note: 'Holiday',
-          set_at: new Date().toISOString(),
-        });
+      await service.from('player_status').insert({
+        player_id: dup,
+        status: 'out',
+        note: 'Holiday',
+        set_at: new Date().toISOString(),
+      });
       await service.from('player_aliases').insert({ alias: 'tashmergetest', player_id: dup });
       const admin = await signUp('merge-admin@example.com', 'Merge Admin');
       await service.from('profiles').update({ is_admin: true }).eq('id', admin.id);
