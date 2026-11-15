@@ -65,3 +65,18 @@ describe('suggesting who a Pitchero name is', () => {
     expect(likelySame('Rebecca Walker', 'Becky Walters')).toBe(false);
   });
 });
+
+describe('the training days in a gameweek', () => {
+  it('is the Sunday, Tuesday and Thursday between two Saturday deadlines', async () => {
+    const { scheduledDays } = await import('@/lib/training');
+    // GW10 deadline Sat 14 Nov, GW11 Sat 21 Nov.
+    expect(scheduledDays('2026-11-14', '2026-11-21')).toEqual([
+      '2026-11-15',
+      '2026-11-17',
+      '2026-11-19',
+    ]);
+    // Christmas gap: every session between the two deadlines.
+    expect(scheduledDays('2026-12-05', '2027-01-09')).toHaveLength(15);
+    expect(scheduledDays(null, '2026-11-21')).toEqual(['2026-11-15', '2026-11-17', '2026-11-19']);
+  });
+});

@@ -86,3 +86,22 @@ export function likelySame(a: string, b: string): boolean {
   if (x.length < 2 || y.length < 2 || x.at(-1) !== y.at(-1)) return false;
   return x[0]![0] === y[0]![0] || shareThree(x[0]!, y[0]!);
 }
+
+/** The club's training days: Sunday, Tuesday and Thursday (getUTCDay numbers). */
+export const TRAINING_WEEKDAYS = [0, 2, 4];
+
+/**
+ * The scheduled training days in a gameweek's window: after the previous
+ * deadline's day, up to and including this one's (UK dates). With no previous
+ * gameweek, the week before.
+ */
+export function scheduledDays(after: string | null, upTo: string): string[] {
+  const end = Date.parse(`${upTo}T12:00:00Z`);
+  const start = after ? Date.parse(`${after}T12:00:00Z`) : end - 7 * 86_400_000;
+  const out: string[] = [];
+  for (let t = start + 86_400_000; t <= end; t += 86_400_000) {
+    const d = new Date(t);
+    if (TRAINING_WEEKDAYS.includes(d.getUTCDay())) out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}

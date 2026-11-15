@@ -20,6 +20,7 @@ import {
   countedCheckIns,
   gameweekForDay,
   readCheckIns,
+  scheduledDays,
   TRAINING_CAP,
   type CheckIn,
 } from '@/lib/training';
@@ -471,8 +472,14 @@ function WeekTraining({
   const last = ukDate(gameweek.deadline);
   const first = previous ? ukDate(previous.deadline) : null;
   const inWeek = days.filter((d) => d.trained_on <= last && (!first || d.trained_on > first));
+  // Sunday, Tuesday and Thursday always (the last three, over a long gap like
+  // Christmas), plus any other day with check-ins or added here.
   const sessions = [
-    ...new Set([...inWeek.map((d) => d.trained_on), ...(extraDay ? [extraDay] : [])]),
+    ...new Set([
+      ...scheduledDays(first, last).slice(-3),
+      ...inWeek.map((d) => d.trained_on),
+      ...(extraDay ? [extraDay] : []),
+    ]),
   ].sort();
   const trainedOn = (id: number) =>
     new Set(inWeek.filter((d) => d.player_id === id).map((d) => d.trained_on));
@@ -538,9 +545,9 @@ function WeekTraining({
             </button>
           ))}
         </div>
-        {sessions.length === 0 && (
+        {!extraDay && (
           <label className="flex flex-col gap-1.5 rounded-xl bg-paper px-3 py-2.5 text-sm">
-            No check-ins for this week yet. Which day was training?
+            Training on another day this week? Add it:
             <input
               type="date"
               className="input !mt-0"
@@ -559,40 +566,46 @@ function WeekTraining({
             return (
               <li
                 key={p.id}
-                className="flex min-h-[56px] items-center gap-2 border-t border-line px-3 py-1.5 first:border-0"
+                className="flex flex-col gap-1.5 border-t border-line px-3 py-2 first:border-0"
               >
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate font-bold">
+                {/* Name on its own line, the session days in a row under it (room on a phone). */}
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0 truncate font-bold">
                     {p.name}{' '}
                     <span className="font-display text-xs font-extrabold text-brand">
                       {sideShort.get(p.side_id)}
                     </span>
                   </span>
                   <span
-                    className={`text-xs ${on.size ? 'text-[#1f7a4d] dark:text-[#7fd6a2]' : 'text-ink-soft'}`}
+                    className={`shrink-0 text-xs ${on.size ? 'text-[#1f7a4d] dark:text-[#7fd6a2]' : 'text-ink-soft'}`}
                   >
                     {on.size ? `Trained · +${Math.min(TRAINING_CAP, on.size)}` : "Didn't train"}
                   </span>
                 </span>
-                {sessions.map((day) => {
-                  const did = on.has(day);
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      aria-pressed={did}
-                      aria-label={`${p.name} trained ${dayName(day)}`}
-                      disabled={busy !== null}
-                      onClick={() => void toggle(p, day, !did)}
-                      className={`flex min-h-tap min-w-[3.75rem] flex-col items-center justify-center rounded-[10px] px-1.5 text-[0.7rem] font-bold leading-tight disabled:opacity-60 ${did ? 'bg-[#1f7a4d] text-white' : 'ring-1 ring-line'}`}
-                    >
-                      <span aria-hidden="true" className="text-sm">
-                        {busy === `${p.id}:${day}` ? '…' : did ? '✓' : '+'}
-                      </span>
-                      {dayName(day).split(' ').slice(0, 2).join(' ')}
-                    </button>
-                  );
-                })}
+                <span
+                  className="grid gap-1.5"
+                  style={{ gridTemplateColumns: `repeat(${sessions.length}, minmax(0, 1fr))` }}
+                >
+                  {sessions.map((day) => {
+                    const did = on.has(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        aria-pressed={did}
+                        aria-label={`${p.name} trained ${dayName(day)}`}
+                        disabled={busy !== null}
+                        onClick={() => void toggle(p, day, !did)}
+                        className={`flex min-h-tap items-center justify-center gap-1 rounded-[10px] px-1 text-sm font-bold disabled:opacity-60 ${did ? 'bg-[#1f7a4d] text-white' : 'ring-1 ring-line'}`}
+                      >
+                        <span aria-hidden="true">
+                          {busy === `${p.id}:${day}` ? '…' : did ? '✓' : '+'}
+                        </span>
+                        {dayName(day).split(' ').slice(0, 2).join(' ')}
+                      </button>
+                    );
+                  })}
+                </span>
               </li>
             );
           })}
