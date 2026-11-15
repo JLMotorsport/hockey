@@ -42,9 +42,26 @@ export function readCheckIns(text: string): CheckIn[] {
     .filter((c) => /^\d{4}-\d{2}-\d{2}$/.test(c.date) && c.name);
 }
 
-/** The check-ins that count: any training session (Pitchero's type "training"), not matches or socials. */
+/** The club's own sides in an event name: "FHC Mens 2nd XI", "FhC 1s", "Felixstowe 3". */
+const ours = (side: string) => /^\s*(fhc|felixstowe)\b/i.test(side);
+
+/**
+ * An internal game on a Tuesday training night ("FHC Mens 3rd XI vs FHC
+ * Womens 1st XI (h)"): it was that session for the people playing, so it
+ * counts. Saturday league games, even club against club, don't.
+ */
+export function internalTuesdayGame(c: CheckIn): boolean {
+  if (new Date(`${c.date}T12:00:00Z`).getUTCDay() !== 2) return false;
+  const sides = c.event.split(/\s+vs?\.?\s+/i);
+  return sides.length === 2 && sides.every(ours);
+}
+
+/** The check-ins that count: training (Pitchero's type "training") and Tuesday internal games. */
 export const countedCheckIns = (all: CheckIn[]) =>
-  all.filter((c) => (c.type ? /^training$/i.test(c.type) : /training/i.test(c.event)));
+  all.filter(
+    (c) =>
+      (c.type ? /^training$/i.test(c.type) : /training/i.test(c.event)) || internalTuesdayGame(c),
+  );
 
 /** A name as an alias key: letters only, lower case (as player_aliases). */
 export const aliasKey = (name: string) => name.toLowerCase().replace(/[^a-z]/g, '');
@@ -79,24 +96,38 @@ export function trainingPoints(sessions: Session[], after: string | null, upTo: 
   return Math.min(TRAINING_CAP, inWindow.size);
 }
 
+/** "19:00" as minutes after midnight. */
+const minutes = (time: string) => {
+  const [h, m] = time.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+};
+
 /**
- * Which session each check-in was: per day, the earliest start time is 1, the
- * next 2. A check-in without a time is session 1.
+ * Which session each check-in was: per day, the earliest start is session 1,
+ * and a start more than 30 minutes after the session before is the next one
+ * (so 20:00 training and a 20:15 game are both the 2nd). A check-in without a
+ * time is session 1.
  */
 export function withSessions<C extends { date: string; time: string }>(
   checkIns: C[],
 ): (C & { session: number })[] {
-  const times = new Map<string, string[]>();
-  for (const c of checkIns) {
-    const list = times.get(c.date) ?? [];
-    if (c.time && !list.includes(c.time)) list.push(c.time);
-    times.set(c.date, list);
+  const byDay = new Map<string, Map<string, number>>();
+  for (const day of new Set(checkIns.map((c) => c.date))) {
+    const times = [...new Set(checkIns.filter((c) => c.date === day && c.time).map((c) => c.time))];
+    times.sort((a, b) => minutes(a) - minutes(b));
+    const session = new Map<string, number>();
+    let n = 0;
+    let start = -Infinity;
+    for (const t of times) {
+      if (minutes(t) - start > 30) {
+        n += 1;
+        start = minutes(t);
+      }
+      session.set(t, n);
+    }
+    byDay.set(day, session);
   }
-  for (const list of times.values()) list.sort();
-  return checkIns.map((c) => ({
-    ...c,
-    session: c.time ? times.get(c.date)!.indexOf(c.time) + 1 : 1,
-  }));
+  return checkIns.map((c) => ({ ...c, session: byDay.get(c.date)?.get(c.time) ?? 1 }));
 }
 
 const words = (name: string) =>

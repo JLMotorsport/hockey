@@ -61,6 +61,36 @@ describe('training check-ins', () => {
     expect(out.map((c) => c.session)).toEqual([2, 1, 1, 1]);
   });
 
+  it('puts a start within 30 minutes in the same session', async () => {
+    const { withSessions } = await import('@/lib/training');
+    const out = withSessions([
+      { date: '2026-10-27', time: '19:00' },
+      { date: '2026-10-27', time: '20:15' },
+      { date: '2026-10-27', time: '20:00' },
+    ]);
+    expect(out.map((c) => c.session)).toEqual([1, 2, 2]);
+  });
+
+  it('counts Tuesday internal games, not other fixtures', () => {
+    const c = (date: string, event: string) => ({
+      date,
+      time: '19:00',
+      type: 'fixture',
+      event,
+      name: 'X Y',
+    });
+    const counted = countedCheckIns([
+      c('2026-10-27', 'FHC Mens 3rd XI vs FHC Womens 1st XI (h)'),
+      c('2026-10-27', 'FHC Mens 2nd XI vs FhC 1s (h)'),
+      c('2026-10-27', 'FHC Mens 1st XI vs Cambridge University 2 (h)'),
+      c('2026-10-31', 'FHC Womens 2nd XI vs Felixstowe 3 Development (h)'),
+    ]);
+    expect(counted.map((x) => x.event)).toEqual([
+      'FHC Mens 3rd XI vs FHC Womens 1st XI (h)',
+      'FHC Mens 2nd XI vs FhC 1s (h)',
+    ]);
+  });
+
   it('has two sessions on Sunday and Tuesday, one on Thursday', async () => {
     const { sessionsOn } = await import('@/lib/training');
     expect(sessionsOn('2026-11-15')).toBe(2);

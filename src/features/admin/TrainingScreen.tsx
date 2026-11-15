@@ -92,7 +92,7 @@ export function TrainingScreen() {
     <>
       <PageHead
         title="Training"
-        sub={`+1 for each training session checked in to between deadlines (two on Tuesday and Sunday, one on Thursday), up to ${TRAINING_CAP} a gameweek. Sunday counts for the next gameweek.${fromGw ? ` Counts from GW${number(fromGw.id)} (${dayName(fromGw.start_date)}).` : ''}`}
+        sub={`+1 for each training session checked in to between deadlines (two on Tuesday and Sunday, one on Thursday), up to ${TRAINING_CAP} a gameweek. A Tuesday internal game counts as that session. Sunday counts for the next gameweek.${fromGw ? ` Counts from GW${number(fromGw.id)} (${dayName(fromGw.start_date)}).` : ''}`}
       />
       <section className={`${panel} mb-4 flex flex-col gap-2.5 p-4`}>
         <p className="m-0 text-sm leading-relaxed text-ink-soft">
