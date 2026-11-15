@@ -404,10 +404,23 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     setViceId(id);
   }
 
-  /** Can a and b trade places? Keepers only swap with keepers. */
+  /**
+   * Can a and b trade places? Keepers only swap with keepers, and (as FPL) a
+   * sub can only come on if the 11 still makes an allowed formation, so you
+   * can't drop below the fewest defenders, say, and find it won't save.
+   */
   function canSwap(a: number, b: number) {
     if (a === b || isKeeper(a) !== isKeeper(b)) return false;
-    return !(selected.has(a) && selected.has(b));
+    if (selected.has(a) && selected.has(b)) return false;
+    if (!selected.has(a) && !selected.has(b)) return true;
+    if (mode !== 'pick' || selected.size !== STARTERS) return true;
+    const [off, on] = selected.has(a) ? [a, b] : [b, a];
+    const counts: Record<Position, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+    for (const id of selected) {
+      const pos = poolById.get(id === off ? on : id)?.position;
+      if (pos) counts[pos] += 1;
+    }
+    return allowed.includes(formationOf(counts));
   }
 
   function swap(a: number, b: number) {
@@ -609,6 +622,11 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
   const focused = pool.find((p) => p.id === focus);
   const focusedSlot = focused ? benchSlot(focused.id) : -1;
   const swapping = swapFrom !== null ? poolById.get(swapFrom) : undefined;
+  // Nobody can swap without breaking every allowed formation (say, your
+  // fewest defenders and a defender tapped to come off for a forward).
+  const swapStuck =
+    swapFrom !== null &&
+    ![...selected, ...bench].some((id) => id !== null && canSwap(swapFrom, id));
   /** Who can fill a place in these positions: active, not already picked, best first. */
   const candidatesFor = (positions: Position[]) =>
     pool
@@ -849,6 +867,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     focused,
     focusedSlot,
     swapping,
+    swapStuck,
     choices,
     sideCounts,
     autoFill,

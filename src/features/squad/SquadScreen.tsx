@@ -126,6 +126,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     focused,
     focusedSlot,
     swapping,
+    swapStuck,
     choices,
     sideCounts,
     autoFill,
@@ -509,7 +510,11 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     <>
       {swapping && (
         <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-[25rem] items-center justify-between gap-2 rounded-xl bg-[#16181d] px-3 py-2 text-sm font-semibold text-white shadow-card">
-          <span>Tap who {swapping.name} swaps with</span>
+          <span>
+            {swapStuck
+              ? `No one can swap with ${swapping.name} and keep an allowed formation`
+              : `Tap who ${swapping.name} swaps with`}
+          </span>
           <button
             type="button"
             className="min-h-tap rounded-full px-3 font-display font-bold uppercase text-[#ffd400]"
