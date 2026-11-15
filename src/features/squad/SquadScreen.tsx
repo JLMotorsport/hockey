@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, Navigate } from 'react-router-dom';
 import { ErrorText, Loading, Notices } from '@/components/ui';
@@ -656,17 +656,17 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
             costs {s.transfer_hit ?? 4} points off this gameweek&apos;s score. Unused free transfers
             carry over, up to {s.max_free_transfers ?? 5}.
           </p>
-          <button
-            type="button"
+          <ConfirmTransfersButton
+            cost={transfers.extra > 0 ? transfers.cost : 0}
             disabled={saving || problems.length > 0}
-            onClick={() => {
+            label={
+              saving ? 'Saving' : problems.length ? 'Fix the above first' : 'Confirm Transfers'
+            }
+            onConfirm={() => {
               setConfirmOpen(false);
               void save();
             }}
-            className="min-h-[48px] w-full rounded-full bg-[#e83434] text-base font-extrabold text-white disabled:opacity-60"
-          >
-            {saving ? 'Saving' : problems.length ? 'Fix the above first' : 'Confirm Transfers'}
-          </button>
+          />
           <button
             type="button"
             onClick={() => setConfirmOpen(false)}
@@ -963,6 +963,73 @@ const WIDE_FIELD = {
   pick: 'h-[max(28rem,calc(100dvh-23.5rem))]',
   transfers: 'h-[max(32rem,calc(100dvh-14.5rem))]',
 };
+
+/**
+ * Confirm Transfers. When they cost points, one more question first, so the
+ * cost can't be tapped past (someone lost 20 that way).
+ */
+export function ConfirmTransfersButton({
+  cost,
+  disabled,
+  label,
+  onConfirm,
+}: {
+  cost: number;
+  disabled: boolean;
+  label: string;
+  onConfirm: () => void;
+}) {
+  const [asking, setAsking] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => (cost > 0 ? setAsking(true) : onConfirm())}
+        className="min-h-[48px] w-full rounded-full bg-[#e83434] text-base font-extrabold text-white disabled:opacity-60"
+      >
+        {label}
+      </button>
+      {asking && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+          <div aria-hidden="true" className="absolute inset-0 bg-black/60" />
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="cost-check-title"
+            aria-describedby="cost-check-text"
+            className="relative w-full max-w-sm rounded-3xl bg-surface p-5 text-center shadow-2xl"
+          >
+            <h2 id="cost-check-title" className="mb-2">
+              Are you sure?
+            </h2>
+            <p id="cost-check-text" className="mb-4">
+              These transfers will cost you <b>{cost} points</b> off this gameweek&apos;s score.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setAsking(false);
+                onConfirm();
+              }}
+              className="min-h-[48px] w-full rounded-full bg-[#e83434] text-base font-extrabold text-white"
+            >
+              Yes, make the transfers
+            </button>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setAsking(false)}
+              className="mt-1 min-h-tap w-full text-base font-bold text-ink-soft"
+            >
+              No, go back
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 /** One side of a transfer on the confirm sheet: name, then position, side and price. */
 function MoveCell({ player, side }: { player: MovePlayer | null; side?: string }) {
