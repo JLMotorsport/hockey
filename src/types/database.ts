@@ -591,6 +591,48 @@ export type Database = {
           },
         ];
       };
+      player_status: {
+        Row: {
+          back_by: string | null;
+          note: string | null;
+          player_id: number;
+          set_at: string;
+          set_by: string | null;
+          status: string;
+        };
+        Insert: {
+          back_by?: string | null;
+          note?: string | null;
+          player_id: number;
+          set_at?: string;
+          set_by?: string | null;
+          status: string;
+        };
+        Update: {
+          back_by?: string | null;
+          note?: string | null;
+          player_id?: number;
+          set_at?: string;
+          set_by?: string | null;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'player_status_player_id_fkey';
+            columns: ['player_id'];
+            isOneToOne: true;
+            referencedRelation: 'players';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'player_status_set_by_fkey';
+            columns: ['set_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       players: {
         Row: {
           active: boolean;

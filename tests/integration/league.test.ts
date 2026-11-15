@@ -2359,6 +2359,58 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     });
   });
 
+  describe('injured and unavailable players (0042)', () => {
+    it('managers set a flag, everyone can read it, players cannot change it', async () => {
+      const sides = (await service.from('sides').select('id').order('sort_order')).data!;
+      const player = (
+        await service
+          .from('players')
+          .insert({ name: 'Flag Test', position: 'MID', side_id: sides[0]!.id, price: 50 })
+          .select('id')
+          .single()
+      ).data!;
+      const fan = await signUp('flag-fan@example.com', 'Flag Fan');
+      const admin = await signUp('flag-admin@example.com', 'Flag Admin');
+      await service.from('profiles').update({ is_admin: true }).eq('id', admin.id);
+
+      const set = (db: Db) =>
+        db.from('player_status').upsert({
+          player_id: player.id,
+          status: 'out',
+          note: 'Broken finger',
+          back_by: '2099-01-01',
+          set_at: new Date().toISOString(),
+        });
+      expect((await set(fan.db)).error).not.toBeNull();
+      expect((await set(admin.db)).error).toBeNull();
+      const { data: seen } = await anon
+        .from('player_status')
+        .select('status, note, set_by')
+        .eq('player_id', player.id)
+        .single();
+      expect(seen).toEqual({ status: 'out', note: 'Broken finger', set_by: admin.id });
+      // Only doubtful or out; Available is no row at all.
+      expect(
+        (
+          await admin.db
+            .from('player_status')
+            .update({ status: 'available' as never })
+            .eq('player_id', player.id)
+        ).error,
+      ).not.toBeNull();
+      await fan.db.from('player_status').delete().eq('player_id', player.id);
+      expect(
+        (await anon.from('player_status').select('player_id').eq('player_id', player.id)).data,
+      ).toHaveLength(1);
+      await admin.db.from('player_status').delete().eq('player_id', player.id);
+      expect(
+        (await anon.from('player_status').select('player_id').eq('player_id', player.id)).data,
+      ).toHaveLength(0);
+      await service.from('profiles').update({ is_admin: false }).eq('id', admin.id);
+      await service.from('players').delete().eq('id', player.id);
+    });
+  });
+
   describe('last used (0039)', () => {
     it('records when someone uses the app, shown only to the super user', async () => {
       const fan = await signUp('seen-fan@example.com', 'Seen Fan');

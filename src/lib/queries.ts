@@ -1,4 +1,5 @@
 import { seasonStats, type StatRow } from './playerStats';
+import { isActive, type FlagStatus, type PlayerFlag } from './playerStatus';
 import type { FdrPlace } from './fdr';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { DEFAULT_FORMATIONS } from './formation';
@@ -295,6 +296,33 @@ export function useProfile(id: string | undefined) {
           .eq('id', id as string)
           .single(),
       ),
+  });
+}
+
+/**
+ * Injured and unavailable players (0042) that are still showing, by player id.
+ * Empty before the migration is run.
+ */
+export function usePlayerFlags() {
+  return useQuery({
+    queryKey: ['player-flags'],
+    queryFn: async () => {
+      const { data, error } = await requireSupabase()
+        .from('player_status')
+        .select('player_id, status, note, back_by, set_at');
+      const flags = new Map<number, PlayerFlag>();
+      if (error) return flags;
+      for (const r of data ?? []) {
+        const flag: PlayerFlag = {
+          status: r.status as FlagStatus,
+          note: r.note,
+          back_by: r.back_by,
+          set_at: r.set_at,
+        };
+        if (isActive(flag)) flags.set(r.player_id, flag);
+      }
+      return flags;
+    },
   });
 }
 

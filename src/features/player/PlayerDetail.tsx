@@ -11,6 +11,7 @@ import {
   useGameweeks,
   usePlayerHistory,
   usePlayers,
+  usePlayerFlags,
   usePriceTrend,
   useSides,
   type PlayerMatch,
@@ -20,6 +21,7 @@ import { formatPrice } from '@/lib/squad';
 import { FdrBadge, RunChip } from '@/features/league/Difficulty';
 import { difficulty, sideRun } from '@/lib/fdr';
 import { useDifficulty } from '@/lib/useDifficulty';
+import { flagHead, flagLine } from '@/lib/playerStatus';
 
 function lines(m: PlayerMatch, position: Position) {
   return breakdown({
@@ -69,6 +71,7 @@ export function PlayerDetail({
   const history = usePlayerHistory(playerId);
   const fixtures = useFixtures();
   const fdr = useDifficulty();
+  const flag = usePlayerFlags().data?.get(playerId);
   const player = players.data?.find((p) => p.id === playerId);
   if (!player || history.isLoading) return <Loading />;
 
@@ -157,6 +160,25 @@ export function PlayerDetail({
           {sideName(player.side_id)}
         </p>
       </div>
+
+      {/* Injured or unavailable (0042), straight under the name. */}
+      {flag && (
+        <div
+          role="status"
+          className={`flex items-start gap-2.5 rounded-xl px-3 py-2.5 ${flag.status === 'out' ? 'bg-[#fdecec] text-[#7a1212] dark:bg-[#3a1414] dark:text-[#ffd6d6]' : 'bg-[#fff4e5] text-[#6b3d00] dark:bg-[#2b2113] dark:text-[#f5d9a8]'}`}
+        >
+          <span
+            aria-hidden="true"
+            className={`mt-px flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-sm font-black ${flag.status === 'out' ? 'bg-[#d91414] text-white' : 'bg-[#ffb020] text-[#14181f]'}`}
+          >
+            !
+          </span>
+          <span className="flex flex-col gap-0.5">
+            <span className="font-extrabold">{flagHead(flag)}</span>
+            <span className="text-sm opacity-90">{flagLine(flag)}</span>
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-4 gap-1 rounded-2xl bg-paper px-1 py-2.5 text-center">
         <div>

@@ -312,6 +312,8 @@ export interface PitchSlot {
   headingPill?: boolean;
   /** Ringed while choosing who to swap with. */
   highlight?: boolean;
+  /** Flagged by a manager (0042): a red or amber ! on the shirt. */
+  flag?: 'doubtful' | 'out';
   /** Greyed out, e.g. a starter who was subbed off. */
   faded?: boolean;
   /** The whole name on one line, its text shrunk to fit (never cut off or wrapped). */
@@ -370,7 +372,7 @@ export function PlayerSpot({
   card?: boolean;
 }) {
   const label = slot.name
-    ? `${slot.name}${slot.captain ? ' (captain)' : ''}`
+    ? `${slot.name}${slot.captain ? ' (captain)' : ''}${slot.flag ? ` (${slot.flag})` : ''}`
     : `Add ${slot.label ?? slot.position}`;
   if (card) return <CardSpot slot={slot} label={label} />;
   const inner = (
@@ -395,6 +397,14 @@ export function PlayerSpot({
         {(slot.captain || slot.badge) && (
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#16181d] font-display text-xs font-bold text-white ring-2 ring-white">
             {slot.badge ?? 'C'}
+          </span>
+        )}
+        {slot.name && slot.flag && (
+          <span
+            aria-hidden="true"
+            className={`absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[0.8rem] font-black ring-2 ring-white ${slot.flag === 'out' ? 'bg-[#d91414] text-white' : 'bg-[#ffb020] text-[#14181f]'}`}
+          >
+            !
           </span>
         )}
       </span>
@@ -424,7 +434,7 @@ export function PlayerSpot({
             </span>
             {slot.sub !== undefined && (
               <span
-                className={`block px-1 ${compact ? 'py-px sm:py-0.5' : 'py-0.5'} font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.subInfo ? (slot.subMuted ? 'bg-[#6b7280]' : 'bg-[#4a505c]') : slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
+                className={`block px-1 ${compact ? 'py-px sm:py-0.5' : 'py-0.5'} font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.flag === 'out' ? 'bg-[#b3261e]' : slot.flag === 'doubtful' ? 'bg-[#8a5200]' : slot.subInfo ? (slot.subMuted ? 'bg-[#6b7280]' : 'bg-[#4a505c]') : slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
               >
                 {slot.sub}
               </span>

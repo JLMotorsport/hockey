@@ -18,6 +18,8 @@ import { BENCH, formatPrice, SQUAD_QUOTA, STARTERS, type SquadPlayer } from '@/l
 
 import { useSquadEditor, type MovePlayer } from './useSquadEditor';
 import { useWide } from '@/lib/useWide';
+import { flagHead, flagLine, type PlayerFlag } from '@/lib/playerStatus';
+import { shortName } from '@/lib/format';
 import { RunChip } from '@/features/league/Difficulty';
 
 /**
@@ -133,6 +135,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     leave,
     empty,
     showProblems,
+    flagOf,
   } = ed;
   const overlays = (
     <>
@@ -155,6 +158,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           showPosition={picker.positions.length > 1}
           nextFor={nextFor}
           run={ed.run}
+          flagOf={flagOf}
           onPick={(id) => {
             add(id, picker.slot);
             setPicker(null);
@@ -308,6 +312,16 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
     (pos) => squadPlayers.filter((p) => p.position === pos).length < SQUAD_QUOTA[pos],
   );
   const chrome = 'bg-black/[0.06] dark:bg-[#1f232c]';
+  // Any of your 15 flagged injured or unavailable: one line above the pitch (0042).
+  const flagged = squadPlayers.filter((p) => flagOf(p.id));
+  const flagLineEl = flagged.length > 0 && (
+    <FlaggedLine
+      players={flagged}
+      flagOf={flagOf}
+      sideShort={(id) => sideById.get(id)?.short_name ?? ''}
+      onOpen={setFocus}
+    />
+  );
   const chipsEl = (
     <>
       {isPick ? (
@@ -405,7 +419,11 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
             rows={slots}
             bench={benchSlots}
             compact
-            fieldClass={wide ? WIDE_FIELD.pick : dirty ? PICK_FIELD.saving : PICK_FIELD.idle}
+            fieldClass={
+              wide
+                ? WIDE_FIELD.pick
+                : (flagged.length ? PICK_FIELD_FLAGGED : PICK_FIELD)[dirty ? 'saving' : 'idle']
+            }
             wide={wide}
           />
         </div>
@@ -414,7 +432,9 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           <Pitch
             rows={transferRows}
             compact
-            fieldClass={wide ? WIDE_FIELD.transfers : TRANSFER_FIELD}
+            fieldClass={
+              wide ? WIDE_FIELD.transfers : flagged.length ? TRANSFER_FIELD_FLAGGED : TRANSFER_FIELD
+            }
             wide={wide}
           />
           {squadPlayers.length < STARTERS + BENCH && (
@@ -773,6 +793,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           ) : (
             <>
               {viewRowEl}
+              {flagLineEl}
               {boardEl}
             </>
           )}
@@ -850,6 +871,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
                   showPosition={panel.positions.length > 1}
                   nextFor={nextFor}
                   run={ed.run}
+                  flagOf={flagOf}
                   onPick={(id) => {
                     add(id, panel.slot);
                     setPicker(null);
@@ -929,6 +951,7 @@ export function SquadScreen({ mode = 'pick' }: { mode?: 'pick' | 'transfers' }) 
           {chipsEl}
           {freeFixEl}
           {viewRowEl}
+          {flagLineEl}
           {boardEl}
         </>
       )}
@@ -953,16 +976,105 @@ const PICK_FIELD = {
   saving:
     'h-[max(17rem,calc(100dvh-25.75rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))] sm:h-auto sm:aspect-[590/954]',
 };
+// With the flagged-players line above the pitch (44px and its gap), the pitch gives up that much.
+const PICK_FIELD_FLAGGED = {
+  idle: 'h-[max(17rem,calc(100dvh-25.25rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))] sm:h-auto sm:aspect-[590/954]',
+  saving:
+    'h-[max(17rem,calc(100dvh-29rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))] sm:h-auto sm:aspect-[590/954]',
+};
 
 // Transfers: all 15 on the pitch, no subs strip; the rest as Pick team's.
 const TRANSFER_FIELD =
   'h-[max(20rem,calc(100dvh-19.5rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))] sm:h-auto sm:aspect-[590/954]';
+const TRANSFER_FIELD_FLAGGED =
+  'h-[max(20rem,calc(100dvh-22.75rem-env(safe-area-inset-bottom)-env(safe-area-inset-top)))] sm:h-auto sm:aspect-[590/954]';
 
 // A PC: the pitch fills the window's height beside the right-hand column.
 const WIDE_FIELD = {
   pick: 'h-[max(28rem,calc(100dvh-23.5rem))]',
   transfers: 'h-[max(32rem,calc(100dvh-14.5rem))]',
 };
+
+/** "3 of your 15 are flagged: ..." above the pitch; tap for who and why. */
+function FlaggedLine({
+  players,
+  flagOf,
+  sideShort,
+  onOpen,
+}: {
+  players: SquadPlayer[];
+  flagOf: (id: number) => PlayerFlag | undefined;
+  sideShort: (sideId: number) => string;
+  onOpen: (id: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const word = (p: SquadPlayer) => (flagOf(p.id)?.status === 'out' ? 'out' : 'doubtful');
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mb-2 flex min-h-tap w-full shrink-0 items-center gap-2 rounded-[10px] border border-[#f2c27a] bg-[#fff4e5] px-3 text-left text-[0.85rem] font-bold text-[#6b3d00] dark:border-[#7a5a24] dark:bg-[#2b2113] dark:text-[#f5d9a8]"
+      >
+        <span
+          aria-hidden="true"
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#d91414] text-[0.8rem] font-black text-white"
+        >
+          !
+        </span>
+        <span className="min-w-0 flex-1 truncate">
+          {players.length} of your {players.length === 1 ? 'players is' : 'players are'} flagged:{' '}
+          {players.map((p) => `${shortName(p.name)} (${word(p)})`).join(', ')}
+        </span>
+        <span aria-hidden="true" className="text-lg">
+          ›
+        </span>
+      </button>
+      {open && (
+        <Sheet title="Flagged players" onClose={() => setOpen(false)}>
+          <ul>
+            {players.map((p) => {
+              const flag = flagOf(p.id)!;
+              return (
+                <li key={p.id} className="border-b border-line last:border-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      onOpen(p.id);
+                    }}
+                    className="flex min-h-[56px] w-full items-center gap-3 py-2 text-left"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-sm font-black ${flag.status === 'out' ? 'bg-[#d91414] text-white' : 'bg-[#ffb020] text-[#14181f]'}`}
+                    >
+                      !
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="font-bold">
+                        {p.name}{' '}
+                        <span className="font-display text-xs font-extrabold text-brand">
+                          {sideShort(p.side_id)}
+                        </span>
+                      </span>
+                      <span className="text-sm text-ink-soft">
+                        {flagHead(flag)} · {flagLine(flag)}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="muted mt-2 text-xs">
+            Set by the managers. A flagged player who plays still scores as normal.
+          </p>
+        </Sheet>
+      )}
+    </>
+  );
+}
 
 /**
  * Confirm Transfers. When they cost points, one more question first, so the

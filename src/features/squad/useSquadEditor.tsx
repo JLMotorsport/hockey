@@ -19,6 +19,7 @@ import {
   useSquad,
   lockedGameweeks,
   usePlayerMarket,
+  usePlayerFlags,
   usePriceTrend,
   transferSummaryQuery,
 } from '@/lib/queries';
@@ -119,6 +120,9 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
   const lastLocked = lockedGameweeks(all).at(-1);
   const trend = usePriceTrend();
   const ownership = usePlayerMarket();
+  // Injured and unavailable (0042): a ! on the shirt, and Out in place of the fixture.
+  const flags = usePlayerFlags();
+  const flagOf = (id: number) => flags.data?.get(id);
   const [dataKey, setDataKey] = useState<PlayerData>(() => {
     try {
       const saved = localStorage.getItem('pick-player-data');
@@ -550,8 +554,9 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
               name: shortName(p.name),
               tag: sideById.get(p.side_id)?.short_name,
               subInfo: true,
-              sub: dataFor(p),
+              sub: flagOf(p.id)?.status === 'out' ? 'Out' : dataFor(p),
               subMuted: dataMuted(p),
+              flag: flagOf(p.id)?.status,
               captain: captainId === p.id,
               badge: viceId === p.id ? 'V' : undefined,
               highlight: swapFrom !== null && canSwap(swapFrom, p.id),
@@ -583,8 +588,9 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
           tag: sideById.get(p.side_id)?.short_name,
           subInfo: true,
           badge: i > 0 ? String(i) : undefined,
-          sub: dataFor(p),
+          sub: flagOf(p.id)?.status === 'out' ? 'Out' : dataFor(p),
           subMuted: dataMuted(p),
+          flag: flagOf(p.id)?.status,
           highlight: swapFrom !== null && canSwap(swapFrom, p.id),
           onClick: () => (swapFrom !== null ? swap(swapFrom, p.id) : setFocus(p.id)),
         }
@@ -674,8 +680,9 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
             subInfo: true,
             heading: `${formatPrice(p.price)}m`,
             headingPill: true,
-            sub: dataFor(p),
+            sub: flagOf(p.id)?.status === 'out' ? 'Out' : dataFor(p),
             subMuted: dataMuted(p),
+            flag: flagOf(p.id)?.status,
             // New this gameweek, as FPL outlines a player just brought in.
             highlight: previousIds.length > 0 && !previousIds.includes(p.id),
             onClick: () => setFocus(p.id),
@@ -782,6 +789,7 @@ export function useSquadEditor(mode: 'pick' | 'transfers') {
     statPoints,
     run,
     candidatesFor,
+    flagOf,
     problemsOpen,
     setProblemsOpen,
     picker,

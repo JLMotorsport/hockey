@@ -4,6 +4,7 @@ import { StatsTable } from '@/components/StatsTable';
 import { usePlayerColumns } from '@/features/player/statColumns';
 import { RunChip } from '@/features/league/Difficulty';
 import { runEase, type RunCell } from '@/lib/fdr';
+import { flagShort, type PlayerFlag } from '@/lib/playerStatus';
 import type { Side } from '@/lib/queries';
 import { formatPrice, type SquadPlayer } from '@/lib/squad';
 
@@ -23,6 +24,7 @@ export function PlayerPicker({
   showPosition,
   nextFor,
   run = null,
+  flagOf,
   inline = false,
   onPick,
   onStats,
@@ -41,6 +43,8 @@ export function PlayerPicker({
   nextFor: (p: SquadPlayer) => string;
   /** Fixture difficulty over the next three gameweeks, when it's shown. */
   run?: { labels: string[]; of: (p: SquadPlayer) => RunCell[] } | null;
+  /** Injured or unavailable (0042): labelled in the list, and can be hidden. */
+  flagOf?: (id: number) => PlayerFlag | undefined;
   /** A PC: a panel beside the pitch, not a full screen. No close when nothing's being replaced. */
   inline?: boolean;
   onPick: (id: number) => void;
@@ -51,6 +55,7 @@ export function PlayerPicker({
   const [side, setSide] = useState('');
   // 'bank': only players you can afford; a number: price cap (tenths).
   const [cap, setCap] = useState<'all' | 'bank' | number>('all');
+  const [hideFlagged, setHideFlagged] = useState(false);
   const { columns: statColumns, points } = usePlayerColumns<SquadPlayer>();
   // The next three fixtures go straight after points, as on the board.
   const columns = run
@@ -98,7 +103,8 @@ export function PlayerPicker({
   const list = candidates
     .filter((p) => !side || String(p.side_id) === side)
     .filter((p) => !term || p.name.toLowerCase().includes(term))
-    .filter((p) => (cap === 'all' ? true : cap === 'bank' ? p.price <= bank : p.price <= cap));
+    .filter((p) => (cap === 'all' ? true : cap === 'bank' ? p.price <= bank : p.price <= cap))
+    .filter((p) => !hideFlagged || !flagOf?.(p.id));
   const full = (p: SquadPlayer) => (sideCounts.get(p.side_id) ?? 0) >= maxPerSide;
 
   return (
@@ -182,7 +188,7 @@ export function PlayerPicker({
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
           <select
             className="input !mt-0"
             aria-label="Price"
@@ -216,6 +222,14 @@ export function PlayerPicker({
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            aria-pressed={hideFlagged}
+            onClick={() => setHideFlagged(!hideFlagged)}
+            className={`min-h-tap whitespace-nowrap rounded-full px-3 text-sm font-bold ring-1 ${hideFlagged ? 'bg-ink text-surface ring-ink' : 'ring-line'}`}
+          >
+            Hide flagged
+          </button>
         </div>
       </div>
 
@@ -245,6 +259,13 @@ export function PlayerPicker({
                 <span className="truncate font-bold">{p.name}</span>
                 <span className="muted flex min-w-0 items-center gap-1 text-xs">
                   {showPosition && <PosBadge position={p.position} />}
+                  {flagOf?.(p.id) && (
+                    <span
+                      className={`shrink-0 rounded px-1.5 text-[0.7rem] font-extrabold ${flagOf(p.id)!.status === 'out' ? 'bg-[#d91414] text-white' : 'bg-[#ffb020] text-[#14181f]'}`}
+                    >
+                      {flagShort(flagOf(p.id)!)}
+                    </span>
+                  )}
                   <span className="truncate">
                     {sideShort.get(p.side_id)}
                     {' · '}

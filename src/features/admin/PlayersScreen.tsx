@@ -9,6 +9,7 @@ import {
   keys,
   useAllGameweekPoints,
   useGameweeks,
+  usePlayerFlags,
   usePlayers,
   useSeasonPoints,
   useSides,
@@ -20,9 +21,18 @@ import { formatPrice, parsePrice } from '@/lib/squad';
 import { errorLines, requireSupabase } from '@/lib/supabase';
 import { Chip, ChipRow, PageHead, POSITION_BUTTON, SideTag, Toggle, panel } from './adminUi';
 import { useManagerStatus } from './status';
+import {
+  flagHead,
+  flaggedAgo,
+  isStale,
+  type FlagStatus,
+  type PlayerFlag,
+} from '@/lib/playerStatus';
 
-const FILTERS: [PlayerFilter, string][] = [
+type Filter = PlayerFilter | 'flagged';
+const FILTERS: [Filter, string][] = [
   ['position', 'Needs position'],
+  ['flagged', 'Flagged'],
   ['withheld', 'Withheld'],
   ['suggested', 'Pitchero suggestions'],
   ['inactive', 'Inactive'],
@@ -36,6 +46,9 @@ export function PlayersScreen() {
   const gameweeks = useGameweeks();
   const gwPoints = useAllGameweekPoints();
   const status = useManagerStatus();
+  // Injured and unavailable (0042).
+  const flags = usePlayerFlags();
+  const flagMap = flags.data ?? new Map<number, PlayerFlag>();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState('');
@@ -47,8 +60,8 @@ export function PlayersScreen() {
   const [notices, setNotices] = useState<Notice[]>([]);
   if (players.isLoading || sides.isLoading) return <Loading />;
 
-  const filter = (params.get('filter') as PlayerFilter | null) ?? 'position';
-  const setFilter = (f: PlayerFilter) => {
+  const filter = (params.get('filter') as Filter | null) ?? 'position';
+  const setFilter = (f: Filter) => {
     setParams(f === 'position' ? {} : { filter: f }, { replace: true });
     setSelected(new Set());
   };
@@ -59,13 +72,14 @@ export function PlayersScreen() {
   const form = formByPlayer(gwPoints.data ?? [], order, 5);
   const suggestion = status.positionSuggestions;
   const active = all.filter((p) => p.active && !p.needs_review);
-  const count = (f: PlayerFilter) =>
-    all.filter((p) => playersFilter(p, f, suggestion.has(p.id))).length;
+  const matches = (p: Player, f: Filter) =>
+    f === 'flagged' ? flagMap.has(p.id) : playersFilter(p, f, suggestion.has(p.id));
+  const count = (f: Filter) => all.filter((p) => matches(p, f)).length;
   const sortOrder = new Map(sideList.map((s) => [s.id, s.sort_order]));
   const list = all
     .filter(
       (p) =>
-        playersFilter(p, filter, suggestion.has(p.id)) &&
+        matches(p, filter) &&
         (!side || p.side_id === side) &&
         (!pos || p.position === pos) &&
         (!search.trim() || p.name.toLowerCase().includes(search.trim().toLowerCase())),
@@ -290,6 +304,7 @@ export function PlayersScreen() {
             onSelect={() => toggle(p.id)}
             onPosition={(position) => void setPosition([p.id], position)}
             onReject={() => void reject([p.id])}
+            flag={flagMap.get(p.id)}
             onError={fail}
             onSaved={refresh}
           />
@@ -309,6 +324,7 @@ export function PlayersScreen() {
             busy={busy}
             onPosition={(position) => void setPosition([p.id], position)}
             onReject={() => void reject([p.id])}
+            flag={flagMap.get(p.id)}
             onError={fail}
             onSaved={refresh}
           />
@@ -366,6 +382,8 @@ function PositionButtons({
 
 interface RowProps {
   player: Player;
+  /** Injured or unavailable, if flagged (0042). */
+  flag?: PlayerFlag;
   side: Side | undefined;
   sides: Side[];
   points: number;
@@ -413,6 +431,7 @@ function PlayerRow(
           >
             {p.name}
           </span>
+          <FlagNote flag={props.flag} />
           <span className="muted block text-xs">{note(p) || 'Edit'}</span>
         </button>
         <SideTag>{side?.short_name}</SideTag>
@@ -475,6 +494,7 @@ function PlayerCard(props: RowProps) {
           <span className="muted block text-xs">
             {formatPrice(p.price)} · {props.points} pts{note(p) ? ` · ${note(p)}` : ''}
           </span>
+          <FlagNote flag={props.flag} />
         </span>
         <span className="text-xl text-[#8a909b]" aria-hidden="true">
           {editing ? '⌃' : '›'}
@@ -510,13 +530,46 @@ function PlayerCard(props: RowProps) {
 }
 
 /** Name, side, price and active: the rarer changes, behind a tap. */
+/** A flagged player's status on the managers' list; amber once it's stale. */
+function FlagNote({ flag }: { flag?: PlayerFlag }) {
+  if (!flag) return null;
+  const stale = isStale(flag);
+  return (
+    <span
+      className={`flex items-center gap-1 text-xs font-semibold ${stale ? 'text-[#8a4b00] dark:text-[#ffc773]' : 'text-ink-soft'}`}
+    >
+      <span
+        aria-hidden="true"
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-black ${flag.status === 'out' ? 'bg-[#d91414] text-white' : 'bg-[#ffb020] text-[#14181f]'}`}
+      >
+        !
+      </span>
+      <span className="truncate">
+        {flagHead(flag)} · flagged {flaggedAgo(flag.set_at)}
+        {stale && ', no back-by date'}
+      </span>
+    </span>
+  );
+}
+
 function EditPlayer({
   player: p,
   sides,
+  flag,
   onError,
   onSaved,
   onClose,
 }: RowProps & { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [flagRow, setFlagRow] = useState<{
+    status: FlagStatus | 'available';
+    note: string;
+    back_by: string;
+  }>({
+    status: flag?.status ?? 'available',
+    note: flag?.note ?? '',
+    back_by: flag?.back_by ?? '',
+  });
   const [row, setRow] = useState({
     name: p.name,
     side_id: p.side_id,
@@ -544,9 +597,27 @@ function EditPlayer({
         ...(row.active ? { needs_review: false } : {}),
       })
       .eq('id', p.id);
+    // The flag: cleared when Available, else set (a new or changed status restarts "flagged ...").
+    const db = requireSupabase();
+    const changed =
+      flagRow.status !== (flag?.status ?? 'available') ||
+      flagRow.note.trim() !== (flag?.note ?? '') ||
+      flagRow.back_by !== (flag?.back_by ?? '');
+    const flagResult = !changed
+      ? { error: null }
+      : flagRow.status === 'available'
+        ? await db.from('player_status').delete().eq('player_id', p.id)
+        : await db.from('player_status').upsert({
+            player_id: p.id,
+            status: flagRow.status,
+            note: flagRow.note.trim() || null,
+            back_by: flagRow.back_by || null,
+            set_at: flag && flag.status === flagRow.status ? flag.set_at : new Date().toISOString(),
+          });
     setSaving(false);
-    if (error) onError(error);
+    if (error || flagResult.error) onError(error ?? flagResult.error);
     else {
+      await queryClient.invalidateQueries({ queryKey: ['player-flags'] });
       await onSaved();
       onClose();
     }
@@ -609,6 +680,51 @@ function EditPlayer({
         />
         Active
       </span>
+      <div className="col-span-2 grid gap-2.5 rounded-xl bg-paper p-3 lg:col-span-full lg:grid-cols-[auto_1fr_180px] lg:items-end">
+        <div role="radiogroup" aria-label="Available to play" className="grid grid-cols-3 gap-1.5">
+          {(
+            [
+              ['available', 'Available', 'bg-[#1f7a4d] text-white ring-[#1f7a4d]'],
+              ['doubtful', 'Doubtful', 'bg-[#ffb020] text-[#14181f] ring-[#ffb020]'],
+              ['out', 'Out', 'bg-[#d91414] text-white ring-[#d91414]'],
+            ] as const
+          ).map(([value, label, on]) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={flagRow.status === value}
+              onClick={() => setFlagRow({ ...flagRow, status: value })}
+              className={`min-h-tap rounded-[10px] px-3 text-sm font-extrabold ring-1 ${flagRow.status === value ? on : 'ring-line'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {flagRow.status !== 'available' && (
+          <>
+            <label className="text-xs font-bold uppercase text-ink-soft">
+              What is it (players see this)
+              <input
+                className={input}
+                maxLength={80}
+                placeholder="Broken finger, away at uni..."
+                value={flagRow.note}
+                onChange={(e) => setFlagRow({ ...flagRow, note: e.target.value })}
+              />
+            </label>
+            <label className="text-xs font-bold uppercase text-ink-soft">
+              Back by (clears that day)
+              <input
+                className={input}
+                type="date"
+                value={flagRow.back_by}
+                onChange={(e) => setFlagRow({ ...flagRow, back_by: e.target.value })}
+              />
+            </label>
+          </>
+        )}
+      </div>
       <span className="flex gap-2">
         <button type="button" className="btn btn-sm" disabled={saving} onClick={() => void save()}>
           Save
