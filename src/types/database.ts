@@ -896,6 +896,42 @@ export type Database = {
           },
         ];
       };
+      transfer_hit_waivers: {
+        Row: {
+          gameweek_id: number;
+          reason: string | null;
+          user_id: string;
+          waived_at: string;
+        };
+        Insert: {
+          gameweek_id: number;
+          reason?: string | null;
+          user_id: string;
+          waived_at?: string;
+        };
+        Update: {
+          gameweek_id?: number;
+          reason?: string | null;
+          user_id?: string;
+          waived_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'transfer_hit_waivers_gameweek_id_fkey';
+            columns: ['gameweek_id'];
+            isOneToOne: false;
+            referencedRelation: 'gameweeks';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'transfer_hit_waivers_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       user_last_seen: {
         Row: {
           seen_at: string;

@@ -1760,6 +1760,24 @@ describe.skipIf(!configured)('league database', () => {
       await service.from('league_settings').update({ transfer_hit: 4 }).eq('id', 1);
       expect(noHit - withHit).toBe(new Date(g2!.deadline) <= new Date() ? 4 : 0);
       expect(new Date(g2!.deadline) <= new Date()).toBe(true);
+
+      // A waiver (0040): the squad stays, the cost goes, everywhere at once.
+      await service
+        .from('transfer_hit_waivers')
+        .insert({ user_id: banker.id, gameweek_id: g2!.id, reason: 'test' });
+      expect(await summary(g2!.id)).toEqual({ used: 5, free: 4, hit: 0 });
+      expect(await total()).toBe(noHit);
+      // It's for that gameweek only, and nobody can see or add one from the app.
+      expect((await banker.db.from('transfer_hit_waivers').select('*')).data ?? []).toEqual([]);
+      expect(
+        (
+          await banker.db
+            .from('transfer_hit_waivers')
+            .insert({ user_id: banker.id, gameweek_id: g3!.id })
+        ).error,
+      ).not.toBeNull();
+      await service.from('transfer_hit_waivers').delete().eq('user_id', banker.id);
+      expect(await total()).toBe(withHit);
       await service.from('picks').delete().eq('user_id', banker.id);
     });
 
