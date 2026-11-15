@@ -307,9 +307,7 @@ export function usePlayerFlags() {
   return useQuery({
     queryKey: ['player-flags'],
     queryFn: async () => {
-      const { data, error } = await requireSupabase()
-        .from('player_status')
-        .select('player_id, status, note, back_by, set_at');
+      const { data, error } = await requireSupabase().from('player_status').select('*');
       const flags = new Map<number, PlayerFlag>();
       if (error) return flags;
       for (const r of data ?? []) {
@@ -318,6 +316,7 @@ export function usePlayerFlags() {
           note: r.note,
           back_by: r.back_by,
           set_at: r.set_at,
+          source: 'source' in r && r.source === 'pitchero' ? 'pitchero' : 'manager',
         };
         if (isActive(flag)) flags.set(r.player_id, flag);
       }

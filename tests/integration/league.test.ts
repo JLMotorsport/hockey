@@ -2411,6 +2411,67 @@ describe.skipIf(!configured)('fixes from the code review', () => {
     });
   });
 
+  describe('Pitchero availability flags (0043)', () => {
+    it('replaces the last upload, never a manager flag, managers only', async () => {
+      const sides = (await service.from('sides').select('id').order('sort_order')).data!;
+      const made = (
+        await service
+          .from('players')
+          .insert(
+            ['Avail One', 'Avail Two', 'Avail Three'].map((name) => ({
+              name,
+              position: 'MID',
+              side_id: sides[0]!.id,
+              price: 50,
+            })),
+          )
+          .select('id')
+      ).data!;
+      const [a, b, c] = made.map((p) => p.id) as [number, number, number];
+      const fan = await signUp('avail-fan@example.com', 'Avail Fan');
+      const admin = await signUp('avail-admin@example.com', 'Avail Admin');
+      await service.from('profiles').update({ is_admin: true }).eq('id', admin.id);
+      // A manager's own flag on b.
+      await admin.db.from('player_status').upsert({
+        player_id: b,
+        status: 'out',
+        note: 'Broken finger',
+        set_at: new Date().toISOString(),
+        source: 'manager',
+      });
+      const upload = (db: Db, flags: { player_id: number; status: string }[]) =>
+        db.rpc('apply_pitchero_availability', {
+          p_flags: flags.map((f) => ({ ...f, note: 'Pitchero', back_by: '2099-01-01' })),
+        });
+      expect((await upload(fan.db, [{ player_id: a, status: 'out' }])).error).not.toBeNull();
+      expect(
+        (
+          await upload(admin.db, [
+            { player_id: a, status: 'out' },
+            { player_id: b, status: 'doubtful' },
+          ])
+        ).data,
+      ).toBe(1);
+      const read = async () =>
+        (
+          await anon
+            .from('player_status')
+            .select('player_id, status, source, note')
+            .in('player_id', [a, b, c])
+            .order('player_id')
+        ).data;
+      expect(await read()).toEqual([
+        { player_id: a, status: 'out', source: 'pitchero', note: 'Pitchero' },
+        { player_id: b, status: 'out', source: 'manager', note: 'Broken finger' },
+      ]);
+      // Next week's upload replaces this week's: a is cleared, c flagged.
+      await upload(admin.db, [{ player_id: c, status: 'doubtful' }]);
+      expect((await read())!.map((r) => r.player_id)).toEqual([b, c]);
+      await service.from('profiles').update({ is_admin: false }).eq('id', admin.id);
+      await service.from('players').delete().in('id', [a, b, c]);
+    });
+  });
+
   describe('last used (0039)', () => {
     it('records when someone uses the app, shown only to the super user', async () => {
       const fan = await signUp('seen-fan@example.com', 'Seen Fan');

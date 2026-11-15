@@ -21,6 +21,7 @@ import { formatPrice, parsePrice } from '@/lib/squad';
 import { errorLines, requireSupabase } from '@/lib/supabase';
 import { Chip, ChipRow, PageHead, POSITION_BUTTON, SideTag, Toggle, panel } from './adminUi';
 import { useManagerStatus } from './status';
+import { AvailabilityUpload } from './AvailabilityUpload';
 import {
   flagHead,
   flaggedAgo,
@@ -175,6 +176,7 @@ export function PlayersScreen() {
       </PageHead>
       <Notices items={notices} />
       {adding && <AddPlayers sides={sideList} onDone={setNotices} />}
+      <AvailabilityUpload players={all} sides={sideList} />
 
       <div className="mb-3 flex flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center">
         <input
@@ -613,6 +615,8 @@ function EditPlayer({
             note: flagRow.note.trim() || null,
             back_by: flagRow.back_by || null,
             set_at: flag && flag.status === flagRow.status ? flag.set_at : new Date().toISOString(),
+            // Edited by hand: it's the manager's now, so the next upload leaves it alone.
+            source: 'manager',
           });
     setSaving(false);
     if (error || flagResult.error) onError(error ?? flagResult.error);

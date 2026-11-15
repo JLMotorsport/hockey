@@ -11,6 +11,8 @@ export interface PlayerFlag {
   /** UK date ("2026-12-05"); from that day the flag no longer shows. */
   back_by: string | null;
   set_at: string;
+  /** Who set it (0043): a manager by hand, or the Pitchero availability upload. */
+  source?: 'manager' | 'pitchero';
 }
 
 /** Still showing: no back-by date, or that date is still to come (UK time). */

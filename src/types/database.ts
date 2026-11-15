@@ -598,6 +598,7 @@ export type Database = {
           player_id: number;
           set_at: string;
           set_by: string | null;
+          source: string;
           status: string;
         };
         Insert: {
@@ -606,6 +607,7 @@ export type Database = {
           player_id: number;
           set_at?: string;
           set_by?: string | null;
+          source?: string;
           status: string;
         };
         Update: {
@@ -614,6 +616,7 @@ export type Database = {
           player_id?: number;
           set_at?: string;
           set_by?: string | null;
+          source?: string;
           status?: string;
         };
         Relationships: [
@@ -1103,6 +1106,7 @@ export type Database = {
         }[];
       };
       apply_due_price_changes: { Args: Record<PropertyKey, never>; Returns: Json };
+      apply_pitchero_availability: { Args: { p_flags: Json }; Returns: number };
       apply_price_changes: { Args: { p_gameweek: number }; Returns: number };
       bank_before_next: { Args: Record<PropertyKey, never>; Returns: number };
       call_eh_sync: { Args: Record<PropertyKey, never>; Returns: boolean };
