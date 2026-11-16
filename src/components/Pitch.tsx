@@ -2,6 +2,9 @@ import { useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode 
 import type { Position } from '@/lib/scoring';
 import { useUiVersion } from '@/lib/uiVersion';
 import { Pitch as PitchV1 } from '@/features/v1/PitchV1';
+import { FitText } from './FitText';
+
+export { FitText };
 
 // Our half of a hockey pitch as FPL draws a football one: seen from behind
 // the goal in perspective, boards behind it, goal at the top. Real hockey
@@ -321,46 +324,6 @@ export interface PitchSlot {
   onClick?: () => void;
 }
 
-/** One line of text, its font shrunk until it fits (down to `min` px). */
-export function FitText({
-  children,
-  max,
-  min = 7,
-  className = '',
-}: {
-  children: string;
-  max: number;
-  min?: number;
-  className?: string;
-}) {
-  const ref = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const fit = () => {
-      let size = max;
-      el.style.fontSize = `${size}px`;
-      while (el.scrollWidth > el.clientWidth + 0.5 && size > min) {
-        size -= 0.5;
-        el.style.fontSize = `${size}px`;
-      }
-    };
-    fit();
-    const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
-    watch?.observe(el);
-    return () => watch?.disconnect();
-  }, [children, max, min]);
-  return (
-    <span
-      ref={ref}
-      className={`block w-full overflow-hidden whitespace-nowrap ${className}`}
-      style={{ fontSize: max }}
-    >
-      {children}
-    </span>
-  );
-}
-
 /** Shirt plus name plate, as on the Premier League app. */
 export function PlayerSpot({
   slot,
@@ -418,26 +381,20 @@ export function PlayerSpot({
             </span>
           )}
           <span className="flex w-full flex-1 flex-col overflow-hidden rounded-md text-center shadow">
-            {/* Full name always: it wraps rather than being cut off. */}
+            {/* Name and strip are one line each, shrinking to fit a long one,
+                so every plate is the same height. */}
             <span
-              className={`flex flex-1 items-center justify-center bg-white px-0.5 pb-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] [overflow-wrap:break-word] sm:text-xs ${slot.tag || slot.flag ? (compact ? 'pt-1.5 sm:pt-2' : 'pt-2') : 'pt-0.5'}`}
+              className={`flex flex-1 items-center justify-center bg-white px-0.5 pb-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] sm:text-xs ${slot.tag || slot.flag ? (compact ? 'pt-1.5 sm:pt-2' : 'pt-2') : 'pt-0.5'}`}
             >
-              {slot.fitName ? (
-                <FitText max={11} className="[font-stretch:85%]">
-                  {slot.name}
-                </FitText>
-              ) : (
-                <span className="max-w-full [font-stretch:85%]">
-                  {/* Keep "J." with the surname when the plate wraps. */}
-                  {slot.name.replace(/^(\S+\.) /, '$1\u00a0')}
-                </span>
-              )}
+              <FitText max={slot.fitName ? 11 : undefined} className="[font-stretch:85%]">
+                {slot.name}
+              </FitText>
             </span>
             {slot.sub !== undefined && (
               <span
-                className={`block px-1 ${compact ? 'py-px sm:py-0.5' : 'py-0.5'} font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.flag === 'out' ? 'bg-[#b3261e]' : slot.flag === 'doubtful' ? 'bg-[#8a5200]' : slot.subInfo ? (slot.subMuted ? 'bg-[#6b7280]' : 'bg-[#4a505c]') : slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
+                className={`block px-0.5 ${compact ? 'py-px sm:py-0.5' : 'py-0.5'} font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.flag === 'out' ? 'bg-[#b3261e]' : slot.flag === 'doubtful' ? 'bg-[#8a5200]' : slot.subInfo ? (slot.subMuted ? 'bg-[#6b7280]' : 'bg-[#4a505c]') : slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
               >
-                {slot.sub}
+                <FitText>{slot.sub}</FitText>
               </span>
             )}
           </span>

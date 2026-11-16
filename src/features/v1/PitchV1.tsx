@@ -1,6 +1,7 @@
 // This morning's Pick team and Transfers (6 Oct), kept behind the V1/V2 switch for testing.
 import type { ReactNode } from 'react';
 import type { Position } from '@/lib/scoring';
+import { FitText } from '@/components/FitText';
 
 // A hockey pitch, portrait, our goal at the bottom. Proportions follow a real
 // pitch (91.4m x 55m): shooting circles 14.63m from the goal, dashed 5m arcs
@@ -205,20 +206,17 @@ function PlayerSpot({ slot, compact = false }: { slot: PitchSlot; compact?: bool
             </span>
           )}
           <span className="flex w-full flex-1 flex-col overflow-hidden rounded-md text-center shadow">
-            {/* Full name always: it wraps rather than being cut off. */}
+            {/* One line each, shrinking to fit, so every plate is the same height. */}
             <span
-              className={`flex flex-1 items-center justify-center bg-white px-0.5 pb-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] [overflow-wrap:break-word] sm:text-xs ${slot.tag ? (compact ? 'pt-1.5 sm:pt-2' : 'pt-2') : 'pt-0.5'}`}
+              className={`flex flex-1 items-center justify-center bg-white px-0.5 pb-0.5 text-[0.68rem] font-semibold leading-tight text-[#14181f] sm:text-xs ${slot.tag ? (compact ? 'pt-1.5 sm:pt-2' : 'pt-2') : 'pt-0.5'}`}
             >
-              <span className="max-w-full [font-stretch:85%]">
-                {/* Keep "J." with the surname when the plate wraps. */}
-                {slot.name.replace(/^(\S+\.) /, '$1\u00a0')}
-              </span>
+              <FitText className="[font-stretch:85%]">{slot.name}</FitText>
             </span>
             {slot.sub !== undefined && (
               <span
-                className={`block px-1 ${compact ? 'py-px sm:py-0.5' : 'py-0.5'} font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
+                className={`block px-0.5 ${compact ? 'py-px sm:py-0.5' : 'py-0.5'} font-display text-[0.7rem] font-bold leading-tight text-white sm:text-xs ${slot.subMuted ? 'bg-[#5b6270]' : 'bg-[#d91414]'}`}
               >
-                {slot.sub}
+                <FitText>{slot.sub}</FitText>
               </span>
             )}
           </span>
